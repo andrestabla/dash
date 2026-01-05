@@ -24,7 +24,7 @@ async function migrate() {
         console.log('✅ Users table created/verified.');
 
         // 2. Add Default Admin
-        const email = 'admin@roadmap.com';
+        const email = 'proyectos@algoritmot.com';
         const password = 'admin123';
         const hashedPassword = await bcrypt.hash(password, 10);
 
