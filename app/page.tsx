@@ -42,6 +42,12 @@ export default function Workspace() {
     const [wizOwners, setWizOwners] = useState<string[]>(["Andrés Tabla"]);
     const [newOwner, setNewOwner] = useState("");
 
+    // New Wizard State
+    const [wizTypes, setWizTypes] = useState<string[]>(DEFAULT_SETTINGS.types);
+    const [newType, setNewType] = useState("");
+    const [wizGates, setWizGates] = useState<string[]>(DEFAULT_SETTINGS.gates);
+    const [newGate, setNewGate] = useState("");
+
     useEffect(() => {
         fetch('/api/dashboards')
             .then(res => res.json())
@@ -62,9 +68,10 @@ export default function Workspace() {
         if (!wizName.trim()) return;
 
         const finalSettings = {
-            ...DEFAULT_SETTINGS,
             weeks: generateWeeks(wizWeeks),
-            owners: wizOwners.length > 0 ? wizOwners : DEFAULT_SETTINGS.owners
+            owners: wizOwners.length > 0 ? wizOwners : ["Sin Asignar"],
+            types: wizTypes.length > 0 ? wizTypes : ["General"],
+            gates: wizGates
         };
 
         try {
@@ -95,17 +102,20 @@ export default function Workspace() {
         setWizDesc("");
         setWizWeeks(9);
         setWizOwners(["Andrés Tabla"]);
+        setWizTypes(DEFAULT_SETTINGS.types);
+        setWizGates(DEFAULT_SETTINGS.gates);
     };
 
-    const addOwner = () => {
-        if (newOwner.trim()) {
-            setWizOwners([...wizOwners, newOwner.trim()]);
-            setNewOwner("");
+    // Generic List Managers
+    const addItem = (list: string[], setList: any, item: string, setItem: any) => {
+        if (item.trim()) {
+            setList([...list, item.trim()]);
+            setItem("");
         }
     };
 
-    const removeOwner = (idx: number) => {
-        setWizOwners(wizOwners.filter((_, i) => i !== idx));
+    const removeItem = (list: string[], setList: any, idx: number) => {
+        setList(list.filter((_, i) => i !== idx));
     };
 
     return (
@@ -122,12 +132,13 @@ export default function Workspace() {
 
             {isCreating && (
                 <div className="wizard-modal" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: 'var(--panel)', padding: 30, borderRadius: 16, width: 500, border: '1px solid var(--border)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
+                    <div style={{ background: 'var(--panel)', padding: 30, borderRadius: 16, width: 600, border: '1px solid var(--border)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                            <h2 style={{ margin: 0 }}>Nuevo Proyecto ({wizardStep}/3)</h2>
+                            <h2 style={{ margin: 0 }}>Nuevo Proyecto ({wizardStep}/4)</h2>
                             <button className="btn-ghost" onClick={resetWizard}>✕</button>
                         </div>
 
+                        {/* STEP 1: Basic Info */}
                         {wizardStep === 1 && (
                             <div className="wiz-step">
                                 <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Nombre del Proyecto</label>
@@ -138,6 +149,7 @@ export default function Workspace() {
                             </div>
                         )}
 
+                        {/* STEP 2: Time (Weeks) */}
                         {wizardStep === 2 && (
                             <div className="wiz-step">
                                 <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Duración (Semanas)</label>
@@ -146,33 +158,68 @@ export default function Workspace() {
                                     <span style={{ fontWeight: 700, fontSize: 18, width: 40, textAlign: 'center' }}>{wizWeeks}</span>
                                 </div>
                                 <p style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 4 }}>
-                                    Se generarán {wizWeeks} semanas (W1 - W{wizWeeks}). Podrás editar sus nombres después.
+                                    Se generarán {wizWeeks} semanas (W1 - W{wizWeeks}).
                                 </p>
                             </div>
                         )}
 
+                        {/* STEP 3: Owners */}
                         {wizardStep === 3 && (
                             <div className="wiz-step">
                                 <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Equipo (Responsables)</label>
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                                    <input value={newOwner} onChange={e => setNewOwner(e.target.value)} placeholder="Nombre..." style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addOwner()} />
-                                    <button className="btn-ghost" onClick={addOwner}>➕</button>
+                                    <input value={newOwner} onChange={e => setNewOwner(e.target.value)} placeholder="Nombre..." style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizOwners, setWizOwners, newOwner, setNewOwner)} />
+                                    <button className="btn-ghost" onClick={() => addItem(wizOwners, setWizOwners, newOwner, setNewOwner)}>➕</button>
                                 </div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
                                     {wizOwners.map((o, i) => (
                                         <div key={i} style={{ background: 'var(--panel-hover)', padding: '4px 10px', borderRadius: 20, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            {o} <span style={{ cursor: 'pointer', opacity: 0.5 }} onClick={() => removeOwner(i)}>✕</span>
+                                            {o} <span style={{ cursor: 'pointer', opacity: 0.5 }} onClick={() => removeItem(wizOwners, setWizOwners, i)}>✕</span>
                                         </div>
                                     ))}
-                                    {wizOwners.length === 0 && <span style={{ fontSize: 12, color: 'var(--danger)' }}>Añade al menos uno</span>}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* STEP 4: Advanced (Types & Gates) */}
+                        {wizardStep === 4 && (
+                            <div className="wiz-step" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Tipos de Tarea</label>
+                                    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                                        <input value={newType} onChange={e => setNewType(e.target.value)} placeholder="Añadir tipo..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizTypes, setWizTypes, newType, setNewType)} />
+                                        <button className="btn-ghost" onClick={() => addItem(wizTypes, setWizTypes, newType, setNewType)}>➕</button>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                        {wizTypes.map((t, i) => (
+                                            <div key={i} style={{ background: 'var(--panel-hover)', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
+                                                {t} <span style={{ cursor: 'pointer', marginLeft: 4 }} onClick={() => removeItem(wizTypes, setWizTypes, i)}>x</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Gates / Hitos</label>
+                                    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                                        <input value={newGate} onChange={e => setNewGate(e.target.value)} placeholder="Ej: Gate E..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizGates, setWizGates, newGate, setNewGate)} />
+                                        <button className="btn-ghost" onClick={() => addItem(wizGates, setWizGates, newGate, setNewGate)}>➕</button>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                        {wizGates.map((g, i) => (
+                                            <div key={i} style={{ background: '#ecfdf5', color: '#065f46', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
+                                                {g} <span style={{ cursor: 'pointer', marginLeft: 4 }} onClick={() => removeItem(wizGates, setWizGates, i)}>x</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         <div className="wiz-footer" style={{ marginTop: 30, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                             {wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
-                            {wizardStep < 3 && <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>}
-                            {wizardStep === 3 && <button className="btn-primary" onClick={createDashboard} disabled={wizOwners.length === 0}>✨ Crear Tablero</button>}
+                            {wizardStep < 4 && <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>}
+                            {wizardStep === 4 && <button className="btn-primary" onClick={createDashboard} disabled={wizOwners.length === 0}>✨ Crear Tablero</button>}
                         </div>
                     </div>
                 </div>
