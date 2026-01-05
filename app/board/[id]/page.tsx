@@ -322,14 +322,18 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {activeTab === "kanban" && (
                     <div className="view-section active">
                         <div className="kanban-container">
-                            <div className="lanes" style={{ display: 'flex', height: '100%' }}>
-                                {statuses.map((st) => {
+                            <div className="lanes" style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}>
+                                {statuses.map((st, index) => {
                                     const colTasks = filteredTasks.filter((t) => t.status === st.id);
+                                    const isBottleneck = colTasks.length > 10;
+
                                     return (
-                                        <div key={st.id} className="lane" style={{ minWidth: 280, display: 'flex', flexDirection: 'column' }}>
+                                        <div key={st.id} className="lane" style={{ minWidth: 320, display: 'flex', flexDirection: 'column', borderTop: `3px solid ${st.color}` }}>
                                             <div className="lane-head">
-                                                <span style={{ color: st.color, fontWeight: 700 }}>● {st.name}</span>
-                                                <span className="counter">{colTasks.length}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{st.name}</span>
+                                                    <span className={`counter-badge ${isBottleneck ? "warning" : ""}`}>{colTasks.length}</span>
+                                                </div>
                                             </div>
 
                                             <Droppable droppableId={st.id}>
@@ -337,40 +341,76 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                     <div
                                                         ref={provided.innerRef}
                                                         {...provided.droppableProps}
-                                                        className="drop-zone"
+                                                        className="drop-zone lane-content"
                                                         style={{
                                                             flex: 1,
                                                             background: snapshot.isDraggingOver ? 'var(--panel-hover)' : 'transparent',
                                                             transition: 'background 0.2s',
-                                                            minHeight: 100
+                                                            minHeight: 100,
+                                                            overflowY: 'auto', // Custom scrollbar handles this
+                                                            paddingRight: 6,
+                                                            borderRadius: 8
                                                         }}
                                                     >
-                                                        {colTasks.map((t, index) => (
-                                                            <Draggable key={t.id} draggableId={t.id.toString()} index={index}>
-                                                                {(provided, snapshot) => (
-                                                                    <div
-                                                                        ref={provided.innerRef}
-                                                                        {...provided.draggableProps}
-                                                                        {...provided.dragHandleProps}
-                                                                        className={`card p-${t.prio || "med"}`}
-                                                                        onClick={() => openModal(t)}
-                                                                        style={{
-                                                                            ...provided.draggableProps.style,
-                                                                            opacity: snapshot.isDragging ? 0.8 : 1,
-                                                                            transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'none'
-                                                                        }}
-                                                                    >
-                                                                        <div className="card-top">
-                                                                            <span className="chip">{t.week}</span>
-                                                                            {t.gate && <span className="chip gate">⛩️ {t.gate}</span>}
+                                                        {colTasks.length === 0 && !snapshot.isDraggingOver ? (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 140, opacity: 0.4, border: '2px dashed var(--border-dim)', borderRadius: 12, margin: '10px 0' }}>
+                                                                <span style={{ fontSize: 28, marginBottom: 8, filter: 'grayscale(1)' }}>📭</span>
+                                                                <span style={{ fontSize: 13, fontWeight: 500 }}>Sin tareas</span>
+                                                            </div>
+                                                        ) : (
+                                                            colTasks.map((t, index) => (
+                                                                <Draggable key={t.id} draggableId={t.id.toString()} index={index}>
+                                                                    {(provided, snapshot) => (
+                                                                        <div
+                                                                            ref={provided.innerRef}
+                                                                            {...provided.draggableProps}
+                                                                            {...provided.dragHandleProps}
+                                                                            className={`kanban-card p-${t.prio || "med"}`}
+                                                                            onClick={() => openModal(t)}
+                                                                            style={{
+                                                                                ...provided.draggableProps.style,
+                                                                                marginBottom: 12,
+                                                                                opacity: snapshot.isDragging ? 0.9 : 1,
+                                                                                transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'none'
+                                                                            }}
+                                                                        >
+                                                                            {/* Main Title Hierachy */}
+                                                                            <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 15, lineHeight: 1.4, color: 'var(--text-main)' }}>
+                                                                                {t.name}
+                                                                            </div>
+
+                                                                            {/* Secondary Info Row */}
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                                                    <span className="chip" style={{ fontSize: 10, padding: '2px 8px' }}>{t.week}</span>
+                                                                                    {t.gate && <span className="chip gate" style={{ fontSize: 10, padding: '2px 8px' }}>⛩️ {t.gate}</span>}
+                                                                                </div>
+
+                                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.8 }}>
+                                                                                    <div title={`Responsable: ${t.owner}`} style={{ fontSize: 14, cursor: 'help' }}>👤</div>
+
+                                                                                    {/* Priority Icons with Tooltips */}
+                                                                                    {t.prio === 'high' && <span title="Prioridad Alta" style={{ cursor: 'help' }}>🔴</span>}
+                                                                                    {t.prio === 'med' && <span title="Prioridad Media" style={{ cursor: 'help' }}>🟡</span>}
+                                                                                    {t.prio === 'low' && <span title="Prioridad Baja" style={{ cursor: 'help' }}>🟢</span>}
+                                                                                </div>
+                                                                            </div>
                                                                         </div>
-                                                                        <div className="card-title">{t.name}</div>
-                                                                        <div className="card-desc">👤 {t.owner.split(" (")[0]}</div>
-                                                                    </div>
-                                                                )}
-                                                            </Draggable>
-                                                        ))}
+                                                                    )}
+                                                                </Draggable>
+                                                            ))
+                                                        )}
                                                         {provided.placeholder}
+
+                                                        {/* Ghost Button in 'Todo' or first column */}
+                                                        {index === 0 && (
+                                                            <button className="btn-ghost-add" onClick={() => {
+                                                                setEditingTask({ id: undefined, name: "", status: st.id, week: settings.weeks[0]?.id || "", owner: settings.owners[0] || "", type: "Feature" });
+                                                                setIsModalOpen(true);
+                                                            }} style={{ marginTop: 8 }}>
+                                                                <span style={{ marginRight: 6, fontSize: 16 }}>+</span> Nueva Tarea
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </Droppable>
@@ -544,22 +584,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     
                     .drop-zone { flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 12px; min-height: 100px; }
                     
-                    /* CARDS */
-                    .card { background: var(--bg-card); padding: 16px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); border: 1px solid var(--border-dim); cursor: grab; transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); position: relative; overflow: hidden; }
-                    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); border-color: rgba(59, 130, 246, 0.3); }
-                    .card:active { cursor: grabbing; transform: scale(0.98); }
-                    
-                    .card.p-high { border-left: 3px solid #ef4444; }
-                    .card.p-med { border-left: 3px solid #f59e0b; }
-                    .card.p-low { border-left: 3px solid #10b981; }
-
-                    .card-top { display: flex; justify-content: space-between; margin-bottom: 8px; }
+                    /* CARDS: Styles moved to globals.css for V11 consistency */
                     .chip { font-size: 10px; font-weight: 700; background: var(--bg-panel); padding: 3px 8px; border-radius: 6px; color: var(--text-dim); text-transform: uppercase; }
                     .chip.gate { background: #ecfdf5; color: #059669; }
                     
-                    .card-title { font-weight: 600; font-size: 14px; margin-bottom: 8px; line-height: 1.4; color: var(--text-main); }
-                    .card-desc { font-size: 12px; color: var(--text-dim); display: flex; items-center; gap: 6px; }
-
                     /* TIMELINE */
                     .timeline-view { padding: 0 40px; max-width: 800px; margin: 0 auto; overflow-y: auto; height: 100%; }
                     .tl-group { margin-bottom: 30px; }
