@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/ToastProvider";
 
 export const metadata: Metadata = {
-  title: "Roadmap 4Shine · Algoritmo T",
+  title: "Project control · Algoritmo T",
   description: "Gestión Metodológica · GOBERNANZA",
 };
 

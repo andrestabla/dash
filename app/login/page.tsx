@@ -98,7 +98,7 @@ export default function LoginPage() {
                     </form>
 
                     <div style={{ marginTop: 30, textAlign: 'center', fontSize: 12, color: 'var(--text-dim)' }}>
-                        Roadmap 4Shine &copy; 2026
+                        Project control &copy; 2026 by Algoritmo T
                     </div>
 
                 </div>

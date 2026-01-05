@@ -72,7 +72,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
 
                 <div style={{ marginTop: 'auto', padding: 20, textAlign: 'center', fontSize: 11, color: 'var(--text-dim)' }}>
-                    Roadmap 4Shine Admin<br />v10.5 Mobile
+                    Project control &copy; 2026 by Algoritmo T<br />v10.5
                 </div>
             </aside>
 
