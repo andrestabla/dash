@@ -1,75 +1,109 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState("");
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError("");
+        setLoading(true);
+        setError('');
 
-        const res = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
         });
 
         const data = await res.json();
 
         if (res.ok) {
-            router.push("/");
+            router.push('/');
             router.refresh();
         } else {
-            setError(data.error || "Login failed");
+            setError(data.error || 'Credenciales inválidas');
+            setLoading(false);
         }
     };
 
     return (
-        <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-            <form onSubmit={handleSubmit} style={{ background: "var(--panel)", padding: 40, borderRadius: 16, width: 400, border: "1px solid var(--border)", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
-                <div style={{ textAlign: "center", marginBottom: 30 }}>
-                    <img src="https://www.algoritmot.com/wp-content/uploads/2022/08/Recurso-8-1536x245.png" alt="Logo" style={{ height: 40, marginBottom: 20 }} />
-                    <h1 style={{ fontSize: 24, margin: 0 }}>Bienvenido</h1>
-                    <p style={{ color: "var(--text-dim)" }}>Inicia sesión para continuar</p>
-                </div>
+        <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            background: 'radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%)',
+            position: 'relative',
+            overflow: 'hidden'
+        }}>
+            {/* Abstract Background Shapes */}
+            <div style={{ position: 'absolute', top: -100, right: -100, width: 600, height: 600, background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(80px)' }} />
+            <div style={{ position: 'absolute', bottom: -100, left: -100, width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(80px)' }} />
 
-                {error && (
-                    <div style={{ background: "#fef2f2", color: "#ef4444", padding: 10, borderRadius: 8, marginBottom: 20, fontSize: 14, textAlign: "center" }}>
-                        {error}
+            {/* Main Content */}
+            <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+
+                <div className="glass-panel animate-slide-up" style={{ width: 420, padding: 40, border: '1px solid rgba(255,255,255,0.08)' }}>
+
+                    <div style={{ textAlign: 'center', marginBottom: 40 }}>
+                        <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }} className="text-gradient">Bienvenido</h1>
+                        <p style={{ color: 'var(--text-dim)' }}>Inicia sesión para continuar</p>
                     </div>
-                )}
 
-                <div style={{ marginBottom: 15 }}>
-                    <label style={{ display: "block", marginBottom: 8, fontWeight: 600 }}>Email</label>
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)" }}
-                    />
+                    <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email</label>
+                            <input
+                                type="email"
+                                required
+                                className="input-glass"
+                                placeholder="nombre@empresa.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contraseña</label>
+                            <input
+                                type="password"
+                                required
+                                className="input-glass"
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                        </div>
+
+                        {error && (
+                            <div style={{ padding: 12, background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', borderRadius: 8, fontSize: 13, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                ⚠️ {error}
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            className="btn-primary"
+                            disabled={loading}
+                            style={{ justifyContent: 'center', marginTop: 10, height: 48, fontSize: 15 }}
+                        >
+                            {loading ? 'Entrando...' : 'Ingresar al Portal'}
+                        </button>
+
+                    </form>
+
+                    <div style={{ marginTop: 30, textAlign: 'center', fontSize: 12, color: 'var(--text-dim)' }}>
+                        Roadmap 4Shine &copy; 2026
+                    </div>
+
                 </div>
 
-                <div style={{ marginBottom: 25 }}>
-                    <label style={{ display: "block", marginBottom: 8, fontWeight: 600 }}>Contraseña</label>
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)" }}
-                    />
-                </div>
-
-                <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center", padding: 14 }}>
-                    Ingresar
-                </button>
-            </form>
+            </div>
         </div>
     );
 }
