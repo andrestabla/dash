@@ -67,9 +67,9 @@ export default function AdminUsersPage() {
 
     return (
         <div style={{ maxWidth: 900, margin: "0 auto", padding: 40 }}>
-            <header style={{ marginBottom: 40, borderBottom: '1px solid var(--border)', paddingBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header style={{ marginBottom: 40, borderBottom: '1px solid var(--border-dim)', paddingBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <div style={{ marginBottom: 10 }}><Link href="/" style={{ color: "var(--primary)", textDecoration: 'none' }}>← Volver al Workspace</Link></div>
+                    <div style={{ marginBottom: 10 }}><Link href="/" style={{ color: "#3b82f6", textDecoration: 'none' }}>← Volver al Workspace</Link></div>
                     <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>👥 Gestión de Usuarios</h1>
                     <p style={{ color: 'var(--text-dim)', margin: '4px 0 0 0' }}>Administra el acceso al sistema</p>
                 </div>
@@ -79,20 +79,20 @@ export default function AdminUsersPage() {
             </header>
 
             {isCreating && (
-                <div style={{ background: "var(--panel)", padding: 20, borderRadius: 12, marginBottom: 30, border: "1px solid var(--border)" }}>
+                <div style={{ background: "var(--bg-panel)", padding: 20, borderRadius: 12, marginBottom: 30, border: "1px solid var(--border-dim)" }}>
                     <h3 style={{ marginTop: 0 }}>Crear Usuario</h3>
                     <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
                         <div>
                             <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Email</label>
-                            <input value={newEmail} onChange={e => setNewEmail(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} />
+                            <input value={newEmail} onChange={e => setNewEmail(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border-dim)" }} />
                         </div>
                         <div>
                             <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Password</label>
-                            <input value={newPassword} onChange={e => setNewPassword(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} />
+                            <input value={newPassword} onChange={e => setNewPassword(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border-dim)" }} />
                         </div>
                         <div>
                             <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Role</label>
-                            <select value={newRole} onChange={e => setNewRole(e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }}>
+                            <select value={newRole} onChange={e => setNewRole(e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border-dim)" }}>
                                 <option value="user">User</option>
                                 <option value="admin">Admin</option>
                             </select>
