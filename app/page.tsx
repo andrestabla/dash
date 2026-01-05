@@ -26,8 +26,13 @@ const DEFAULT_SETTINGS = {
     ],
     owners: ["Andrés Tabla (Metodólogo)", "Carmenza Alarcón (Cliente)"],
     types: ["Gestión", "Inventario", "Metodología", "Evaluación", "Producción", "Comité", "IP-Ready"],
-    gates: ["A", "B", "C", "D"]
+    gates: ["A", "B", "C", "D"],
+    icon: "🗺️",
+    color: "#3b82f6"
 };
+
+const ICONS = ["🗺️", "🚀", "💻", "🎨", "📈", "📅", "🔥", "⚙️", "📱", "🌐"];
+const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#64748b"];
 
 export default function Workspace() {
     const [dashboards, setDashboards] = useState<Dashboard[]>([]);
@@ -38,24 +43,31 @@ export default function Workspace() {
     // Wizard State
     const [wizName, setWizName] = useState("");
     const [wizDesc, setWizDesc] = useState("");
-    const [wizWeeks, setWizWeeks] = useState(9); // Count of weeks
+    const [wizWeeks, setWizWeeks] = useState(9);
     const [wizOwners, setWizOwners] = useState<string[]>(["Andrés Tabla"]);
     const [newOwner, setNewOwner] = useState("");
-
-    // New Wizard State
     const [wizTypes, setWizTypes] = useState<string[]>(DEFAULT_SETTINGS.types);
     const [newType, setNewType] = useState("");
     const [wizGates, setWizGates] = useState<string[]>(DEFAULT_SETTINGS.gates);
     const [newGate, setNewGate] = useState("");
+    const [wizIcon, setWizIcon] = useState("🗺️");
+    const [wizColor, setWizColor] = useState("#3b82f6");
+
+    // Editing State
+    const [editingDash, setEditingDash] = useState<Dashboard | null>(null);
 
     useEffect(() => {
+        loadDashboards();
+    }, []);
+
+    const loadDashboards = () => {
         fetch('/api/dashboards')
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) setDashboards(data);
             })
             .catch(err => console.error(err));
-    }, []);
+    };
 
     const generateWeeks = (count: number) => {
         return Array.from({ length: count }, (_, i) => ({
@@ -64,39 +76,91 @@ export default function Workspace() {
         }));
     };
 
-    const createDashboard = async () => {
+    const handleSave = async () => {
+        const isEdit = !!editingDash;
         if (!wizName.trim()) return;
 
+        const currentSettings = isEdit ? editingDash.settings : DEFAULT_SETTINGS;
+
         const finalSettings = {
-            weeks: generateWeeks(wizWeeks),
+            weeks: isEdit ? currentSettings.weeks : generateWeeks(wizWeeks), // Preserve weeks on edit usually, but simple for now
             owners: wizOwners.length > 0 ? wizOwners : ["Sin Asignar"],
             types: wizTypes.length > 0 ? wizTypes : ["General"],
-            gates: wizGates
+            gates: wizGates,
+            icon: wizIcon,
+            color: wizColor
         };
+
+        // If editing and weeks changed logic is complex, for now we skip regenerating weeks on edit unless specific request
+        // But for wizard, let's keep it simple: V5 focus is management.
+
+        const payload = isEdit ? {
+            id: editingDash.id,
+            name: wizName,
+            description: wizDesc,
+            settings: { ...editingDash.settings, icon: wizIcon, color: wizColor, name: wizName } // Partial update for visual
+        } : {
+            name: wizName,
+            description: wizDesc,
+            settings: finalSettings
+        };
+
+        const method = isEdit ? 'PUT' : 'POST';
 
         try {
             const res = await fetch('/api/dashboards', {
-                method: 'POST',
+                method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: wizName,
-                    description: wizDesc,
-                    settings: finalSettings
-                })
+                body: JSON.stringify(payload)
             });
             if (res.ok) {
                 const dash = await res.json();
-                setDashboards([dash, ...dashboards]);
+                if (isEdit) {
+                    setDashboards(dashboards.map(d => d.id === dash.id ? dash : d));
+                } else {
+                    setDashboards([dash, ...dashboards]);
+                    router.push(`/board/${dash.id}`);
+                }
                 resetWizard();
-                router.push(`/board/${dash.id}`);
             }
         } catch (err) {
-            alert("Error creando tablero");
+            alert("Error guardando tablero");
+        }
+    };
+
+    const startCreate = () => {
+        resetWizard();
+        setIsCreating(true);
+    };
+
+    const startEdit = (e: React.MouseEvent, d: Dashboard) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setEditingDash(d);
+        setWizName(d.name);
+        setWizDesc(d.description);
+        setWizIcon(d.settings.icon || "🗺️");
+        setWizColor(d.settings.color || "#3b82f6");
+        // We only allow editing Name/Desc/Icon/Color in this mode for simplicity
+        setIsCreating(true);
+    };
+
+    const deleteDash = async (e: React.MouseEvent, id: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!confirm("⚠️ ¿Eliminar este tablero y TODAS sus tareas? Esta acción no se puede deshacer.")) return;
+
+        try {
+            await fetch(`/api/dashboards?id=${id}`, { method: 'DELETE' });
+            setDashboards(dashboards.filter(d => d.id !== id));
+        } catch (err) {
+            alert("Error eliminando");
         }
     };
 
     const resetWizard = () => {
         setIsCreating(false);
+        setEditingDash(null);
         setWizardStep(1);
         setWizName("");
         setWizDesc("");
@@ -104,6 +168,8 @@ export default function Workspace() {
         setWizOwners(["Andrés Tabla"]);
         setWizTypes(DEFAULT_SETTINGS.types);
         setWizGates(DEFAULT_SETTINGS.gates);
+        setWizIcon("🗺️");
+        setWizColor("#3b82f6");
     };
 
     // Generic List Managers
@@ -125,7 +191,7 @@ export default function Workspace() {
                     <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>🗂️ Tu Espacio de Trabajo</h1>
                     <p style={{ color: 'var(--text-dim)', margin: '4px 0 0 0' }}>Gestiona tus roadmaps y proyectos</p>
                 </div>
-                <button className="btn-primary" onClick={() => setIsCreating(true)}>
+                <button className="btn-primary" onClick={startCreate}>
                     + Nuevo Tablero
                 </button>
             </header>
@@ -134,23 +200,42 @@ export default function Workspace() {
                 <div className="wizard-modal" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
                     <div style={{ background: 'var(--panel)', padding: 30, borderRadius: 16, width: 600, border: '1px solid var(--border)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                            <h2 style={{ margin: 0 }}>Nuevo Proyecto ({wizardStep}/4)</h2>
+                            <h2 style={{ margin: 0 }}>{editingDash ? "Editar Tablero" : `Nuevo Proyecto (${wizardStep}/4)`}</h2>
                             <button className="btn-ghost" onClick={resetWizard}>✕</button>
                         </div>
 
-                        {/* STEP 1: Basic Info */}
-                        {wizardStep === 1 && (
+                        {/* STEP 1: Basic Info & Visuals */}
+                        {(wizardStep === 1 || editingDash) && (
                             <div className="wiz-step">
                                 <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Nombre del Proyecto</label>
                                 <input value={wizName} onChange={e => setWizName(e.target.value)} autoFocus style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid var(--border)', marginBottom: 16 }} placeholder="Ej: Lanzamiento 2026" />
 
                                 <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Descripción (Opcional)</label>
-                                <input value={wizDesc} onChange={e => setWizDesc(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }} placeholder="Breve resumen..." />
+                                <input value={wizDesc} onChange={e => setWizDesc(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid var(--border)', marginBottom: 16 }} placeholder="Breve resumen..." />
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Ícono</label>
+                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                            {ICONS.map(ic => (
+                                                <div key={ic} onClick={() => setWizIcon(ic)} style={{ cursor: 'pointer', padding: 8, borderRadius: 6, background: wizIcon === ic ? 'var(--panel-active)' : 'transparent', border: wizIcon === ic ? '1px solid var(--primary)' : '1px solid transparent' }}>{ic}</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Color</label>
+                                        <div style={{ display: 'flex', gap: 10 }}>
+                                            {COLORS.map(c => (
+                                                <div key={c} onClick={() => setWizColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: wizColor === c ? '0 0 0 2px var(--panel), 0 0 0 4px ' + c : 'none' }}></div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
-                        {/* STEP 2: Time (Weeks) */}
-                        {wizardStep === 2 && (
+                        {/* STEPS 2-4: Only for Creation */}
+                        {!editingDash && wizardStep === 2 && (
                             <div className="wiz-step">
                                 <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Duración (Semanas)</label>
                                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -163,15 +248,14 @@ export default function Workspace() {
                             </div>
                         )}
 
-                        {/* STEP 3: Owners */}
-                        {wizardStep === 3 && (
+                        {!editingDash && wizardStep === 3 && (
                             <div className="wiz-step">
                                 <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Equipo (Responsables)</label>
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                                     <input value={newOwner} onChange={e => setNewOwner(e.target.value)} placeholder="Nombre..." style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizOwners, setWizOwners, newOwner, setNewOwner)} />
                                     <button className="btn-ghost" onClick={() => addItem(wizOwners, setWizOwners, newOwner, setNewOwner)}>➕</button>
                                 </div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 150, overflowY: 'auto' }}>
                                     {wizOwners.map((o, i) => (
                                         <div key={i} style={{ background: 'var(--panel-hover)', padding: '4px 10px', borderRadius: 20, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                                             {o} <span style={{ cursor: 'pointer', opacity: 0.5 }} onClick={() => removeItem(wizOwners, setWizOwners, i)}>✕</span>
@@ -181,13 +265,12 @@ export default function Workspace() {
                             </div>
                         )}
 
-                        {/* STEP 4: Advanced (Types & Gates) */}
-                        {wizardStep === 4 && (
+                        {!editingDash && wizardStep === 4 && (
                             <div className="wiz-step" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Tipos de Tarea</label>
+                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Tipos</label>
                                     <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                                        <input value={newType} onChange={e => setNewType(e.target.value)} placeholder="Añadir tipo..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizTypes, setWizTypes, newType, setNewType)} />
+                                        <input value={newType} onChange={e => setNewType(e.target.value)} placeholder="Tipo..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizTypes, setWizTypes, newType, setNewType)} />
                                         <button className="btn-ghost" onClick={() => addItem(wizTypes, setWizTypes, newType, setNewType)}>➕</button>
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -200,14 +283,14 @@ export default function Workspace() {
                                 </div>
 
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Gates / Hitos</label>
+                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Gates</label>
                                     <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                                        <input value={newGate} onChange={e => setNewGate(e.target.value)} placeholder="Ej: Gate E..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizGates, setWizGates, newGate, setNewGate)} />
+                                        <input value={newGate} onChange={e => setNewGate(e.target.value)} placeholder="Gate..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizGates, setWizGates, newGate, setNewGate)} />
                                         <button className="btn-ghost" onClick={() => addItem(wizGates, setWizGates, newGate, setNewGate)}>➕</button>
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                                         {wizGates.map((g, i) => (
-                                            <div key={i} style={{ background: '#ecfdf5', color: '#065f46', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
+                                            <div key={i} style={{ background: '#ecfdf5', color: '#000', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
                                                 {g} <span style={{ cursor: 'pointer', marginLeft: 4 }} onClick={() => removeItem(wizGates, setWizGates, i)}>x</span>
                                             </div>
                                         ))}
@@ -217,9 +300,14 @@ export default function Workspace() {
                         )}
 
                         <div className="wiz-footer" style={{ marginTop: 30, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                            {wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
-                            {wizardStep < 4 && <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>}
-                            {wizardStep === 4 && <button className="btn-primary" onClick={createDashboard} disabled={wizOwners.length === 0}>✨ Crear Tablero</button>}
+                            {!editingDash && wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
+
+                            {/* NEXT Buttons */}
+                            {!editingDash && wizardStep < 4 && <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>}
+                            {!editingDash && wizardStep === 4 && <button className="btn-primary" onClick={handleSave} disabled={wizOwners.length === 0}>✨ Crear Tablero</button>}
+
+                            {/* SAVE Button for Edit */}
+                            {editingDash && <button className="btn-primary" onClick={handleSave}>Guardar Cambios</button>}
                         </div>
                     </div>
                 </div>
@@ -230,21 +318,28 @@ export default function Workspace() {
                     <Link href={`/board/${d.id}`} key={d.id} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <div className="dash-card" style={{
                             background: 'var(--panel)',
-                            border: '1px solid var(--border)',
+                            border: `1px solid var(--border)`,
+                            borderLeft: `5px solid ${d.settings?.color || '#3b82f6'}`,
                             padding: 20,
                             borderRadius: 12,
                             height: '100%',
                             display: 'flex',
                             flexDirection: 'column',
-                            transition: 'transform 0.2s, border-color 0.2s'
+                            position: 'relative',
+                            transition: 'transform 0.2s, box-shadow 0.2s'
                         }}>
-                            <div style={{ fontSize: 32, marginBottom: 10 }}>🗺️</div>
+                            <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6 }}>
+                                <div className="card-action" onClick={(e) => startEdit(e, d)} title="Editar">✏️</div>
+                                <div className="card-action" onClick={(e) => deleteDash(e, d.id)} title="Eliminar" style={{ color: 'var(--danger)' }}>🗑️</div>
+                            </div>
+
+                            <div style={{ fontSize: 32, marginBottom: 10 }}>{d.settings?.icon || "🗺️"}</div>
                             <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>{d.name}</h3>
                             <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)', flex: 1 }}>
                                 {d.description || "Sin descripción"}
                             </p>
                             <div style={{ marginTop: 15, fontSize: 11, color: 'var(--text-dim)', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-                                Creado: {new Date(d.created_at).toLocaleDateString()}
+                                Actualizado: {new Date(d.created_at).toLocaleDateString()}
                             </div>
                         </div>
                     </Link>
@@ -260,8 +355,21 @@ export default function Workspace() {
             <style jsx>{`
                 .dash-card:hover {
                     transform: translateY(-2px);
-                    border-color: var(--primary) !important;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+                }
+                .card-action {
+                    opacity: 0;
+                    cursor: pointer;
+                    padding: 4px;
+                    border-radius: 4px;
+                    background: var(--panel-hover);
+                    font-size: 14px;
+                }
+                .dash-card:hover .card-action {
+                    opacity: 1;
+                }
+                .card-action:hover {
+                    background: var(--border);
                 }
             `}</style>
         </div>

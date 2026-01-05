@@ -31,3 +31,49 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Failed to create dashboard' }, { status: 500 });
     }
 }
+
+export async function PUT(request: Request) {
+    try {
+        const body = await request.json();
+        const { id, name, description, settings } = body;
+
+        if (!id || !name) return NextResponse.json({ error: 'ID and Name required' }, { status: 400 });
+
+        const client = await pool.connect();
+        const result = await client.query(
+            'UPDATE dashboards SET name = $1, description = $2, settings = $3 WHERE id = $4 RETURNING *',
+            [name, description || '', settings || {}, id]
+        );
+        client.release();
+
+        if (result.rows.length === 0) {
+            return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+        }
+
+        return NextResponse.json(result.rows[0]);
+    } catch (error) {
+        return NextResponse.json({ error: 'Failed to update dashboard' }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+        const client = await pool.connect();
+        const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
+        client.release();
+
+        if (result.rows.length === 0) {
+            return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ success: true, id });
+    } catch (error) {
+        console.error(error);
+        return NextResponse.json({ error: 'Failed to delete dashboard' }, { status: 500 });
+    }
+}
