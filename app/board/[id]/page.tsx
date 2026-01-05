@@ -220,11 +220,39 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     };
 
     // COLUMN MANAGEMENT
-    const addColumn = async () => {
+    const [editingColId, setEditingColId] = useState<string | null>(null);
+
+    const openAddCol = () => {
+        setEditingColId(null);
+        setNewColName("");
+        setNewColColor("#64748b");
+        setIsColModalOpen(true);
+    };
+
+    const openEditCol = (col: StatusColumn) => {
+        setEditingColId(col.id);
+        setNewColName(col.name);
+        setNewColColor(col.color);
+        setIsColModalOpen(true);
+    };
+
+    const handleSaveCol = async () => {
         if (!newColName.trim() || !settings) return;
 
-        const newColId = newColName.toLowerCase().replace(/\s+/g, '_');
-        const newStatuses = [...statuses, { id: newColId, name: newColName, color: newColColor }];
+        let newStatuses: StatusColumn[];
+
+        if (editingColId) {
+            // Edit existing
+            newStatuses = statuses.map(s =>
+                s.id === editingColId
+                    ? { ...s, name: newColName, color: newColColor }
+                    : s
+            );
+        } else {
+            // Add new
+            const newColId = newColName.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now().toString().slice(-4);
+            newStatuses = [...statuses, { id: newColId, name: newColName, color: newColColor }];
+        }
 
         const newSettings = { ...settings, statuses: newStatuses };
         setSettings(newSettings);
@@ -241,9 +269,50 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     settings: newSettings
                 })
             });
-            showToast("Columna añadida", "success");
+            showToast(editingColId ? "Columna actualizada" : "Columna añadida", "success");
         } catch (err) {
             showToast("Error al guardar columna", "error");
+        }
+    };
+
+    const confirmDeleteCol = (colId: string) => {
+        const hasTasks = tasks.some(t => t.status === colId);
+        if (hasTasks) {
+            showToast("No puedes eliminar una columna con tareas activas", "error");
+            return;
+        }
+
+        if (statuses.length <= 1) {
+            showToast("Debe haber al menos una columna", "error");
+            return;
+        }
+
+        setConfirmMessage("¿Eliminar esta columna?");
+        setConfirmCallback(() => () => executeDeleteCol(colId));
+        setConfirmOpen(true);
+    };
+
+    const executeDeleteCol = async (colId: string) => {
+        if (!settings) return;
+        const newStatuses = statuses.filter(s => s.id !== colId);
+        const newSettings = { ...settings, statuses: newStatuses };
+        setSettings(newSettings);
+        setConfirmOpen(false);
+
+        try {
+            await fetch('/api/dashboards', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: dashboardId,
+                    name: dashboardName,
+                    description: "",
+                    settings: newSettings
+                })
+            });
+            showToast("Columna eliminada", "info");
+        } catch (err) {
+            showToast("Error al eliminar columna", "error");
         }
     };
 
@@ -335,10 +404,14 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
                                     return (
                                         <div key={st.id} className="lane" style={{ minWidth: 320, display: 'flex', flexDirection: 'column', borderTop: `3px solid ${st.color}` }}>
-                                            <div className="lane-head">
+                                            <div className="lane-head group">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                                     <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{st.name}</span>
                                                     <span className={`counter-badge ${isBottleneck ? "warning" : ""}`}>{colTasks.length}</span>
+                                                </div>
+                                                <div className="lane-actions" style={{ opacity: 0, transition: 'opacity 0.2s' }}>
+                                                    <button className="btn-ghost" onClick={() => openEditCol(st)} style={{ padding: 4, height: 'auto' }} title="Editar Columna">✏️</button>
+                                                    <button className="btn-ghost" onClick={() => confirmDeleteCol(st.id)} style={{ padding: 4, height: 'auto', color: '#f87171' }} title="Eliminar Columna">🗑️</button>
                                                 </div>
                                             </div>
 
@@ -425,7 +498,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 })}
 
                                 <div className="lane" style={{ minWidth: 100, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <button className="btn-ghost" onClick={() => setIsColModalOpen(true)} style={{ fontSize: 24, opacity: 0.5 }}>➕</button>
+                                    <button className="btn-ghost" onClick={openAddCol} style={{ fontSize: 24, opacity: 0.5 }}>➕</button>
                                 </div>
                             </div>
                         </div>
@@ -537,7 +610,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {isColModalOpen && (
                     <div className="backdrop fade-in" onClick={() => setIsColModalOpen(false)}>
                         <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ width: 400 }}>
-                            <div className="m-head"><h3 style={{ margin: 0 }}>Nueva Columna</h3><button className="btn-ghost" onClick={() => setIsColModalOpen(false)}>✕</button></div>
+                            <div className="m-head"><h3 style={{ margin: 0 }}>{editingColId ? "Editar Columna" : "Nueva Columna"}</h3><button className="btn-ghost" onClick={() => setIsColModalOpen(false)}>✕</button></div>
                             <div className="m-body">
                                 <div className="form-row">
                                     <label>Nombre columna</label>
@@ -553,7 +626,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 </div>
                             </div>
                             <div className="m-foot">
-                                <button className="btn-primary" onClick={addColumn}>Crear Columna</button>
+                                <button className="btn-primary" onClick={handleSaveCol}>
+                                    {editingColId ? "Actualizar" : "Crear Columna"}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -585,6 +660,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     .lanes { height: 100%; gap: 24px; padding-right: 40px; }
                     .lane { background: var(--bg-panel); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; border: 1px solid var(--border-dim); transition: background 0.2s; }
                     .lane-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+                    
+                    /* Hover Effect for Lane Actions */
+                    .lane:hover .lane-actions { opacity: 1 !important; }
+
                     .counter { background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 12px; font-size: 11px; }
                     .dark .counter { background: rgba(255,255,255,0.1); }
                     
