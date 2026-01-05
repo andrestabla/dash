@@ -10,6 +10,7 @@
   --bg-glass: rgba(255, 255, 255, 0.7);
   --bg-panel: #f1f5f9;
   /* Slate 100 */
+  --panel-hover: #e2e8f0;
 
   --text-main: #0f172a;
   /* Slate 900 */
@@ -42,6 +43,7 @@
   /* Slate 800 */
   --bg-glass: rgba(30, 41, 59, 0.7);
   --bg-panel: #1e293b;
+  --panel-hover: #334155;
 
   --text-main: #f8fafc;
   /* Slate 50 */
