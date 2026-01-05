@@ -354,6 +354,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             <span>➕</span> <span style={{ marginLeft: 4 }}>Nueva Tarea</span>
                         </button>
 
+                        <button className="btn-ghost" onClick={openAddCol} style={{ marginRight: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)' }}>
+                            <span>🏗️</span> <span style={{ marginLeft: 4 }}>Nueva Columna</span>
+                        </button>
+
                         <input
                             placeholder="🔍 Buscar..."
                             style={{ minWidth: 140 }}
