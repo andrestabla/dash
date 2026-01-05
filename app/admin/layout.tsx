@@ -2,9 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+    // Auto-close on navigation
+    useEffect(() => {
+        setIsMobileOpen(false);
+    }, [pathname]);
 
     const menu = [
         { name: '👥 Usuarios', href: '/admin/users', icon: '👤' },
@@ -14,19 +21,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ];
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: 'radial-gradient(circle at top left, #1e1b4b 0%, #0f172a 100%)', color: 'var(--text-main)' }}>
+        <div className="admin-layout">
+
+            {/* MOBILE HEADER / TOGGLE */}
+            <div className="mobile-header">
+                <button className="btn-ghost icon-btn" onClick={() => setIsMobileOpen(true)}>
+                    ☰
+                </button>
+                <span style={{ fontWeight: 700 }}>Admin Suite</span>
+            </div>
+
+            {/* BACKDROP */}
+            {isMobileOpen && (
+                <div className="sidebar-backdrop" onClick={() => setIsMobileOpen(false)} />
+            )}
 
             {/* SIDEBAR */}
-            <aside className="glass-panel" style={{
-                width: 260,
-                margin: 16,
-                borderRadius: 24,
-                display: 'flex',
-                flexDirection: 'column',
-                border: '1px solid rgba(255,255,255,0.05)',
-                background: 'rgba(15, 23, 42, 0.6)'
-            }}>
-                <div style={{ padding: '24px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <aside className={`glass-panel admin-sidebar ${isMobileOpen ? 'open' : ''}`}>
+                <div style={{ padding: '24px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-main)' }}>
                         <span style={{ fontSize: 20 }}>⬅️</span>
                         <div>
@@ -34,6 +46,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <div style={{ fontWeight: 700 }}>Workspace</div>
                         </div>
                     </Link>
+                    {/* Mobile Close Button */}
+                    <button className="btn-ghost mobile-close-btn" onClick={() => setIsMobileOpen(false)}>✕</button>
                 </div>
 
                 <div style={{ padding: 20 }}>
@@ -47,19 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 12,
-                                        padding: '12px 16px',
-                                        borderRadius: 12,
-                                        background: isActive ? 'var(--primary-gradient)' : 'transparent',
-                                        color: isActive ? 'white' : 'var(--text-dim)',
-                                        fontWeight: isActive ? 600 : 500,
-                                        textDecoration: 'none',
-                                        transition: 'all 0.2s',
-                                        boxShadow: isActive ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none'
-                                    }}
+                                    className={`nav-item ${isActive ? 'active' : ''}`}
                                 >
                                     <span>{item.icon}</span>
                                     <span>{item.name}</span>
@@ -70,16 +72,136 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
 
                 <div style={{ marginTop: 'auto', padding: 20, textAlign: 'center', fontSize: 11, color: 'var(--text-dim)' }}>
-                    Roadmap 4Shine Admin<br />v9.0 Premium
+                    Roadmap 4Shine Admin<br />v10.5 Mobile
                 </div>
             </aside>
 
             {/* MAIN CONTENT AREA */}
-            <main style={{ flex: 1, padding: '16px 16px 16px 0', overflow: 'hidden', display: 'flex' }}>
-                <div className="glass-panel" style={{ flex: 1, padding: 40, overflowY: 'auto', borderRadius: 24, background: 'rgba(30, 41, 59, 0.4)' }}>
+            <main className="admin-main">
+                <div className="glass-panel content-panel">
                     {children}
                 </div>
             </main>
+
+            <style jsx>{`
+                .admin-layout {
+                    display: flex;
+                    min-height: 100vh;
+                    background: radial-gradient(circle at top left, #1e1b4b 0%, #0f172a 100%);
+                    color: var(--text-main);
+                    position: relative;
+                }
+
+                /* SIDEBAR BASE SIZING (Desktop) */
+                .admin-sidebar {
+                    width: 260px;
+                    margin: 16px;
+                    border-radius: 24px;
+                    display: flex;
+                    flex-direction: column;
+                    border: 1px solid rgba(255,255,255,0.05);
+                    background: rgba(15, 23, 42, 0.6);
+                    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    z-index: 50;
+                }
+
+                .mobile-header { display: none; }
+                .sidebar-backdrop { display: none; }
+                .mobile-close-btn { display: none; }
+
+                /* MAIN AREA */
+                .admin-main {
+                    flex: 1;
+                    padding: 16px 16px 16px 0;
+                    overflow: hidden;
+                    display: flex;
+                }
+                .content-panel {
+                    flex: 1;
+                    padding: 40px;
+                    overflow-y: auto;
+                    border-radius: 24px;
+                    background: rgba(30, 41, 59, 0.4);
+                }
+
+                /* NAV LINKS */
+                .nav-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 12px 16px;
+                    border-radius: 12px;
+                    background: transparent;
+                    color: var(--text-dim);
+                    font-weight: 500;
+                    text-decoration: none;
+                    transition: all 0.2s;
+                }
+                .nav-item.active {
+                    background: var(--primary-gradient);
+                    color: white;
+                    font-weight: 600;
+                    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                }
+                .nav-item:hover:not(.active) {
+                    background: rgba(255,255,255,0.05);
+                    color: var(--text-main);
+                }
+
+                /* --- MOBILE RESPONSIVENESS (< 768px) --- */
+                @media (max-width: 900px) {
+                    .admin-layout {
+                        flex-direction: column;
+                    }
+
+                    .mobile-header {
+                        display: flex;
+                        align-items: center;
+                        gap: 16px;
+                        padding: 16px;
+                        background: rgba(15, 23, 42, 0.8);
+                        backdrop-filter: blur(10px);
+                        border-bottom: 1px solid rgba(255,255,255,0.1);
+                        position: sticky;
+                        top: 0;
+                        z-index: 40;
+                    }
+
+                    .admin-sidebar {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        bottom: 0;
+                        margin: 0;
+                        border-radius: 0 24px 24px 0;
+                        transform: translateX(-110%); /* Hidden by default */
+                        background: #0f172a; /* Solid background for legibility */
+                        box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+                    }
+                    .admin-sidebar.open {
+                        transform: translateX(0);
+                    }
+
+                    .sidebar-backdrop {
+                        display: block;
+                        position: fixed;
+                        inset: 0;
+                        background: rgba(0,0,0,0.6);
+                        backdrop-filter: blur(2px);
+                        z-index: 45;
+                        animation: fadeIn 0.3s;
+                    }
+
+                    .mobile-close-btn { display: block; }
+
+                    .admin-main {
+                        padding: 16px;
+                    }
+                    .content-panel {
+                        padding: 20px;
+                    }
+                }
+            `}</style>
         </div>
     );
 }
