@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { verifyToken } from './lib/auth';
 
 export async function middleware(request: NextRequest) {
-    const publicRoutes = ['/login', '/_next', '/api/auth', '/favicon.ico'];
+    const publicRoutes = ['/login', '/_next', '/api/auth', '/api/setup', '/favicon.ico'];
     const path = request.nextUrl.pathname;
 
     // Skip public assets/routes
