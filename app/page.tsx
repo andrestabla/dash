@@ -100,22 +100,24 @@ export default function Home() {
 
     // Load Initial Data
     useEffect(() => {
-        if (typeof window !== "undefined") {
-            const stored = localStorage.getItem(KEY);
-            if (stored) {
-                setTasks(JSON.parse(stored));
-            } else {
+        fetch('/api/tasks')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setTasks(data);
+                } else {
+                    // First run or empty DB: Seed if empty? 
+                    if (data.length === 0) {
+                        // Optional: Auto-seed via API if needed, or leave empty
+                    }
+                }
+            })
+            .catch(err => {
+                console.error("Failed to load tasks", err);
+                // Fallback to seed for demo if API fails (offline/no-db)
                 setTasks(SEED_TASKS);
-            }
-        }
+            });
     }, []);
-
-    // Save to LocalStorage
-    useEffect(() => {
-        if (typeof window !== "undefined" && tasks.length > 0) {
-            localStorage.setItem(KEY, JSON.stringify(tasks));
-        }
-    }, [tasks]);
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
@@ -154,14 +156,28 @@ export default function Home() {
         (e.currentTarget as HTMLElement).classList.remove("drag-over");
     };
 
-    const handleDrop = (e: React.DragEvent, statusId: string) => {
+    const handleDrop = async (e: React.DragEvent, statusId: string) => {
         e.preventDefault();
         (e.currentTarget as HTMLElement).classList.remove("drag-over");
         const id = parseInt(e.dataTransfer.getData("text/plain"));
 
+        // Optimistic Update
+        const originalTasks = [...tasks];
         setTasks(prev => prev.map(t => t.id === id && t.status !== statusId ? { ...t, status: statusId } : t));
-        if (tasks.find(t => t.id === id)?.status !== statusId) {
-            showToast("Actualizado");
+
+        try {
+            const task = tasks.find(t => t.id === id);
+            if (task && task.status !== statusId) {
+                await fetch('/api/tasks', {
+                    method: 'POST', // Using POST for upsert/update for simplicity
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...task, status: statusId })
+                });
+                showToast("Actualizado");
+            }
+        } catch (err) {
+            setTasks(originalTasks); // Revert
+            alert("Error al actualizar");
         }
     };
 
@@ -179,7 +195,7 @@ export default function Home() {
         setIsModalOpen(true);
     };
 
-    const saveTask = () => {
+    const saveTask = async () => {
         if (!editingTask.name?.trim()) return alert("Nombre requerido");
 
         const newTask: Task = {
@@ -187,6 +203,8 @@ export default function Home() {
             id: editingTask.id || Date.now(),
         };
 
+        // Optimistic Update
+        const originalTasks = [...tasks];
         if (editingTask.id) {
             setTasks(prev => prev.map(t => t.id === editingTask.id ? newTask : t));
         } else {
@@ -194,15 +212,35 @@ export default function Home() {
         }
 
         setIsModalOpen(false);
-        showToast("Guardado");
+
+        try {
+            await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newTask)
+            });
+            showToast("Guardado");
+        } catch (err) {
+            setTasks(originalTasks);
+            alert("Error al guardar");
+        }
     };
 
-    const deleteTask = () => {
+    const deleteTask = async () => {
         if (!editingTask.id) return;
         if (confirm("¿Eliminar?")) {
+            // Optimistic
+            const originalTasks = [...tasks];
             setTasks(prev => prev.filter(t => t.id !== editingTask.id));
             setIsModalOpen(false);
-            showToast("Eliminado");
+
+            try {
+                await fetch(`/api/tasks?id=${editingTask.id}`, { method: 'DELETE' });
+                showToast("Eliminado");
+            } catch (err) {
+                setTasks(originalTasks);
+                alert("Error al eliminar");
+            }
         }
     };
 
