@@ -10,7 +10,7 @@ export async function GET() {
     try {
         const client = await pool.connect();
         // Assuming 'name' column exists now (after manual SQL)
-        const res = await client.query('SELECT email, name, role FROM users WHERE id = $1', [session.user.id]);
+        const res = await client.query('SELECT email, name, role FROM users WHERE id = $1', [(session.user as any).id]);
         client.release();
 
         if (res.rows.length === 0) return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -34,12 +34,12 @@ export async function PUT(request: Request) {
             const hashedPassword = await hash(password, 10);
             await client.query(
                 'UPDATE users SET name = $1, password = $2 WHERE id = $3',
-                [name, hashedPassword, session.user.id]
+                [name, hashedPassword, (session.user as any).id]
             );
         } else {
             await client.query(
                 'UPDATE users SET name = $1 WHERE id = $2',
-                [name, session.user.id]
+                [name, (session.user as any).id]
             );
         }
 
