@@ -322,7 +322,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {activeTab === "kanban" && (
                     <div className="view-section active">
                         <div className="kanban-container">
-                            <div className="lanes" style={{ display: 'flex', height: '100%', alignItems: 'flex-start' }}>
+                            <div className="lanes" style={{ display: 'flex', height: '100%' }}>
                                 {statuses.map((st) => {
                                     const colTasks = filteredTasks.filter((t) => t.status === st.id);
                                     return (
