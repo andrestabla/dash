@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ToastProvider";
-import { Mail, Shield, Server, User, Key, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
+import { Mail, Shield, Server, User, Key, CheckCircle, ArrowRight, ArrowLeft, LayoutTemplate } from "lucide-react";
 
 export default function AdminSettingsPage() {
     const [settings, setSettings] = useState<any>({});
@@ -84,7 +84,10 @@ export default function AdminSettingsPage() {
             <div style={{ display: 'grid', gap: 24 }}>
                 {/* General Section */}
                 <div style={{ background: 'var(--bg-panel)', padding: 24, borderRadius: 16, border: '1px solid var(--border-dim)' }}>
-                    <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: 16, fontWeight: 700 }}>General</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                        <div style={{ padding: 8, borderRadius: 8, background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}><LayoutTemplate size={20} /></div>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>General</h3>
+                    </div>
                     <div style={{ marginBottom: 0 }}>
                         <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Nombre de la App</label>
                         <input className="input-glass" value={settings.app_name || ''} onChange={(e) => handleChange('app_name', e.target.value)} />

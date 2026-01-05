@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from 'next/link';
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
+import { Users, UserPlus, Trash2, Shield, ArrowLeft } from "lucide-react";
 
 interface User {
     id: string;
@@ -66,15 +67,16 @@ export default function AdminUsersPage() {
     };
 
     return (
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: 40 }}>
-            <header style={{ marginBottom: 40, borderBottom: '1px solid var(--border-dim)', paddingBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 20px" }}>
+            <header style={{ marginBottom: 30, paddingBottom: 20, borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <div style={{ marginBottom: 10 }}><Link href="/" style={{ color: "#3b82f6", textDecoration: 'none' }}>← Volver al Workspace</Link></div>
-                    <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>👥 Gestión de Usuarios</h1>
-                    <p style={{ color: 'var(--text-dim)', margin: '4px 0 0 0' }}>Administra el acceso al sistema</p>
+                    <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Users size={28} className="text-primary" /> Gestión de Usuarios
+                    </h1>
+                    <p style={{ color: 'var(--text-dim)', margin: '4px 0 0 0', paddingLeft: 38 }}>Administra el acceso al sistema</p>
                 </div>
                 <button className="btn-primary" onClick={() => setIsCreating(true)}>
-                    + Nuevo Usuario
+                    <UserPlus size={18} style={{ marginRight: 8 }} /> Nuevo Usuario
                 </button>
             </header>
 
@@ -105,34 +107,38 @@ export default function AdminUsersPage() {
                 </div>
             )}
 
-            <div className="glass-panel" style={{ overflow: "hidden", padding: 0 }}>
+            <div className="glass-panel" style={{ overflow: "hidden", padding: 0, borderRadius: 16 }}>
                 <table className="data-table">
                     <thead>
                         <tr>
-                            <th>Email</th>
-                            <th>Role</th>
+                            <th style={{ padding: '16px 24px' }}>Email</th>
+                            <th>Rol</th>
                             <th>Creado</th>
-                            <th style={{ textAlign: "right" }}>Acciones</th>
+                            <th style={{ textAlign: "right", paddingRight: 24 }}>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {users.map(u => (
-                            <tr key={u.id}>
-                                <td>{u.email}</td>
+                            <tr key={u.id} style={{ borderBottom: '1px solid var(--border-dim)' }}>
+                                <td style={{ padding: '16px 24px', fontWeight: 500 }}>{u.email}</td>
                                 <td>
                                     <span style={{
-                                        padding: "4px 8px",
+                                        padding: "4px 10px",
                                         borderRadius: 20,
                                         background: u.role === 'admin' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
                                         color: u.role === 'admin' ? '#10b981' : '#3b82f6',
-                                        fontSize: 11, fontWeight: 700, letterSpacing: '0.05em'
+                                        fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
+                                        display: 'inline-flex', alignItems: 'center', gap: 4
                                     }}>
+                                        {u.role === 'admin' && <Shield size={12} />}
                                         {u.role.toUpperCase()}
                                     </span>
                                 </td>
                                 <td style={{ fontSize: 13, color: "var(--text-dim)" }}>{new Date(u.created_at).toLocaleDateString()}</td>
-                                <td style={{ textAlign: "right" }}>
-                                    <button className="btn-ghost" style={{ color: "#ef4444", fontSize: 12 }} onClick={() => requestDelete(u.id)}>Eliminar</button>
+                                <td style={{ textAlign: "right", paddingRight: 24 }}>
+                                    <button className="btn-ghost" style={{ color: "#ef4444", padding: 8 }} onClick={() => requestDelete(u.id)} title="Eliminar Usuario">
+                                        <Trash2 size={16} />
+                                    </button>
                                 </td>
                             </tr>
                         ))}

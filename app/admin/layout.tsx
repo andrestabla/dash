@@ -1,8 +1,6 @@
 "use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { LayoutDashboard, Users, Settings, Bell, ArrowLeft, Menu, X } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -14,10 +12,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }, [pathname]);
 
     const menu = [
-        { name: 'Usuarios', href: '/admin/users', icon: '👤' },
-        { name: 'Tableros', href: '/admin/dashboards', icon: '📈' },
-        { name: 'Configuración', href: '/admin/settings', icon: '⚙️' },
-        { name: 'Notificaciones', href: '/admin/notifications', icon: '🔔' },
+        { name: 'Usuarios', href: '/admin/users', icon: Users },
+        { name: 'Tableros', href: '/admin/dashboards', icon: LayoutDashboard },
+        { name: 'Configuración', href: '/admin/settings', icon: Settings },
+        { name: 'Notificaciones', href: '/admin/notifications', icon: Bell },
     ];
 
     return (
@@ -26,7 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* MOBILE HEADER / TOGGLE */}
             <div className="mobile-header">
                 <button className="btn-ghost icon-btn" onClick={() => setIsMobileOpen(true)}>
-                    ☰
+                    <Menu size={20} />
                 </button>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>Admin Suite</div>
             </div>
@@ -40,14 +38,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <aside className={`glass-panel admin-sidebar ${isMobileOpen ? 'open' : ''}`}>
                 <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-main)' }}>
-                        <span style={{ fontSize: 20 }}>⬅️</span>
+                        <ArrowLeft size={20} />
                         <div>
                             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-dim)' }}>Regresar a</div>
                             <div style={{ fontWeight: 700, fontSize: 14 }}>Workspace</div>
                         </div>
                     </Link>
                     {/* Mobile Close Button */}
-                    <button className="btn-ghost mobile-close-btn" onClick={() => setIsMobileOpen(false)}>✕</button>
+                    <button className="btn-ghost mobile-close-btn" onClick={() => setIsMobileOpen(false)}><X size={20} /></button>
                 </div>
 
                 <div style={{ padding: 20 }}>
@@ -57,13 +55,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <nav style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {menu.map(item => {
                             const isActive = pathname === item.href;
+                            const Icon = item.icon;
                             return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
                                     className={`nav-item ${isActive ? 'active' : ''}`}
                                 >
-                                    <span style={{ fontSize: 16 }}>{item.icon}</span>
+                                    <Icon size={18} />
                                     <span style={{ fontSize: 14 }}>{item.name}</span>
                                 </Link>
                             )
