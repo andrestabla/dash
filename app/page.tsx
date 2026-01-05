@@ -184,6 +184,16 @@ export default function Workspace() {
         setList(list.filter((_, i) => i !== idx));
     };
 
+    const [showLogout, setShowLogout] = useState(false);
+
+    // ... existing loadDashboards ...
+
+    const handleLogout = async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        router.push('/login');
+        router.refresh();
+    };
+
     return (
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: 40 }}>
             <header style={{ marginBottom: 40, borderBottom: '1px solid var(--border)', paddingBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -191,10 +201,29 @@ export default function Workspace() {
                     <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>🗂️ Tu Espacio de Trabajo</h1>
                     <p style={{ color: 'var(--text-dim)', margin: '4px 0 0 0' }}>Gestiona tus roadmaps y proyectos</p>
                 </div>
-                <button className="btn-primary" onClick={startCreate}>
-                    + Nuevo Tablero
-                </button>
+                <div style={{ display: 'flex', gap: 10 }}>
+                    <button className="btn-ghost" onClick={() => setShowLogout(true)} style={{ color: 'var(--text)', border: '1px solid var(--border)' }}>
+                        🚪 Cerrar Sesión
+                    </button>
+                    <button className="btn-primary" onClick={startCreate}>
+                        + Nuevo Tablero
+                    </button>
+                </div>
             </header>
+
+            {/* Logout Confirmation Modal */}
+            {showLogout && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div style={{ background: 'var(--panel)', padding: 30, borderRadius: 16, width: 400, border: '1px solid var(--border)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', textAlign: 'center' }}>
+                        <h2 style={{ marginTop: 0 }}>¿Cerrar Sesión?</h2>
+                        <p style={{ color: 'var(--text-dim)', marginBottom: 25 }}>Tendrás que ingresar tus credenciales nuevamente para acceder.</p>
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                            <button className="btn-ghost" onClick={() => setShowLogout(false)}>Cancelar</button>
+                            <button className="btn-primary" onClick={handleLogout} style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>Sí, Salir</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {isCreating && (
                 <div className="wizard-modal" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
