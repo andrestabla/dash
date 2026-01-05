@@ -385,10 +385,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     </div>
                 )}
 
-                {activeTab === "analytics" && (
-                    <div className="view-section active">
-                        <div style={{ padding: 40, textAlign: 'center', opacity: 0.5 }}>Analytics Module (Simplificado por ahora)</div>
-                    </div>
+                {activeTab === "analytics" && settings && (
+                    <AnalyticsView tasks={tasks} settings={settings} statuses={statuses} />
                 )}
 
                 {/* TASK MODAL */}
@@ -476,5 +474,202 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {toastMessage && <div id="toast" className="show">{toastMessage}</div>}
             </main>
         </>
+    );
+}
+
+// --- ANALYTICS COMPONENT ---
+function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings: BoardSettings, statuses: StatusColumn[] }) {
+
+    // 1. GLOBAL KPIS
+    const totalTasks = tasks.length;
+    const endStatusId = statuses[statuses.length - 1].id; // Last column considered "Done"
+    const completedTasks = tasks.filter(t => t.status === endStatusId).length;
+    const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+    // 2. WEEKLY VELOCITY
+    const weeklyData = settings.weeks.map(w => {
+        const weekTasks = tasks.filter(t => t.week === w.id);
+        const done = weekTasks.filter(t => t.status === endStatusId).length;
+        const total = weekTasks.length;
+        return {
+            name: w.name.split(' · ')[0], // "W1"
+            total,
+            done,
+            percent: total === 0 ? 0 : (done / total) * 100
+        };
+    });
+
+    // 3. WORKLOAD BY OWNER
+    const workloadData = settings.owners.map(o => {
+        const active = tasks.filter(t => t.owner === o && t.status !== endStatusId).length;
+        return { name: o.split(' (')[0], value: active };
+    }).sort((a, b) => b.value - a.value);
+
+    // 4. STATUS DISTRIBUTION
+    const statusData = statuses.map(s => {
+        return {
+            ...s,
+            count: tasks.filter(t => t.status === s.id).length
+        };
+    });
+
+    // 5. GATES HEALTH
+    const gateData = settings.gates.map(g => {
+        const gateTasks = tasks.filter(t => t.gate === g);
+        const isClosed = gateTasks.length > 0 && gateTasks.every(t => t.status === endStatusId);
+        return { name: g, total: gateTasks.length, closed: isClosed };
+    });
+
+    return (
+        <div className="view-section active fade-in">
+            <div className="analytics-grid">
+                {/* KPI CARDS */}
+                <div className="kpi-card">
+                    <div className="kpi-label">Progreso Total</div>
+                    <div className="kpi-value" style={{ color: 'var(--primary)' }}>{progress}%</div>
+                    <div className="kpi-sub">{completedTasks} de {totalTasks} tareas</div>
+                </div>
+                <div className="kpi-card">
+                    <div className="kpi-label">Tareas Activas</div>
+                    <div className="kpi-value">{totalTasks - completedTasks}</div>
+                    <div className="kpi-sub">Pendientes / En Curso</div>
+                </div>
+                <div className="kpi-card">
+                    <div className="kpi-label">Próximo Hito</div>
+                    <div className="kpi-value" style={{ fontSize: 24 }}>
+                        {gateData.find(g => !g.closed)?.name ? `Gate ${gateData.find(g => !g.closed)?.name}` : "🏁 Finalizado"}
+                    </div>
+                </div>
+
+                {/* ROW 1: VELOCITY & WORKLOAD */}
+                <div className="chart-card" style={{ gridColumn: 'span 2' }}>
+                    <h3>Velocidad Semanal</h3>
+                    <div className="chart-container">
+                        {weeklyData.map(d => (
+                            <div key={d.name} className="bar-group">
+                                <div className="bar-bg">
+                                    <div className="bar-fill" style={{ height: `${d.percent}%`, background: d.percent === 100 ? '#10b981' : 'var(--primary)' }}></div>
+                                </div>
+                                <div className="bar-label">{d.name}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="chart-card">
+                    <h3>Carga de Trabajo (Activa)</h3>
+                    <div className="list-chart">
+                        {workloadData.map(d => (
+                            <div key={d.name} className="lc-row">
+                                <div className="lc-label">{d.name}</div>
+                                <div className="lc-bar-area">
+                                    <div className="lc-bar" style={{ width: `${(d.value / (Math.max(...workloadData.map(x => x.value)) || 1)) * 100}%` }}></div>
+                                </div>
+                                <div className="lc-val">{d.value}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* ROW 2: STATUS & GATES */}
+                <div className="chart-card" style={{ gridColumn: 'span 2' }}>
+                    <h3>Estado del Proyecto</h3>
+                    <div className="status-pill-bar">
+                        {statusData.map(s => s.count > 0 && (
+                            <div key={s.id} style={{ flex: s.count, background: s.color, height: 24, position: 'relative' }} title={`${s.name}: ${s.count}`}>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="legend">
+                        {statusData.map(s => (
+                            <div key={s.id} className="l-item">
+                                <span className="dot" style={{ background: s.color }}></span> {s.name} ({s.count})
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="chart-card">
+                    <h3>Control de Gates</h3>
+                    <div className="gate-list">
+                        {gateData.map(g => (
+                            <div key={g.name} className={`gate-item ${g.closed ? 'closed' : 'open'}`}>
+                                <div className="g-icon">{g.closed ? '🔒' : '🔓'}</div>
+                                <div className="g-name">Gate {g.name}</div>
+                                <div className="g-status">{g.closed ? 'Completado' : 'Abierto'}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <style jsx>{`
+                .analytics-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 20px;
+                    padding: 20px 0;
+                }
+                .kpi-card {
+                    background: var(--panel);
+                    padding: 20px;
+                    border-radius: 12px;
+                    border: 1px solid var(--border);
+                    text-align: center;
+                }
+                .kpi-value { font-size: 36px; font-weight: 800; margin: 10px 0; }
+                .kpi-label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+                
+                .chart-card {
+                    background: var(--panel);
+                    padding: 20px;
+                    border-radius: 12px;
+                    border: 1px solid var(--border);
+                }
+                .chart-card h3 { margin: 0 0 15px 0; font-size: 16px; opacity: 0.9; }
+
+                /* WEEKLY BAR CHART */
+                .chart-container {
+                    display: flex;
+                    align-items: flex-end;
+                    justify-content: space-between;
+                    height: 150px;
+                    padding-top: 10px;
+                }
+                .bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; }
+                .bar-bg { width: 12px; height: 100px; background: var(--panel-hover); border-radius: 6px; display: flex; align-items: flex-end; overflow: hidden; }
+                .bar-label { font-size: 10px; margin-top: 8px; color: var(--text-dim); }
+                .bar-fill { width: 100%; transition: height 0.5s ease; border-radius: 6px; }
+
+                /* WORKLOAD LIST */
+                .list-chart { display: flex; flex-direction: column; gap: 8px; }
+                .lc-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+                .lc-label { width: 80px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .lc-bar-area { flex: 1; height: 8px; background: var(--panel-hover); border-radius: 4px; overflow: hidden; }
+                .lc-bar { height: 100%; background: #f59e0b; border-radius: 4px; }
+                .lc-val { width: 20px; text-align: right; font-weight: bold; }
+
+                /* STATUS PILL */
+                .status-pill-bar { display: flex; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
+                .legend { display: flex; flex-wrap: wrap; gap: 15px; font-size: 12px; }
+                .l-item { display: flex; align-items: center; gap: 6px; }
+                .dot { width: 8px; height: 8px; borderRadius: 50%; }
+
+                /* GATES */
+                .gate-list { display: flex; flex-direction: column; gap: 10px; }
+                .gate-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: var(--panel-hover); border: 1px solid transparent; }
+                .gate-item.closed { background: #ecfdf5; border-color: #10b981; color: #064e3b; }
+                .gate-item.open { opacity: 0.7; }
+                .g-name { flex: 1; font-weight: 600; }
+                .g-status { font-size: 11px; text-transform: uppercase; }
+                 
+                /* Responsive */
+                 @media (max-width: 900px) {
+                    .analytics-grid { grid-template-columns: 1fr; }
+                    .chart-card { grid-column: span 1 !important; }
+                }
+
+            `}</style>
+        </div>
     );
 }
