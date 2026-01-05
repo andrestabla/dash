@@ -145,12 +145,57 @@ export default function AdminSettingsPage() {
                                     <div style={{ textAlign: 'center', marginBottom: 24 }}>
                                         <div style={{ display: 'inline-flex', padding: 16, borderRadius: '50%', background: 'var(--bg-panel)', marginBottom: 16 }}><Server size={32} color="#3b82f6" /></div>
                                         <h4 style={{ margin: 0, fontSize: 18 }}>Servidor de Correo</h4>
-                                        <p style={{ color: 'var(--text-dim)', fontSize: 14 }}>Define el host y el puerto de tu proveedor SMTP.</p>
+                                        <p style={{ color: 'var(--text-dim)', fontSize: 14 }}>Selecciona tu proveedor o configura uno personalizado.</p>
                                     </div>
+
+                                    {/* Provider Selection */}
+                                    <div style={{ display: 'flex', gap: 10, marginBottom: 20, justifyContent: 'center' }}>
+                                        {[
+                                            { id: 'gmail', name: 'Gmail', icon: 'M' },
+                                            { id: 'outlook', name: 'Outlook', icon: 'O' },
+                                            { id: 'custom', name: 'Otro / Custom', icon: '⚙️' }
+                                        ].map(p => (
+                                            <button
+                                                key={p.id}
+                                                className="btn-ghost"
+                                                onClick={() => {
+                                                    if (p.id === 'gmail') setWizData({ ...wizData, host: 'smtp.gmail.com', port: '587' });
+                                                    if (p.id === 'outlook') setWizData({ ...wizData, host: 'smtp.office365.com', port: '587' });
+                                                    if (p.id === 'custom') setWizData({ ...wizData, host: '', port: '' });
+                                                }}
+                                                style={{
+                                                    border: (wizData.host === 'smtp.gmail.com' && p.id === 'gmail') ||
+                                                        (wizData.host === 'smtp.office365.com' && p.id === 'outlook') ||
+                                                        ((!['smtp.gmail.com', 'smtp.office365.com'].includes(wizData.host)) && p.id === 'custom')
+                                                        ? '1px solid var(--primary)' : '1px solid var(--border-dim)',
+                                                    background: 'var(--bg-card)',
+                                                    padding: '8px 16px'
+                                                }}
+                                            >
+                                                <span style={{ marginRight: 6 }}>{p.icon}</span> {p.name}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Dynamic Instructions */}
+                                    {wizData.host === 'smtp.gmail.com' && (
+                                        <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', padding: 12, borderRadius: 8, fontSize: 12, marginBottom: 20, color: '#3b82f6' }}>
+                                            <strong>ℹ️ Instrucciones para Gmail:</strong><br />
+                                            Debes usar una <b>Contraseña de Aplicación</b>, no tu contraseña normal.<br />
+                                            Ve a <a href="https://myaccount.google.com/apppasswords" target="_blank" style={{ textDecoration: 'underline' }}>Google Account &gt; Seguridad &gt; Contraseñas de aplicación</a>.
+                                        </div>
+                                    )}
+                                    {wizData.host === 'smtp.office365.com' && (
+                                        <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', padding: 12, borderRadius: 8, fontSize: 12, marginBottom: 20, color: '#3b82f6' }}>
+                                            <strong>ℹ️ Instrucciones para Outlook:</strong><br />
+                                            Asegúrate de que el <b>SMTP Authenticated Submission</b> esté habilitado en la administración de Office 365.
+                                        </div>
+                                    )}
+
                                     <div style={{ display: 'grid', gap: 16 }}>
                                         <div>
                                             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Host del Servidor</label>
-                                            <input className="input-glass" placeholder="smtp.gmail.com" value={wizData.host} onChange={e => setWizData({ ...wizData, host: e.target.value })} autoFocus />
+                                            <input className="input-glass" placeholder="smtp.example.com" value={wizData.host} onChange={e => setWizData({ ...wizData, host: e.target.value })} autoFocus />
                                         </div>
                                         <div>
                                             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Puerto</label>
