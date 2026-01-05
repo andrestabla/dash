@@ -1,5 +1,8 @@
 "use client";
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { LayoutDashboard, Users, Settings, Bell, ArrowLeft, Menu, X } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
