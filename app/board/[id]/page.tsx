@@ -593,7 +593,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         </div>
                     </div>
                 )}
-                {toastMessage && <div id="toast" className="show">{toastMessage}</div>}
-            </>
-            );
+            </main>
+            {toastMessage && <div id="toast" className="show">{toastMessage}</div>}
+        </>
+    );
 }
