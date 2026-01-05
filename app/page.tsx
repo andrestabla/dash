@@ -56,9 +56,7 @@ export default function Workspace() {
     // Editing State
     const [editingDash, setEditingDash] = useState<Dashboard | null>(null);
 
-    useEffect(() => {
-        loadDashboards();
-    }, []);
+    // useEffect merged above
 
     const loadDashboards = () => {
         fetch('/api/dashboards')
@@ -194,6 +192,15 @@ export default function Workspace() {
         router.refresh();
     };
 
+    const [user, setUser] = useState<any>(null);
+
+    useEffect(() => {
+        loadDashboards();
+        fetch('/api/auth/me').then(res => res.json()).then(data => setUser(data.user));
+    }, []);
+
+    // ... existing loadDashboards ...
+
     return (
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: 40 }}>
             <header style={{ marginBottom: 40, borderBottom: '1px solid var(--border)', paddingBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -202,6 +209,13 @@ export default function Workspace() {
                     <p style={{ color: 'var(--text-dim)', margin: '4px 0 0 0' }}>Gestiona tus roadmaps y proyectos</p>
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
+                    {user?.role === 'admin' && (
+                        <Link href="/admin/users" style={{ textDecoration: 'none' }}>
+                            <button className="btn-ghost" style={{ color: 'var(--primary)', border: '1px solid var(--primary-light)', background: 'var(--primary-light)' }}>
+                                🛡️ Admin Panel
+                            </button>
+                        </Link>
+                    )}
                     <button className="btn-ghost" onClick={() => setShowLogout(true)} style={{ color: 'var(--text)', border: '1px solid var(--border)' }}>
                         🚪 Cerrar Sesión
                     </button>
