@@ -521,7 +521,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     .app-title { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
                     .app-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin: 0; font-weight: 600; }
                     
-                    main { padding: 24px; height: calc(100vh - 70px); overflow: hidden; display: flex; flexDirection: column; }
+                    main { padding: 24px; height: calc(100vh - 70px); overflow: hidden; display: flex; flex-direction: column; }
                     .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
                     .filters { display: flex; gap: 10px; }
                     .filters input, .filters select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-dim); background: var(--bg-card); color: var(--text-main); font-size: 13px; outline: none; transition: all 0.2s; }
@@ -568,7 +568,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     .tl-item:hover { transform: translateX(5px); border-color: #3b82f6; }
 
                     /* MODAL */
-                    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 100; display: flex; alignItems: center; justifyContent: center; }
+                    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; }
                     .modal { background: var(--bg-card); width: 500px; max-width: 90vw; max-height: 90vh; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); overflow: hidden; display: flex; flex-direction: column; }
                     .m-head { padding: 20px 24px; border-bottom: 1px solid var(--border-dim); display: flex; justify-content: space-between; align-items: center; background: var(--bg-panel); }
                     .m-body { padding: 24px; overflow-y: auto; flex: 1; }
