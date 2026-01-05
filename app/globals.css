@@ -244,3 +244,104 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-main);
 }
+
+/* --- KANBAN V11 OVERHAUL --- */
+
+/* Custom Scrollbar for Lanes */
+.lanes .lane-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lanes .lane-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lanes .lane-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+.lanes .lane-content:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.dark .lanes .lane-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark .lanes .lane-content:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Kanban Card */
+.kanban-card {
+  background: white;
+  border: 1px solid #cbd5e1;
+  /* Slate 300 - Clearly visible border */
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  /* Softer shadow */
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+}
+
+.dark .kanban-card {
+  background: var(--bg-panel);
+  border-color: var(--border-dim);
+}
+
+.kanban-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary);
+}
+
+/* Priority Borders */
+.kanban-card.p-high {
+  border-left: 4px solid #ef4444;
+}
+
+.kanban-card.p-med {
+  border-left: 4px solid #f59e0b;
+}
+
+.kanban-card.p-low {
+  border-left: 4px solid #10b981;
+}
+
+/* Ghost Button */
+.btn-ghost-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--text-dim);
+  border: 1px dashed var(--border-dim);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-ghost-add:hover {
+  background: var(--bg-panel);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* Bottleneck Warning */
+.counter-badge {
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.counter-badge.warning {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
