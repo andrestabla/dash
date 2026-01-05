@@ -3,43 +3,68 @@
 @tailwind utilities;
 
 :root {
-  /* --- PALETA PREMIUM (Dark Mode Optimized) --- */
-  --bg-dark: #0f172a;
-  /* Slate 900 */
-  --bg-card: #1e293b;
-  /* Slate 800 */
-  --bg-glass: rgba(30, 41, 59, 0.7);
-
-  --text-main: #f8fafc;
+  /* --- LIGHT MODE (Default) --- */
+  --bg-main: #f8fafc;
   /* Slate 50 */
-  --text-dim: #94a3b8;
-  /* Slate 400 */
-  --border-dim: rgba(148, 163, 184, 0.1);
-  --border-glow: rgba(56, 189, 248, 0.3);
-  /* Sky Blue Glow */
+  --bg-card: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.7);
+  --bg-panel: #f1f5f9;
+  /* Slate 100 */
 
-  /* ACCENT GRADIENTS */
-  --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  /* Blue to Purple */
-  --success-gradient: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-  --danger-gradient: linear-gradient(135deg, #ef4444 0%, #f43f5e 100%);
+  --text-main: #0f172a;
+  /* Slate 900 */
+  --text-dim: #64748b;
+  /* Slate 500 */
 
-  /* GLOWS & SHADOWS */
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+  --border-dim: rgba(0, 0, 0, 0.08);
+  --border-glow: rgba(37, 99, 235, 0.2);
+
+  /* ACCENTS */
+  --primary-gradient: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  /* Blue to Indigo */
+  --success-gradient: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  --danger-gradient: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+
+  /* SHADOWS */
+  --shadow-glass: 0 4px 20px -5px rgba(0, 0, 0, 0.1);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.5);
 
   --font-main: 'Outfit', 'Inter', sans-serif;
   --radius-lg: 16px;
   --radius-md: 10px;
 }
 
+/* --- DARK MODE OVERRIDES --- */
+.dark {
+  --bg-main: #0f172a;
+  /* Slate 900 */
+  --bg-card: #1e293b;
+  /* Slate 800 */
+  --bg-glass: rgba(30, 41, 59, 0.7);
+  --bg-panel: #1e293b;
+
+  --text-main: #f8fafc;
+  /* Slate 50 */
+  --text-dim: #94a3b8;
+  /* Slate 400 */
+
+  --border-dim: rgba(148, 163, 184, 0.1);
+  --border-glow: rgba(56, 189, 248, 0.3);
+
+  --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 body {
   margin: 0;
-  background-color: var(--bg-dark);
+  background-color: var(--bg-main);
   color: var(--text-main);
   font-family: var(--font-main);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* --- UTILITIES --- */
@@ -50,6 +75,7 @@ body {
   border: var(--glass-border);
   box-shadow: var(--shadow-glass);
   border-radius: var(--radius-lg);
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .text-gradient {
@@ -65,7 +91,7 @@ body {
 
 .hover-lift:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.2);
 }
 
 /* --- BUTTONS --- */
@@ -78,7 +104,7 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -86,7 +112,7 @@ body {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
 }
 
 .btn-ghost {
@@ -100,16 +126,16 @@ body {
 }
 
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-panel);
   color: var(--text-main);
   border-color: var(--border-dim);
 }
 
 /* --- INPUTS --- */
 .input-glass {
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--bg-glass);
   border: 1px solid var(--border-dim);
-  color: white;
+  color: var(--text-main);
   padding: 12px 16px;
   border-radius: var(--radius-md);
   width: 100%;
@@ -167,14 +193,15 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-dark);
+  background: var(--bg-main);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--text-dim);
   border-radius: 4px;
+  opacity: 0.5;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--text-main);
 }

@@ -199,14 +199,22 @@ export default function Workspace() {
                 <div style={{ display: 'flex', gap: 12 }}>
                     {user?.role === 'admin' && (
                         <Link href="/admin/users" style={{ textDecoration: 'none' }}>
-                            <button className="btn-ghost" style={{ border: '1px solid rgba(59, 130, 246, 0.3)', color: '#60a5fa' }}>
-                                🛡️ Admin Suite
+                            <button className="btn-ghost" title="Panel de Admin" style={{ color: 'var(--primary-gradient)' }}>
+                                🛡️
                             </button>
                         </Link>
                     )}
-                    <button className="btn-ghost" onClick={() => setShowLogout(true)}>
-                        🚪 Salir
+
+                    <Link href="/profile">
+                        <button className="btn-ghost" title="Mi Perfil y Tema">
+                            👤
+                        </button>
+                    </Link>
+
+                    <button className="btn-ghost" onClick={() => setShowLogout(true)} title="Cerrar Sesión">
+                        🛑
                     </button>
+
                     <button className="btn-primary" onClick={startCreate}>
                         + Nuevo Proyecto
                     </button>
