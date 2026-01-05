@@ -262,23 +262,29 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             <p className="app-sub">TABLERO DE TRABAJO</p>
                         </div>
                     </div>
-                    <div className="top-buttons" style={{ display: "flex", gap: 8 }}>
-                        <button className="btn-ghost" onClick={toggleTheme} title="Tema">
-                            🌓
-                        </button>
-                        <Link href="/" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span>✕</span> <span>Cerrar</span>
-                        </Link>
-                        <button className="btn-primary" onClick={() => openModal()}>
-                            <span>➕</span> <span style={{ marginLeft: 4 }}>Nueva Tarea</span>
-                        </button>
-                    </div>
+                </div>
+
+                {/* ABSOLUTE TOP RIGHT CONTROLS */}
+                <div style={{ position: 'absolute', right: 24, top: 0, height: 70, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button className="btn-ghost" onClick={toggleTheme} title="Cambiar Tema">
+                        🌓
+                    </button>
+                    <Link href="/" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>✕</span> <span>Cerrar</span>
+                    </Link>
                 </div>
             </header>
 
             <main>
                 <div className="controls">
                     <div className="filters">
+                        <button className="btn-primary" onClick={() => {
+                            setEditingTask({ id: undefined, name: "", status: settings.statuses?.[0]?.id || "todo", week: settings.weeks[0]?.id || "", owner: settings.owners[0] || "", type: "Feature" });
+                            setIsModalOpen(true);
+                        }} style={{ marginRight: 12 }}>
+                            <span>➕</span> <span style={{ marginLeft: 4 }}>Nueva Tarea</span>
+                        </button>
+
                         <input
                             placeholder="🔍 Buscar..."
                             style={{ minWidth: 140 }}
