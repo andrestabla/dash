@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useMemo, use } from "react";
 import Link from 'next/link';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { useToast } from "@/components/ToastProvider";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface Task {
     id: number;
     week: string;
     name: string;
-    status: string; // Dynamic Status ID
+    status: string;
     owner: string;
     type: string;
     prio: string;
@@ -30,7 +33,7 @@ interface BoardSettings {
     gates: string[];
     icon?: string;
     color?: string;
-    statuses?: StatusColumn[]; // V5 Custom Columns 
+    statuses?: StatusColumn[];
 }
 
 const DEFAULT_STATUSES: StatusColumn[] = [
@@ -42,16 +45,22 @@ const DEFAULT_STATUSES: StatusColumn[] = [
 
 export default function BoardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: dashboardId } = use(params);
+    const { showToast } = useToast();
+
     const [tasks, setTasks] = useState<Task[]>([]);
     const [settings, setSettings] = useState<BoardSettings | null>(null);
     const [dashboardName, setDashboardName] = useState("Roadmap");
     const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
 
-    // Modal & Toast
+    // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Partial<Task>>({});
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    // Confirmation State
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
+    const [confirmMessage, setConfirmMessage] = useState("");
 
     // Column Editing
     const [isColModalOpen, setIsColModalOpen] = useState(false);
@@ -84,13 +93,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         return settings?.statuses || DEFAULT_STATUSES;
     }, [settings]);
 
-    const showToast = (msg: string) => {
-        setToastMessage(msg);
-        setTimeout(() => setToastMessage(null), 2000);
-    };
-
     const toggleTheme = () => {
-        document.body.classList.toggle("dark");
+        const current = localStorage.getItem("theme");
+        const next = current === "dark" ? "light" : "dark";
+        localStorage.setItem("theme", next);
+        document.documentElement.classList.toggle("dark", next === "dark");
     };
 
     const filteredTasks = useMemo(() => {
@@ -106,44 +113,34 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         });
     }, [tasks, filters]);
 
-    // --- ACTIONS ---
+    // --- DRAG AND DROP ---
+    const onDragEnd = async (result: DropResult) => {
+        const { source, destination, draggableId } = result;
 
-    const handleDragStart = (e: React.DragEvent, id: number) => {
-        e.dataTransfer.setData("text/plain", id.toString());
-        e.dataTransfer.effectAllowed = "move";
-    };
+        if (!destination) return;
+        if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        (e.currentTarget as HTMLElement).classList.add("drag-over");
-    };
-
-    const handleDragLeave = (e: React.DragEvent) => {
-        (e.currentTarget as HTMLElement).classList.remove("drag-over");
-    };
-
-    const handleDrop = async (e: React.DragEvent, statusId: string) => {
-        e.preventDefault();
-        (e.currentTarget as HTMLElement).classList.remove("drag-over");
-        const id = parseInt(e.dataTransfer.getData("text/plain"));
+        const taskId = parseInt(draggableId);
+        const newStatus = destination.droppableId;
 
         // Optimistic Update
         const originalTasks = [...tasks];
-        setTasks(prev => prev.map(t => t.id === id && t.status !== statusId ? { ...t, status: statusId } : t));
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
 
+        // API Call
         try {
-            const task = tasks.find(t => t.id === id);
-            if (task && task.status !== statusId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task && task.status !== newStatus) {
                 await fetch('/api/tasks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...task, status: statusId, dashboard_id: dashboardId })
+                    body: JSON.stringify({ ...task, status: newStatus, dashboard_id: dashboardId })
                 });
-                showToast("Actualizado");
+                // Silent success for DnD
             }
         } catch (err) {
             setTasks(originalTasks);
-            alert("Error al actualizar");
+            showToast("Error al mover la tarea", "error");
         }
     };
 
@@ -152,7 +149,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         if (!settings) return;
         setEditingTask(
             task || {
-                status: statuses[0].id, // Dynamic First Status
+                status: statuses[0].id,
                 week: settings.weeks[0]?.id || "",
                 prio: "med",
                 gate: "",
@@ -165,7 +162,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     };
 
     const saveTask = async () => {
-        if (!editingTask.name?.trim()) return alert("Nombre requerido");
+        if (!editingTask.name?.trim()) {
+            showToast("El nombre es requerido", "error");
+            return;
+        }
 
         const newTask: Task = {
             ...(editingTask as Task),
@@ -174,6 +174,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         };
 
         const originalTasks = [...tasks];
+
         if (editingTask.id) {
             setTasks(prev => prev.map(t => t.id === editingTask.id ? newTask : t));
         } else {
@@ -188,27 +189,33 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newTask)
             });
-            showToast("Guardado");
+            showToast("Tarea guardada", "success");
         } catch (err) {
             setTasks(originalTasks);
-            alert("Error al guardar");
+            showToast("Error al guardar", "error");
         }
     };
 
-    const deleteTask = async () => {
-        if (!editingTask.id) return;
-        if (confirm("¿Eliminar?")) {
-            const originalTasks = [...tasks];
-            setTasks(prev => prev.filter(t => t.id !== editingTask.id));
-            setIsModalOpen(false);
+    const requestDeleteTask = () => {
+        setConfirmMessage("¿Estás seguro de que quieres eliminar esta tarea? No podrás deshacerlo.");
+        setConfirmCallback(() => executeDeleteTask);
+        setConfirmOpen(true);
+    };
 
-            try {
-                await fetch(`/api/tasks?id=${editingTask.id}`, { method: 'DELETE' });
-                showToast("Eliminado");
-            } catch (err) {
-                setTasks(originalTasks);
-                alert("Error al eliminar");
-            }
+    const executeDeleteTask = async () => {
+        if (!editingTask.id) return;
+
+        const originalTasks = [...tasks];
+        setTasks(prev => prev.filter(t => t.id !== editingTask.id));
+        setIsModalOpen(false);
+        setConfirmOpen(false);
+
+        try {
+            await fetch(`/api/tasks?id=${editingTask.id}`, { method: 'DELETE' });
+            showToast("Tarea eliminada", "info");
+        } catch (err) {
+            setTasks(originalTasks);
+            showToast("Error al eliminar", "error");
         }
     };
 
@@ -219,12 +226,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         const newColId = newColName.toLowerCase().replace(/\s+/g, '_');
         const newStatuses = [...statuses, { id: newColId, name: newColName, color: newColColor }];
 
-        // Update Local
         const newSettings = { ...settings, statuses: newStatuses };
         setSettings(newSettings);
         setIsColModalOpen(false);
 
-        // Update Backend
         try {
             await fetch('/api/dashboards', {
                 method: 'PUT',
@@ -232,29 +237,25 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 body: JSON.stringify({
                     id: dashboardId,
                     name: dashboardName,
-                    description: "", // Ideally fetch desc too, but name/settings is enough for now
+                    description: "",
                     settings: newSettings
                 })
             });
-            showToast("Columna Añadida");
+            showToast("Columna añadida", "success");
         } catch (err) {
-            alert("Error guardando columna");
+            showToast("Error al guardar columna", "error");
         }
     };
 
     if (!settings) return <div style={{ padding: 40, textAlign: 'center' }}>Cargando tablero...</div>;
 
     return (
-        <>
+        <DragDropContext onDragEnd={onDragEnd}>
             <header>
                 <div className="top-bar">
                     <div className="logo-area">
                         <Link href="/" className="btn-ghost" title="Volver al Workspace">
-                            <img
-                                src="https://www.algoritmot.com/wp-content/uploads/2022/08/Recurso-8-1536x245.png"
-                                alt="Algoritmo T"
-                                className="brand-logo"
-                            />
+                            <span style={{ fontSize: 24 }}>←</span>
                         </Link>
                         <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
                             <h1 className="app-title">{settings.icon} {dashboardName}</h1>
@@ -265,11 +266,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         <button className="btn-ghost" onClick={toggleTheme} title="Tema">
                             🌓
                         </button>
-                        <Link href="/" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-                            ✕ Cerrar Tablero
+                        <Link href="/" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>✕</span> <span>Cerrar</span>
                         </Link>
                         <button className="btn-primary" onClick={() => openModal()}>
-                            <span>➕</span> <span style={{ marginLeft: 4 }}>Tarea</span>
+                            <span>➕</span> <span style={{ marginLeft: 4 }}>Nueva Tarea</span>
                         </button>
                     </div>
                 </div>
@@ -318,47 +319,74 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 </div>
 
                 {/* KANBAN */}
-                <div className={`view-section ${activeTab === "kanban" ? "active" : ""}`}>
-                    <div className="kanban-container">
-                        <div className="lanes" style={{ display: 'flex' }}>
-                            {statuses.map((st) => {
-                                const colTasks = filteredTasks.filter((t) => t.status === st.id);
-                                return (
-                                    <div key={st.id} className="lane" style={{ minWidth: 280 }}>
-                                        <div className="lane-head">
-                                            <span style={{ color: st.color }}>● {st.name}</span>
-                                            <span className="counter">{colTasks.length}</span>
-                                        </div>
-                                        <div
-                                            className="drop-zone"
-                                            onDragOver={handleDragOver}
-                                            onDrop={(e) => handleDrop(e, st.id)}
-                                            onDragLeave={handleDragLeave}
-                                        >
-                                            {colTasks.map((t) => (
-                                                <div key={t.id} className={`card p-${t.prio || "med"}`} draggable onDragStart={(e) => handleDragStart(e, t.id)} onClick={() => openModal(t)}>
-                                                    <div className="card-top">
-                                                        <span className="chip">{t.week}</span>
-                                                        {t.gate && <span className="chip gate">⛩️ {t.gate}</span>}
-                                                    </div>
-                                                    <div className="card-title">{t.name}</div>
-                                                    <div className="card-desc">👤 {t.owner.split(" (")[0]}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                {activeTab === "kanban" && (
+                    <div className="view-section active">
+                        <div className="kanban-container">
+                            <div className="lanes" style={{ display: 'flex', height: '100%', alignItems: 'flex-start' }}>
+                                {statuses.map((st) => {
+                                    const colTasks = filteredTasks.filter((t) => t.status === st.id);
+                                    return (
+                                        <div key={st.id} className="lane" style={{ minWidth: 280, display: 'flex', flexDirection: 'column' }}>
+                                            <div className="lane-head">
+                                                <span style={{ color: st.color, fontWeight: 700 }}>● {st.name}</span>
+                                                <span className="counter">{colTasks.length}</span>
+                                            </div>
 
-                            {/* ADD COLUMN BUTTON */}
-                            <div className="lane" style={{ minWidth: 100, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <button className="btn-ghost" onClick={() => setIsColModalOpen(true)} style={{ fontSize: 24, opacity: 0.5 }}>➕</button>
+                                            <Droppable droppableId={st.id}>
+                                                {(provided, snapshot) => (
+                                                    <div
+                                                        ref={provided.innerRef}
+                                                        {...provided.droppableProps}
+                                                        className="drop-zone"
+                                                        style={{
+                                                            flex: 1,
+                                                            background: snapshot.isDraggingOver ? 'var(--panel-hover)' : 'transparent',
+                                                            transition: 'background 0.2s',
+                                                            minHeight: 100
+                                                        }}
+                                                    >
+                                                        {colTasks.map((t, index) => (
+                                                            <Draggable key={t.id} draggableId={t.id.toString()} index={index}>
+                                                                {(provided, snapshot) => (
+                                                                    <div
+                                                                        ref={provided.innerRef}
+                                                                        {...provided.draggableProps}
+                                                                        {...provided.dragHandleProps}
+                                                                        className={`card p-${t.prio || "med"}`}
+                                                                        onClick={() => openModal(t)}
+                                                                        style={{
+                                                                            ...provided.draggableProps.style,
+                                                                            opacity: snapshot.isDragging ? 0.8 : 1,
+                                                                            transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'none'
+                                                                        }}
+                                                                    >
+                                                                        <div className="card-top">
+                                                                            <span className="chip">{t.week}</span>
+                                                                            {t.gate && <span className="chip gate">⛩️ {t.gate}</span>}
+                                                                        </div>
+                                                                        <div className="card-title">{t.name}</div>
+                                                                        <div className="card-desc">👤 {t.owner.split(" (")[0]}</div>
+                                                                    </div>
+                                                                )}
+                                                            </Draggable>
+                                                        ))}
+                                                        {provided.placeholder}
+                                                    </div>
+                                                )}
+                                            </Droppable>
+                                        </div>
+                                    );
+                                })}
+
+                                <div className="lane" style={{ minWidth: 100, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <button className="btn-ghost" onClick={() => setIsColModalOpen(true)} style={{ fontSize: 24, opacity: 0.5 }}>➕</button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                )}
 
-                {/* OTHER VIEWS (Simplified for brevity, ensuring standard TSX structure) */}
+                {/* TIMELINE */}
                 {activeTab === "timeline" && (
                     <div className="view-section active">
                         <div className="timeline-view">
@@ -385,14 +413,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     </div>
                 )}
 
+                {/* ANALYTICS */}
                 {activeTab === "analytics" && settings && (
                     <AnalyticsView tasks={tasks} settings={settings} statuses={statuses} />
                 )}
 
                 {/* TASK MODAL */}
                 {isModalOpen && settings && (
-                    <div className="backdrop" onClick={() => setIsModalOpen(false)}>
-                        <div className="modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="backdrop fade-in" onClick={() => setIsModalOpen(false)}>
+                        <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()}>
                             <div className="m-head">
                                 <h3 style={{ margin: 0, fontSize: 15 }}>{editingTask.id ? "Editar Tarea" : "Nueva Tarea"}</h3>
                                 <button className="btn-ghost" onClick={() => setIsModalOpen(false)}>✕</button>
@@ -400,7 +429,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             <div className="m-body">
                                 <div className="form-row">
                                     <label>Tarea</label>
-                                    <input value={editingTask.name || ""} onChange={(e) => setEditingTask({ ...editingTask, name: e.target.value })} style={{ fontWeight: 600 }} />
+                                    <input value={editingTask.name || ""} onChange={(e) => setEditingTask({ ...editingTask, name: e.target.value })} style={{ fontWeight: 600 }} autoFocus />
                                 </div>
                                 <div className="form-grid">
                                     <div>
@@ -434,21 +463,34 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 </div>
                                 <div className="form-row">
                                     <label>Descripción</label>
-                                    <textarea value={editingTask.desc || ""} onChange={(e) => setEditingTask({ ...editingTask, desc: e.target.value })} />
+                                    <textarea value={editingTask.desc || ""} onChange={(e) => setEditingTask({ ...editingTask, desc: e.target.value })} rows={4} />
                                 </div>
                             </div>
                             <div className="m-foot">
-                                <button className="btn-ghost" style={{ color: "var(--danger)" }} onClick={deleteTask}>Eliminar</button>
-                                <button className="btn-primary" onClick={saveTask}>Guardar</button>
+                                {editingTask.id && (
+                                    <button className="btn-ghost" style={{ color: "var(--danger)" }} onClick={requestDeleteTask}>Eliminar</button>
+                                )}
+                                <button className="btn-primary" onClick={saveTask}>Guardar Tarea</button>
                             </div>
                         </div>
                     </div>
                 )}
 
+                {/* CONFIRM MODAL */}
+                <ConfirmModal
+                    isOpen={confirmOpen}
+                    title="Confirmar Acción"
+                    message={confirmMessage}
+                    onConfirm={confirmCallback || (() => { })}
+                    onCancel={() => setConfirmOpen(false)}
+                    isDestructive={true}
+                    confirmText="Eliminar"
+                />
+
                 {/* COLUMN MODAL */}
                 {isColModalOpen && (
-                    <div className="backdrop" onClick={() => setIsColModalOpen(false)}>
-                        <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 400 }}>
+                    <div className="backdrop fade-in" onClick={() => setIsColModalOpen(false)}>
+                        <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ width: 400 }}>
                             <div className="m-head"><h3 style={{ margin: 0 }}>Nueva Columna</h3><button className="btn-ghost" onClick={() => setIsColModalOpen(false)}>✕</button></div>
                             <div className="m-body">
                                 <div className="form-row">
@@ -470,50 +512,32 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         </div>
                     </div>
                 )}
-
-                {toastMessage && <div id="toast" className="show">{toastMessage}</div>}
             </main>
-        </>
+        </DragDropContext>
     );
 }
 
-// --- ANALYTICS COMPONENT ---
+// Analytics Component (kept strictly same styling/logic)
 function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings: BoardSettings, statuses: StatusColumn[] }) {
-
-    // 1. GLOBAL KPIS
+    // ... (logic reused from previous impl)
     const totalTasks = tasks.length;
-    const endStatusId = statuses[statuses.length - 1].id; // Last column considered "Done"
+    const endStatusId = statuses[statuses.length - 1].id;
     const completedTasks = tasks.filter(t => t.status === endStatusId).length;
     const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
-    // 2. WEEKLY VELOCITY
     const weeklyData = settings.weeks.map(w => {
         const weekTasks = tasks.filter(t => t.week === w.id);
         const done = weekTasks.filter(t => t.status === endStatusId).length;
         const total = weekTasks.length;
-        return {
-            name: w.name.split(' · ')[0], // "W1"
-            total,
-            done,
-            percent: total === 0 ? 0 : (done / total) * 100
-        };
+        return { name: w.name.split(' · ')[0], total, done, percent: total === 0 ? 0 : (done / total) * 100 };
     });
 
-    // 3. WORKLOAD BY OWNER
     const workloadData = settings.owners.map(o => {
         const active = tasks.filter(t => t.owner === o && t.status !== endStatusId).length;
         return { name: o.split(' (')[0], value: active };
     }).sort((a, b) => b.value - a.value);
 
-    // 4. STATUS DISTRIBUTION
-    const statusData = statuses.map(s => {
-        return {
-            ...s,
-            count: tasks.filter(t => t.status === s.id).length
-        };
-    });
-
-    // 5. GATES HEALTH
+    const statusData = statuses.map(s => ({ ...s, count: tasks.filter(t => t.status === s.id).length }));
     const gateData = settings.gates.map(g => {
         const gateTasks = tasks.filter(t => t.gate === g);
         const isClosed = gateTasks.length > 0 && gateTasks.every(t => t.status === endStatusId);
@@ -521,9 +545,8 @@ function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings:
     });
 
     return (
-        <div className="view-section active fade-in">
+        <div className="view-section active animate-fade-in">
             <div className="analytics-grid">
-                {/* KPI CARDS */}
                 <div className="kpi-card">
                     <div className="kpi-label">Progreso Total</div>
                     <div className="kpi-value" style={{ color: 'var(--primary)' }}>{progress}%</div>
@@ -541,7 +564,6 @@ function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings:
                     </div>
                 </div>
 
-                {/* ROW 1: VELOCITY & WORKLOAD */}
                 <div className="chart-card" style={{ gridColumn: 'span 2' }}>
                     <h3>Velocidad Semanal</h3>
                     <div className="chart-container">
@@ -557,7 +579,7 @@ function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings:
                 </div>
 
                 <div className="chart-card">
-                    <h3>Carga de Trabajo (Activa)</h3>
+                    <h3>Carga de Trabajo</h3>
                     <div className="list-chart">
                         {workloadData.map(d => (
                             <div key={d.name} className="lc-row">
@@ -571,13 +593,11 @@ function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings:
                     </div>
                 </div>
 
-                {/* ROW 2: STATUS & GATES */}
                 <div className="chart-card" style={{ gridColumn: 'span 2' }}>
                     <h3>Estado del Proyecto</h3>
                     <div className="status-pill-bar">
                         {statusData.map(s => s.count > 0 && (
-                            <div key={s.id} style={{ flex: s.count, background: s.color, height: 24, position: 'relative' }} title={`${s.name}: ${s.count}`}>
-                            </div>
+                            <div key={s.id} style={{ flex: s.count, background: s.color, height: 24 }} title={`${s.name}: ${s.count}`}></div>
                         ))}
                     </div>
                     <div className="legend">
@@ -602,73 +622,35 @@ function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings:
                     </div>
                 </div>
             </div>
-
             <style jsx>{`
-                .analytics-grid {
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 20px;
-                    padding: 20px 0;
-                }
-                .kpi-card {
-                    background: var(--panel);
-                    padding: 20px;
-                    border-radius: 12px;
-                    border: 1px solid var(--border);
-                    text-align: center;
-                }
+                .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px 0; }
+                .kpi-card { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
                 .kpi-value { font-size: 36px; font-weight: 800; margin: 10px 0; }
                 .kpi-label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
-                
-                .chart-card {
-                    background: var(--panel);
-                    padding: 20px;
-                    border-radius: 12px;
-                    border: 1px solid var(--border);
-                }
+                .chart-card { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
                 .chart-card h3 { margin: 0 0 15px 0; font-size: 16px; opacity: 0.9; }
-
-                /* WEEKLY BAR CHART */
-                .chart-container {
-                    display: flex;
-                    align-items: flex-end;
-                    justify-content: space-between;
-                    height: 150px;
-                    padding-top: 10px;
-                }
+                .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 150px; padding-top: 10px; }
                 .bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; }
                 .bar-bg { width: 12px; height: 100px; background: var(--panel-hover); border-radius: 6px; display: flex; align-items: flex-end; overflow: hidden; }
                 .bar-label { font-size: 10px; margin-top: 8px; color: var(--text-dim); }
                 .bar-fill { width: 100%; transition: height 0.5s ease; border-radius: 6px; }
-
-                /* WORKLOAD LIST */
                 .list-chart { display: flex; flex-direction: column; gap: 8px; }
                 .lc-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
                 .lc-label { width: 80px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 .lc-bar-area { flex: 1; height: 8px; background: var(--panel-hover); border-radius: 4px; overflow: hidden; }
                 .lc-bar { height: 100%; background: #f59e0b; border-radius: 4px; }
                 .lc-val { width: 20px; text-align: right; font-weight: bold; }
-
-                /* STATUS PILL */
                 .status-pill-bar { display: flex; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
                 .legend { display: flex; flex-wrap: wrap; gap: 15px; font-size: 12px; }
                 .l-item { display: flex; align-items: center; gap: 6px; }
                 .dot { width: 8px; height: 8px; borderRadius: 50%; }
-
-                /* GATES */
                 .gate-list { display: flex; flex-direction: column; gap: 10px; }
                 .gate-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: var(--panel-hover); border: 1px solid transparent; }
                 .gate-item.closed { background: #ecfdf5; border-color: #10b981; color: #064e3b; }
                 .gate-item.open { opacity: 0.7; }
                 .g-name { flex: 1; font-weight: 600; }
                 .g-status { font-size: 11px; text-transform: uppercase; }
-                 
-                /* Responsive */
-                 @media (max-width: 900px) {
-                    .analytics-grid { grid-template-columns: 1fr; }
-                    .chart-card { grid-column: span 1 !important; }
-                }
-
+                 @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } .chart-card { grid-column: span 1 !important; } }
             `}</style>
         </div>
     );

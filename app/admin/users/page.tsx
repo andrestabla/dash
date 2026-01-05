@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from 'next/link';
+import { useToast } from "@/components/ToastProvider";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface User {
     id: string;
@@ -16,6 +18,10 @@ export default function AdminUsersPage() {
     const [newPassword, setNewPassword] = useState("");
     const [newRole, setNewRole] = useState("user");
     const [isCreating, setIsCreating] = useState(false);
+
+    const { showToast } = useToast();
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
 
     useEffect(() => {
         fetchUsers();
@@ -41,15 +47,22 @@ export default function AdminUsersPage() {
             setNewEmail("");
             setNewPassword("");
             fetchUsers();
+            showToast("Usuario creado", "success");
         } else {
-            alert("Error creating user");
+            showToast("Error al crear usuario", "error");
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure?")) return;
+    const requestDelete = (id: string) => {
+        setConfirmCallback(() => () => executeDelete(id));
+        setConfirmOpen(true);
+    };
+
+    const executeDelete = async (id: string) => {
         await fetch(`/api/admin/users?id=${id}`, { method: "DELETE" });
         fetchUsers();
+        setConfirmOpen(false);
+        showToast("Usuario eliminado", "info");
     };
 
     return (
@@ -119,13 +132,22 @@ export default function AdminUsersPage() {
                                 </td>
                                 <td style={{ fontSize: 13, color: "var(--text-dim)" }}>{new Date(u.created_at).toLocaleDateString()}</td>
                                 <td style={{ textAlign: "right" }}>
-                                    <button className="btn-ghost" style={{ color: "#ef4444", fontSize: 12 }} onClick={() => handleDelete(u.id)}>Eliminar</button>
+                                    <button className="btn-ghost" style={{ color: "#ef4444", fontSize: 12 }} onClick={() => requestDelete(u.id)}>Eliminar</button>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+
+            <ConfirmModal
+                isOpen={confirmOpen}
+                title="Eliminar Usuario"
+                message="¿Eliminar este usuario permanentemente? Perderá acceso inmediato."
+                onConfirm={confirmCallback || (() => { })}
+                onCancel={() => setConfirmOpen(false)}
+                isDestructive={true}
+            />
         </div>
     );
 }

@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useToast } from "@/components/ToastProvider";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface Dashboard {
     id: string;
@@ -39,6 +41,11 @@ export default function Workspace() {
     const [isCreating, setIsCreating] = useState(false);
     const [wizardStep, setWizardStep] = useState(1);
     const router = useRouter();
+    const { showToast } = useToast();
+
+    // Confirm Modal
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
 
     // Wizard State
     const [wizName, setWizName] = useState("");
@@ -137,16 +144,22 @@ export default function Workspace() {
         setIsCreating(true);
     };
 
-    const deleteDash = async (e: React.MouseEvent, id: string) => {
+    const deleteDash = (e: React.MouseEvent, id: string) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!confirm("⚠️ ¿Eliminar este tablero y TODAS sus tareas? Esta acción no se puede deshacer.")) return;
 
+        setConfirmCallback(() => () => executeDelete(id));
+        setConfirmOpen(true);
+    };
+
+    const executeDelete = async (id: string) => {
         try {
             await fetch(`/api/dashboards?id=${id}`, { method: 'DELETE' });
             setDashboards(dashboards.filter(d => d.id !== id));
+            setConfirmOpen(false);
+            showToast("Tablero eliminado", "info");
         } catch (err) {
-            alert("Error eliminando");
+            showToast("Error eliminando tablero", "error");
         }
     };
 
@@ -392,6 +405,16 @@ export default function Workspace() {
                     </div>
                 )}
             </div>
+            {/* CONFIRM MODAL */}
+            <ConfirmModal
+                isOpen={confirmOpen}
+                title="Eliminar Proyecto"
+                message="¿Estás seguro de que quieres eliminar este tablero y todas sus tareas? Esta acción es irreversible."
+                onConfirm={confirmCallback || (() => { })}
+                onCancel={() => setConfirmOpen(false)}
+                isDestructive={true}
+                confirmText="Eliminar Definitivamente"
+            />
         </div>
     );
 }
