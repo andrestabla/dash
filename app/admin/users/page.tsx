@@ -92,34 +92,34 @@ export default function AdminUsersPage() {
                 </div>
             )}
 
-            <div style={{ background: "var(--panel)", borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div className="glass-panel" style={{ overflow: "hidden", padding: 0 }}>
+                <table className="data-table">
                     <thead>
-                        <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left", background: "var(--panel-hover)" }}>
-                            <th style={{ padding: 15 }}>Email</th>
-                            <th style={{ padding: 15 }}>Role</th>
-                            <th style={{ padding: 15 }}>Creado</th>
-                            <th style={{ padding: 15, textAlign: "right" }}>Acciones</th>
+                        <tr>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Creado</th>
+                            <th style={{ textAlign: "right" }}>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {users.map(u => (
-                            <tr key={u.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                                <td style={{ padding: 15 }}>{u.email}</td>
-                                <td style={{ padding: 15 }}>
+                            <tr key={u.id}>
+                                <td>{u.email}</td>
+                                <td>
                                     <span style={{
                                         padding: "4px 8px",
                                         borderRadius: 20,
-                                        background: u.role === 'admin' ? '#ecfdf5' : '#eff6ff',
-                                        color: u.role === 'admin' ? '#064e3b' : '#1e3a8a',
-                                        fontSize: 12, fontWeight: 600
+                                        background: u.role === 'admin' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                                        color: u.role === 'admin' ? '#10b981' : '#3b82f6',
+                                        fontSize: 11, fontWeight: 700, letterSpacing: '0.05em'
                                     }}>
                                         {u.role.toUpperCase()}
                                     </span>
                                 </td>
-                                <td style={{ padding: 15, fontSize: 13, color: "var(--text-dim)" }}>{new Date(u.created_at).toLocaleDateString()}</td>
-                                <td style={{ padding: 15, textAlign: "right" }}>
-                                    <button className="btn-ghost" style={{ color: "var(--danger)", fontSize: 12 }} onClick={() => handleDelete(u.id)}>Eliminar</button>
+                                <td style={{ fontSize: 13, color: "var(--text-dim)" }}>{new Date(u.created_at).toLocaleDateString()}</td>
+                                <td style={{ textAlign: "right" }}>
+                                    <button className="btn-ghost" style={{ color: "#ef4444", fontSize: 12 }} onClick={() => handleDelete(u.id)}>Eliminar</button>
                                 </td>
                             </tr>
                         ))}
