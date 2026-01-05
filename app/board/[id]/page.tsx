@@ -3,9 +3,6 @@
 import { useState, useEffect, useMemo, use } from "react";
 import Link from 'next/link';
 
-/* CONFIG */
-const KEY = "4shine_roadmap_v8_brand";
-
 type TaskStatus = "todo" | "doing" | "review" | "done";
 
 interface Task {
@@ -22,6 +19,13 @@ interface Task {
     dashboard_id: string;
 }
 
+interface BoardSettings {
+    weeks: { id: string; name: string }[];
+    owners: string[];
+    types: string[];
+    gates: string[];
+}
+
 const STATUSES = [
     { id: "todo", name: "Por hacer", color: "#64748b" },
     { id: "doing", name: "En proceso", color: "#3b82f6" },
@@ -29,33 +33,33 @@ const STATUSES = [
     { id: "done", name: "Hecho", color: "#10b981" },
 ];
 
-const WEEKS = [
-    { id: "W1", name: "W1 · Inicio" },
-    { id: "W2", name: "W2 · Extracción" },
-    { id: "W3", name: "W3 · Gate A" },
-    { id: "W4", name: "W4 · Gate B" },
-    { id: "W5", name: "W5 · Activación" },
-    { id: "W6", name: "W6 · Producción" },
-    { id: "W7", name: "W7 · Gate C" },
-    { id: "W8", name: "W8 · Gate D" },
-    { id: "W9", name: "W9 · Cierre" },
-];
-
-const TYPES = ["Gestión", "Inventario", "Metodología", "Evaluación", "Producción", "Comité", "IP-Ready"];
-const OWNERS = ["Andrés Tabla (Metodólogo)", "Carmenza Alarcón (Cliente)"];
-
 export default function BoardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: dashboardId } = use(params);
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [settings, setSettings] = useState<BoardSettings | null>(null);
+    const [dashboardName, setDashboardName] = useState("Roadmap");
     const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Partial<Task>>({});
     const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-    // Load Data
+    // 1. Load Dashboard Settings
     useEffect(() => {
         if (!dashboardId) return;
+
+        // Fetch Dashboard details (Settings)
+        fetch(`/api/dashboards/${dashboardId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.settings) {
+                    setSettings(data.settings);
+                    setDashboardName(data.name);
+                }
+            })
+            .catch(err => console.error("Failed to load dashboard settings", err));
+
+        // Fetch Tasks
         fetch(`/api/tasks?dashboardId=${dashboardId}`)
             .then(res => res.json())
             .then(data => {
@@ -127,14 +131,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     };
 
     const openModal = (task?: Task) => {
+        if (!settings) return;
         setEditingTask(
             task || {
                 status: "todo",
-                week: "W1",
+                week: settings.weeks[0]?.id || "",
                 prio: "med",
                 gate: "",
-                type: "Metodología",
-                owner: OWNERS[0],
+                type: settings.types[0] || "",
+                owner: settings.owners[0] || "",
                 dashboard_id: dashboardId
             }
         );
@@ -150,7 +155,6 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             dashboard_id: dashboardId
         };
 
-        // Optimistic Update
         const originalTasks = [...tasks];
         if (editingTask.id) {
             setTasks(prev => prev.map(t => t.id === editingTask.id ? newTask : t));
@@ -176,7 +180,6 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const deleteTask = async () => {
         if (!editingTask.id) return;
         if (confirm("¿Eliminar?")) {
-            // Optimistic
             const originalTasks = [...tasks];
             setTasks(prev => prev.filter(t => t.id !== editingTask.id));
             setIsModalOpen(false);
@@ -193,18 +196,20 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
     // Analytics Calcs
     const analyticsData = useMemo(() => {
+        if (!settings) return null;
+
         const total = tasks.length;
         const done = tasks.filter(t => t.status === "done").length;
         const percent = total ? Math.round((done / total) * 100) : 0;
 
-        const weekly = WEEKS.map(w => {
+        const weekly = settings.weeks.map(w => {
             const wTasks = tasks.filter(t => t.week === w.id);
             const wDone = wTasks.filter(t => t.status === "done").length;
             const wPct = wTasks.length ? Math.round((wDone / wTasks.length) * 100) : 0;
             return { ...w, percent: wPct, hasTasks: wTasks.length > 0 };
         });
 
-        const gates = ["A", "B", "C", "D"].map(g => {
+        const gates = (settings.gates || []).map(g => {
             const gTasks = tasks.filter(t => t.gate === g);
             const allDone = gTasks.length > 0 && gTasks.every(t => t.status === "done");
             return { gate: g, open: allDone, hasTasks: gTasks.length > 0 };
@@ -223,7 +228,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             .slice(0, 4);
 
         return { total, done, percent, weekly, gates, sortedOwners, maxLoad, upcoming };
-    }, [tasks]);
+    }, [tasks, settings]);
+
+    if (!settings) return <div style={{ padding: 40, textAlign: 'center' }}>Cargando tablero...</div>;
 
     return (
         <>
@@ -231,16 +238,14 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 <div className="top-bar">
                     <div className="logo-area">
                         <Link href="/" className="btn-ghost" title="Volver al Workspace">
-                            ←
+                            <img
+                                src="https://www.algoritmot.com/wp-content/uploads/2022/08/Recurso-8-1536x245.png"
+                                alt="Algoritmo T"
+                                className="brand-logo"
+                            />
                         </Link>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                            src="https://www.algoritmot.com/wp-content/uploads/2022/08/Recurso-8-1536x245.png"
-                            alt="Algoritmo T"
-                            className="brand-logo"
-                        />
                         <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
-                            <h1 className="app-title">Roadmap 4Shine</h1>
+                            <h1 className="app-title">{dashboardName}</h1>
                             <p className="app-sub">TABLERO DE TRABAJO</p>
                         </div>
                     </div>
@@ -248,6 +253,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         <button className="btn-ghost" onClick={toggleTheme} title="Tema">
                             🌓
                         </button>
+                        <Link href="/" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+                            ✕ Cerrar Tablero
+                        </Link>
                         <button className="btn-primary" onClick={() => openModal()}>
                             <span>➕</span> <span style={{ marginLeft: 4 }}>Tarea</span>
                         </button>
@@ -270,7 +278,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             onChange={(e) => setFilters({ ...filters, week: e.target.value })}
                         >
                             <option value="">📅 Semanas</option>
-                            {WEEKS.map((w) => (
+                            {settings.weeks.map((w) => (
                                 <option key={w.id} value={w.id}>
                                     {w.name}
                                 </option>
@@ -282,7 +290,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
                         >
                             <option value="">👤 Todos</option>
-                            {OWNERS.map((o) => (
+                            {settings.owners.map((o) => (
                                 <option key={o} value={o}>
                                     {o}
                                 </option>
@@ -359,7 +367,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {/* TIMELINE */}
                 <div className={`view-section ${activeTab === "timeline" ? "active" : ""}`}>
                     <div className="timeline-view">
-                        {WEEKS.map((w) => {
+                        {settings.weeks.map((w) => {
                             const weekTasks = filteredTasks.filter(t => t.week === w.id);
                             if (weekTasks.length === 0) return null;
                             return (
@@ -383,82 +391,83 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
                 {/* ANALYTICS */}
                 <div className={`view-section ${activeTab === "analytics" ? "active" : ""}`}>
-                    <div className="analytics-grid">
-                        <div className="a-card">
-                            <h3>🚀 Avance Global</h3>
-                            <div style={{ fontSize: 36, fontWeight: 800, color: 'var(--primary)', textAlign: 'center', margin: '10px 0' }}>
-                                <span>{analyticsData.percent}%</span>
+                    {analyticsData && (
+                        <div className="analytics-grid">
+                            <div className="a-card">
+                                <h3>🚀 Avance Global</h3>
+                                <div style={{ fontSize: 36, fontWeight: 800, color: 'var(--primary)', textAlign: 'center', margin: '10px 0' }}>
+                                    <span>{analyticsData.percent}%</span>
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center' }}>
+                                    <span>{analyticsData.done}</span> tareas completadas de <span>{analyticsData.total}</span>
+                                </div>
                             </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center' }}>
-                                <span>{analyticsData.done}</span> tareas completadas de <span>{analyticsData.total}</span>
-                            </div>
-                        </div>
 
-                        <div className="a-card" style={{ gridColumn: "span 2" }}>
-                            <h3>📅 Progreso Semanal</h3>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                {analyticsData.weekly.map(w => w.hasTasks && (
-                                    <div key={w.id} style={{ fontSize: 11 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                                            <span>{w.id}</span> <span>{w.percent}%</span>
+                            <div className="a-card" style={{ gridColumn: "span 2" }}>
+                                <h3>📅 Progreso Semanal</h3>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    {analyticsData.weekly.map(w => w.hasTasks && (
+                                        <div key={w.id} style={{ fontSize: 11 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                                                <span>{w.id}</span> <span>{w.percent}%</span>
+                                            </div>
+                                            <div className="prog-track">
+                                                <div className="prog-fill" style={{ width: `${w.percent}%`, background: w.percent === 100 ? 'var(--success)' : 'var(--primary)' }}></div>
+                                            </div>
                                         </div>
-                                        <div className="prog-track">
-                                            <div className="prog-fill" style={{ width: `${w.percent}%`, background: w.percent === 100 ? 'var(--success)' : 'var(--primary)' }}></div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="a-card">
+                                <h3>⛩️ Estado Gates</h3>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    {analyticsData.gates.map(g => g.hasTasks && (
+                                        <div key={g.gate} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: 6, background: 'var(--panel-hover)', borderRadius: 6, alignItems: 'center' }}>
+                                            <strong>Gate {g.gate}</strong>
+                                            <span className={`chip ${g.open ? 'gate' : ''}`} style={g.open ? { color: 'var(--success)', background: '#ecfdf5' } : {}}>
+                                                {g.open ? '🔓 Abierto' : '🔒 Pendiente'}
+                                            </span>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="a-card">
-                            <h3>⛩️ Estado Gates</h3>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                {analyticsData.gates.map(g => g.hasTasks && (
-                                    <div key={g.gate} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: 6, background: 'var(--panel-hover)', borderRadius: 6, alignItems: 'center' }}>
-                                        <strong>Gate {g.gate}</strong>
-                                        <span className={`chip ${g.open ? 'gate' : ''}`} style={g.open ? { color: 'var(--success)', background: '#ecfdf5' } : {}}>
-                                            {g.open ? '🔓 Abierto' : '🔒 Pendiente'}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="a-card" style={{ gridColumn: "span 2" }}>
-                            <h3>⚖️ Carga (Pendientes)</h3>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                {analyticsData.sortedOwners.length === 0 && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>¡Sin tareas pendientes!</div>}
-                                {analyticsData.sortedOwners.map(([name, count]) => (
-                                    <div key={name} style={{ marginBottom: 6 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
-                                            <span>{name.split(" (")[0]}</span>
-                                            <span>{count}</span>
+                            <div className="a-card" style={{ gridColumn: "span 2" }}>
+                                <h3>⚖️ Carga (Pendientes)</h3>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    {analyticsData.sortedOwners.length === 0 && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>¡Sin tareas pendientes!</div>}
+                                    {analyticsData.sortedOwners.map(([name, count]) => (
+                                        <div key={name} style={{ marginBottom: 6 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                                                <span>{name.split(" (")[0]}</span>
+                                                <span>{count}</span>
+                                            </div>
+                                            <div className="prog-track"><div className="prog-fill warn" style={{ width: `${(count / analyticsData.maxLoad) * 100}%` }}></div></div>
                                         </div>
-                                        <div className="prog-track"><div className="prog-fill warn" style={{ width: `${(count / analyticsData.maxLoad) * 100}%` }}></div></div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="a-card" style={{ gridColumn: "span 2" }}>
-                            <h3>⏰ Próximos Vencimientos</h3>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                {analyticsData.upcoming.length === 0 && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Sin vencimientos cercanos</div>}
-                                {analyticsData.upcoming.map(t => (
-                                    <div key={t.id} style={{ background: 'var(--panel-hover)', border: '1px solid var(--border)', padding: 8, borderRadius: 6, fontSize: 11, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ color: 'var(--text)', fontWeight: 600 }}>{t.due.slice(5)}</span>
-                                        <span style={{ color: 'var(--text-dim)', textAlign: 'right', maxWidth: 140, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
-                                    </div>
-                                ))}
+                            <div className="a-card" style={{ gridColumn: "span 2" }}>
+                                <h3>⏰ Próximos Vencimientos</h3>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    {analyticsData.upcoming.length === 0 && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Sin vencimientos cercanos</div>}
+                                    {analyticsData.upcoming.map(t => (
+                                        <div key={t.id} style={{ background: 'var(--panel-hover)', border: '1px solid var(--border)', padding: 8, borderRadius: 6, fontSize: 11, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ color: 'var(--text)', fontWeight: 600 }}>{t.due.slice(5)}</span>
+                                            <span style={{ color: 'var(--text-dim)', textAlign: 'right', maxWidth: 140, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
-                {isModalOpen && (
+                {isModalOpen && settings && (
                     <div className="backdrop" onClick={() => setIsModalOpen(false)}>
                         <div className="modal" onClick={(e) => e.stopPropagation()}>
-                            {/* Modal Content - same as before but uses editingTask state */}
                             <div className="m-head">
                                 <h3 style={{ margin: 0, fontSize: 15 }}>{editingTask.id ? "Editar Tarea" : "Nueva Tarea"}</h3>
                                 <button className="btn-ghost" onClick={() => setIsModalOpen(false)}>
@@ -494,7 +503,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                             value={editingTask.week}
                                             onChange={(e) => setEditingTask({ ...editingTask, week: e.target.value })}
                                         >
-                                            {WEEKS.map((w) => (
+                                            {settings.weeks.map((w) => (
                                                 <option key={w.id} value={w.id}>
                                                     {w.name}
                                                 </option>
@@ -507,7 +516,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                             value={editingTask.owner}
                                             onChange={(e) => setEditingTask({ ...editingTask, owner: e.target.value })}
                                         >
-                                            {OWNERS.map((o) => (
+                                            {settings.owners.map((o) => (
                                                 <option key={o} value={o}>
                                                     {o}
                                                 </option>
@@ -520,7 +529,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                             value={editingTask.type}
                                             onChange={(e) => setEditingTask({ ...editingTask, type: e.target.value })}
                                         >
-                                            {TYPES.map((t) => (
+                                            {settings.types.map((t) => (
                                                 <option key={t} value={t}>
                                                     {t}
                                                 </option>
@@ -545,10 +554,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                             onChange={(e) => setEditingTask({ ...editingTask, gate: e.target.value })}
                                         >
                                             <option value="">-</option>
-                                            <option value="A">Gate A</option>
-                                            <option value="B">Gate B</option>
-                                            <option value="C">Gate C</option>
-                                            <option value="D">Gate D</option>
+                                            {(settings.gates || ["A", "B", "C", "D"]).map((g) => (
+                                                <option key={g} value={g}>
+                                                    Gate {g}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>
@@ -583,8 +593,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         </div>
                     </div>
                 )}
-            </main>
-            {toastMessage && <div id="toast" className="show">{toastMessage}</div>}
-        </>
-    );
+                {toastMessage && <div id="toast" className="show">{toastMessage}</div>}
+            </>
+            );
 }

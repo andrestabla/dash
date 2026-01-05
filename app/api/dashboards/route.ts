@@ -15,14 +15,14 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { name, description } = body;
+        const { name, description, settings } = body;
 
         if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
         const client = await pool.connect();
         const result = await client.query(
-            'INSERT INTO dashboards (name, description) VALUES ($1, $2) RETURNING *',
-            [name, description || '']
+            'INSERT INTO dashboards (name, description, settings) VALUES ($1, $2, $3) RETURNING *',
+            [name, description || '', settings || {}]
         );
         client.release();
 
