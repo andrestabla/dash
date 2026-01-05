@@ -3,37 +3,49 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/ThemeProvider';
+import { useToast } from '@/components/ToastProvider';
 
 export default function ProfilePage() {
     const { theme, toggleTheme } = useTheme();
+    const { showToast } = useToast();
+
     const [user, setUser] = useState({ name: '', email: '' });
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(true);
-    const [msg, setMsg] = useState('');
 
     useEffect(() => {
         fetch('/api/users/profile')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to load");
+                return res.json();
+            })
             .then(data => {
-                if (data.error) return;
                 setUser(data);
+                setLoading(false);
+            })
+            .catch(() => {
+                showToast("Error al cargar perfil", "error");
                 setLoading(false);
             });
     }, []);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        const res = await fetch('/api/users/profile', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: user.name, password })
-        });
-        if (res.ok) {
-            setMsg('¡Perfil actualizado correctamente!');
-            setPassword('');
-            setTimeout(() => setMsg(''), 3000);
-        } else {
-            alert('Error al actualizar');
+        try {
+            const res = await fetch('/api/users/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: user.name, password })
+            });
+
+            if (res.ok) {
+                showToast('¡Perfil actualizado correctamente!', 'success');
+                setPassword('');
+            } else {
+                throw new Error("Update failed");
+            }
+        } catch (error) {
+            showToast('Error al actualizar el perfil', 'error');
         }
     };
 
@@ -69,8 +81,6 @@ export default function ProfilePage() {
                         <input className="input-glass" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Dejar en blanco para no cambiar" />
                         <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: '8px 0 0 0' }}>Mínimo 6 caracteres recomendado.</p>
                     </div>
-
-                    {msg && <div style={{ color: '#10b981', fontWeight: 600, textAlign: 'center' }}>{msg}</div>}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                         <button type="submit" className="btn-primary">Guardar Cambios</button>
