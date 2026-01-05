@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getPool } from '@/lib/db';
+import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
 export async function GET() {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const pool = getPool();
     const result = await pool.query('SELECT id, name, email FROM users WHERE id = $1', [session.userId]);
 
     if (result.rows.length === 0) return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -19,7 +18,6 @@ export async function PUT(req: Request) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { name, password } = await req.json();
-    const pool = getPool();
 
     if (password) {
         const hashedPassword = await bcrypt.hash(password, 10);
