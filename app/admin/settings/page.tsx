@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ToastProvider";
 import { Mail, Shield, Server, User, Key, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react";
