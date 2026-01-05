@@ -1,14 +1,26 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const dashboardId = searchParams.get('dashboardId');
+
         const client = await pool.connect();
-        // Assuming table 'tasks' exists
-        const result = await client.query('SELECT id, week, name, status, owner, type, prio, gate, due, description as desc FROM tasks ORDER BY id ASC');
+        let query = 'SELECT id, week, name, status, owner, type, prio, gate, due, description as desc, dashboard_id FROM tasks';
+        const params: any[] = [];
+
+        if (dashboardId) {
+            query += ' WHERE dashboard_id = $1';
+            params.push(dashboardId);
+        }
+
+        query += ' ORDER BY id ASC';
+
+        const result = await client.query(query, params);
         const tasks = result.rows.map(row => ({
             ...row,
-            id: Number(row.id) // Ensure ID is number (pg returns string for bigint)
+            id: Number(row.id)
         }));
         client.release();
 
@@ -22,13 +34,15 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { id, week, name, status, owner, type, prio, gate, due, desc } = body;
+        const { id, week, name, status, owner, type, prio, gate, due, desc, dashboard_id } = body;
+
+        if (!dashboard_id) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
 
         const client = await pool.connect();
 
         const query = `
-      INSERT INTO tasks (id, week, name, status, owner, type, prio, gate, due, description)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO tasks (id, week, name, status, owner, type, prio, gate, due, description, dashboard_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       ON CONFLICT (id) DO UPDATE SET
         week = EXCLUDED.week,
         name = EXCLUDED.name,
@@ -38,10 +52,11 @@ export async function POST(request: Request) {
         prio = EXCLUDED.prio,
         gate = EXCLUDED.gate,
         due = EXCLUDED.due,
-        description = EXCLUDED.description
+        description = EXCLUDED.description,
+        dashboard_id = EXCLUDED.dashboard_id
     `;
 
-        await client.query(query, [id, week, name, status, owner, type, prio, gate, due, desc]);
+        await client.query(query, [id, week, name, status, owner, type, prio, gate, due, desc, dashboard_id]);
         client.release();
 
         return NextResponse.json({ message: 'Task saved' }, { status: 201 });
