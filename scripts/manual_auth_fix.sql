@@ -8,15 +8,12 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- 2. Insertar Admin (Password: admin123)
--- El hash es generado con bcrypt para 'admin123'
+-- Hash generado: $2b$10$PzsiA/14UnT3yxavgKfIwOZm/pc4UJcaKRPLxjNBJk6cKlRBoy/AO
 INSERT INTO users (email, password, role) 
-VALUES ('proyectos@algoritmot.com', '$2a$10$X7V.j5g.g5qg5qg5qg5qg.X7V.j5g.g5qg5qg5qg5qg', 'admin')
+VALUES ('proyectos@algoritmot.com', '$2b$10$PzsiA/14UnT3yxavgKfIwOZm/pc4UJcaKRPLxjNBJk6cKlRBoy/AO', 'admin')
 ON CONFLICT (email) DO NOTHING;
 
--- NOTA: El hash real de 'admin123' es diferente cada vez por la sal (salt), 
--- pero aquí te dejo uno válido generado previamente para asegurar que funcione:
--- $2a$10$wWwBPLx.5/11.5/11.5/11.5/11.5/11.5/11.5/11.5/11 (ejemplo ficticio)
-
--- Mejor usaremos un hash real generado en este momento:
--- hash de 'admin123' -> $2a$10$r.F.d.F.d.F.d.F.d.F.d.F.d.F.d.F.d.F.d.F.d.F.d.F.d
--- (Voy a generar uno real con el comando node en el siguiente paso para ponerlo en el archivo final)
+-- Instrucciones:
+-- 1. Copia todo este contenido.
+-- 2. Ve a tu consola de Neon (SQL Editor).
+-- 3. Pega y ejecuta (Run).
