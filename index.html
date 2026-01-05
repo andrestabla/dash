@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Roadmap 4Shine · Algoritmo T</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      /* --- TEMA CLARO (Default) --- */
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --panel-hover: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-dim: #64748b;
+      --primary: #2563eb;
+      --primary-glow: rgba(37, 99, 235, 0.1);
+      --success: #10b981; 
+      --warning: #f59e0b; 
+      --danger: #ef4444;
+      --radius: 12px;
+      --font: 'Inter', system-ui, sans-serif;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    /* MODO OSCURO */
+    body.dark {
+      --bg: #0f111a; 
+      --panel: #161b26; 
+      --panel-hover: #1c2333;
+      --border: #232d3f;
+      --text: #e2e8f0; 
+      --text-dim: #94a3b8;
+      --primary: #3b82f6;
+      --shadow-sm: none;
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Reset */
+    *{ box-sizing:border-box; outline:none; -webkit-tap-highlight-color: transparent; }
+    
+    body{
+      margin:0; font-family: var(--font); color: var(--text); background: var(--bg);
+      height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+      transition: background 0.3s, color 0.3s;
+    }
+    
+    /* Scrollbars finos */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    body.dark ::-webkit-scrollbar-thumb { background: #334155; }
+
+    /* HEADER */
+    header{
+      flex: 0 0 auto; background: var(--panel); border-bottom: 1px solid var(--border);
+      padding: 10px 20px; z-index: 20; box-shadow: var(--shadow-sm);
+    }
+    .top-bar{ display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .logo-area{ display:flex; align-items:center; gap:12px; }
+    
+    /* Nuevo estilo para imagen de logo */
+    .brand-logo {
+      height: 38px;
+      width: auto;
+      object-fit: contain;
+      /* Ajuste para modo oscuro si el logo es oscuro, invertimos ligeramente o mantenemos */
+    }
+    
+    .app-title{ font-weight:700; font-size:15px; margin:0; letter-spacing:-0.01em; display:block; }
+    .app-sub{ font-size:11px; color:var(--text-dim); margin:0; display:block; }
+    
+    @media (max-width: 600px) {
+      .app-sub { display: none; }
+      .top-buttons span { display: none; }
+      .brand-logo { height: 32px; }
+    }
+
+    /* BUTTONS */
+    button, input, select {
+      background: var(--panel); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 13px;
+      transition: all 0.2s;
+    }
+    button{ cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:6px; justify-content:center; }
+    button:hover{ transform:translateY(-1px); border-color:var(--text-dim); }
+    button:active{ transform:translateY(0); }
+    .btn-primary{ background: var(--primary); border-color: var(--primary); color: white; }
+    .btn-primary:hover{ background: #1d4ed8; }
+    .btn-ghost{ border-color:transparent; background:transparent; color:var(--text-dim); padding: 6px; }
+    .btn-ghost:hover{ background:var(--panel-hover); color:var(--text); }
+
+    /* MAIN LAYOUT */
+    main{ flex: 1; padding: 16px; overflow: hidden; display: flex; flex-direction: column; width: 100%; position:relative; }
+
+    /* CONTROLS BAR */
+    .controls{ display: flex; gap: 12px; margin-bottom: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .filters{ display:flex; gap:8px; flex:1; min-width: 200px; overflow-x: auto; padding-bottom: 2px; }
+    
+    .tabs{ display: flex; background: var(--panel); padding: 3px; border-radius: 8px; border: 1px solid var(--border); }
+    .tab{
+      padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-dim);
+      white-space: nowrap; transition: all 0.2s; border: 1px solid transparent;
+    }
+    .tab.active{ background: var(--bg); color: var(--primary); border-color: var(--border); box-shadow: var(--shadow-sm); }
+    body.dark .tab.active { background: #2d3748; color: white; }
+
+    /* --- KANBAN --- */
+    .view-section { display: none; height: 100%; overflow: hidden; animation: fadeIn 0.3s ease; }
+    .view-section.active { display: block; }
+    @keyframes fadeIn { from{opacity:0; transform:translateY(5px)} to{opacity:1; transform:translateY(0)} }
+
+    .kanban-container{ height: 100%; overflow-x: auto; overflow-y: hidden; padding-bottom: 5px; }
+    .lanes{ 
+      display: flex; gap: 16px; height: 100%; width: max-content; padding-right: 20px;
+    }
+
+    /* COLUMNAS RESPONSIVAS */
+    .lane{
+      width: 300px; /* Ancho base */
+      display: flex; flex-direction: column;
+      background: #f1f5f9;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 10px; height: 100%;
+      flex-shrink: 0;
+    }
+    body.dark .lane { background: #1a202c; }
+
+    /* MÓVIL */
+    @media (max-width: 768px) {
+      .kanban-container { scroll-snap-type: x mandatory; padding-right: 16px; }
+      .lanes { gap: 12px; padding-right: 16px; }
+      .lane { 
+        width: 85vw;
+        scroll-snap-align: center; 
+      }
+    }
+
+    .lane-head{ display:flex; justify-content:space-between; margin-bottom:10px; font-weight:700; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em; align-items: center; }
+    .counter{ background: rgba(0,0,0,0.06); padding: 2px 8px; border-radius: 10px; font-size:11px; }
+    body.dark .counter { background: rgba(255,255,255,0.1); }
+
+    /* ZONA DE CARDS */
+    .drop-zone{ 
+      flex:1; 
+      overflow-y:auto; 
+      display:flex; 
+      flex-direction:column; 
+      gap:10px; 
+      padding-bottom:60px;
+      min-height: 0; 
+    }
+    .drop-zone.drag-over{ background: var(--primary-glow); border: 2px dashed var(--primary); border-radius: 8px; }
+
+    /* TARJETAS */
+    .card{
+      background: var(--panel); 
+      border: 1px solid var(--border); 
+      border-radius: 8px; padding: 12px;
+      cursor: grab; position:relative; overflow:hidden;
+      box-shadow: var(--shadow-sm);
+      flex-shrink: 0;
+      min-height: fit-content;
+    }
+    .card::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--border); }
+    .card:hover{ transform: translateY(-2px); border-color: var(--primary); box-shadow: var(--shadow-md); z-index:5; }
+    
+    .card.p-high::before{ background: var(--danger); }
+    .card.p-med::before{ background: var(--warning); }
+    .card.p-low::before{ background: var(--success); }
+
+    .card-top{ display:flex; justify-content:space-between; margin-bottom:6px; align-items:center; }
+    .card-title{ font-weight:600; font-size:13px; line-height:1.4; color:var(--text); margin-bottom: 4px; }
+    .card-desc{ font-size:11px; color:var(--text-dim); margin-bottom:8px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    
+    .chips{ display:flex; gap:6px; flex-wrap:wrap; }
+    .chip{ 
+      font-size:10px; padding:2px 6px; border-radius:4px; font-weight: 500;
+      background: #f1f5f9; color:var(--text-dim); border:1px solid var(--border); 
+    }
+    body.dark .chip { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .chip.gate{ background: #eff6ff; color: var(--primary); border-color: #dbeafe; font-weight:700; }
+    body.dark .chip.gate { background: rgba(59,130,246,0.15); color: #93c5fd; border-color: rgba(59,130,246,0.3); }
+
+    /* TIMELINE & ANALYTICS */
+    .timeline-view, .analytics-grid { height: 100%; overflow-y: auto; padding-right: 5px; }
+    .tl-group{ margin-bottom:20px; }
+    .tl-header{ position:sticky; top:0; background:var(--bg); padding:8px 0; border-bottom:1px solid var(--border); margin-bottom:10px; z-index:5; font-weight:700; font-size:13px; color:var(--primary); }
+    .tl-item{ display:flex; gap:10px; background:var(--panel); padding:10px; border-radius:8px; margin-bottom:8px; align-items:center; border:1px solid var(--border); }
+
+    .analytics-grid{ 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px; 
+      grid-auto-rows: min-content; 
+    }
+    @media (max-width: 1100px) { .analytics-grid{ grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 600px) { .analytics-grid{ grid-template-columns: 1fr; } }
+
+    .a-card{ background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; }
+    .a-card h3{ margin:0 0 12px 0; font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px; }
+
+    .prog-track{ height:6px; background:var(--panel-hover); border:1px solid var(--border); border-radius:3px; overflow:hidden; margin-top:4px; }
+    .prog-fill{ height:100%; background:var(--primary); width:0%; transition: width 1s ease; border-radius:3px; }
+    .prog-fill.warn{ background: var(--warning); }
+    
+    /* MODAL */
+    .backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(2px); z-index:50; display:none; align-items:center; justify-content:center; padding: 20px; }
+    .modal{ background: var(--panel); width:100%; max-width:480px; border-radius:16px; border:1px solid var(--border); overflow:hidden; display:flex; flex-direction:column; max-height:90vh; animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes popIn{ from{transform:scale(0.95)} to{transform:scale(1)} }
+    
+    .m-head{ padding:12px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:var(--bg); flex-shrink:0; }
+    .m-body{ padding:16px; overflow-y:auto; flex:1; }
+    .form-row{ margin-bottom:12px; }
+    label{ display:block; font-size:10px; text-transform:uppercase; color:var(--text-dim); margin-bottom:4px; font-weight:700; }
+    .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    textarea{ min-height:80px; resize:vertical; width:100%; }
+    input, select{ width:100%; }
+    .m-foot{ padding:12px 16px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--bg); flex-shrink:0; }
+
+    #toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(100px); background:var(--text); color:var(--bg); padding:10px 20px; border-radius:30px; opacity:0; transition:all 0.3s; z-index:100; font-weight:600; font-size:13px; box-shadow:0 10px 30px rgba(0,0,0,0.3); }
+    #toast.show{ transform:translateX(-50%) translateY(0); opacity:1; }
+  </style>
+</head>
+<body class="">
+
+<header>
+  <div class="top-bar">
+    <div class="logo-area">
+      <img src="https://www.algoritmot.com/wp-content/uploads/2022/08/Recurso-8-1536x245.png" alt="Algoritmo T" class="brand-logo">
+      
+      <div style="margin-left:8px; padding-left:12px; border-left:1px solid var(--border)">
+        <h1 class="app-title">Roadmap 4Shine</h1>
+        <p class="app-sub">Gestión Metodológica · GOBERNANZA</p>
+      </div>
+    </div>
+    <div class="top-buttons" style="display:flex; gap:8px">
+      <button class="btn-ghost" onclick="toggleTheme()" title="Tema">🌓</button>
+      <button class="btn-primary" id="btnAdd"><span>➕</span> <span style="margin-left:4px">Tarea</span></button>
+      <button class="btn-ghost" id="btnExport" title="Exportar JSON">💾</button>
+      <button class="btn-ghost" id="btnImport" title="Importar JSON">📥</button>
+      <input type="file" id="fileInput" hidden accept=".json">
+      <button class="btn-ghost" id="btnReset" title="Reset">🔄</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="controls">
+    <div class="filters">
+      <input id="search" placeholder="🔍 Buscar..." style="min-width:140px">
+      <select id="filterWeek" style="min-width:140px"><option value="">📅 Semanas</option></select>
+      <select id="filterOwner" style="min-width:150px"><option value="">👤 Todos</option></select>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="setTab('kanban')">🧩 Tablero</div>
+      <div class="tab" onclick="setTab('timeline')">🗓️ Lista</div>
+      <div class="tab" onclick="setTab('analytics')">📊 Datos</div>
+    </div>
+  </div>
+
+  <div id="view-kanban" class="view-section active">
+    <div class="kanban-container">
+      <div class="lanes" id="lanes"></div>
+    </div>
+  </div>
+
+  <div id="view-timeline" class="view-section">
+    <div class="timeline-view" id="timeline"></div>
+  </div>
+
+  <div id="view-analytics" class="view-section">
+    <div class="analytics-grid">
+      <div class="a-card">
+        <h3>🚀 Avance Global</h3>
+        <div style="font-size:36px; font-weight:800; color:var(--primary); text-align:center; margin:10px 0;">
+          <span id="statPercent">0%</span>
+        </div>
+        <div style="font-size:12px; color:var(--text-dim); text-align:center">
+          <span id="statDone">0</span> tareas completadas de <span id="statTotal">0</span>
+        </div>
+      </div>
+      
+      <div class="a-card" style="grid-column: span 2;">
+        <h3>📅 Progreso Semanal</h3>
+        <div id="weekProgressContainer" style="display:flex; flex-direction:column; gap:10px"></div>
+      </div>
+
+      <div class="a-card">
+        <h3>⛩️ Estado Gates</h3>
+        <div id="gateList" style="display:flex; flex-direction:column; gap:8px"></div>
+      </div>
+
+      <div class="a-card" style="grid-column: span 2;">
+        <h3>⚖️ Carga (Pendientes)</h3>
+        <div id="workloadChart" style="display:flex; flex-direction:column; gap:8px"></div>
+      </div>
+
+      <div class="a-card" style="grid-column: span 2;">
+        <h3>⏰ Próximos Vencimientos</h3>
+        <div id="upcomingList" style="display:flex; flex-direction:column; gap:8px"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="backdrop" id="modal">
+  <div class="modal">
+    <div class="m-head">
+      <h3 id="mTitle" style="margin:0; font-size:15px">Editar Tarea</h3>
+      <button class="btn-ghost" onclick="closeModal()">✕</button>
+    </div>
+    <div class="m-body">
+      <div class="form-row">
+        <label>Tarea</label>
+        <input id="mName" style="font-weight:600">
+      </div>
+      <div class="form-grid">
+        <div><label>Estado</label><select id="mStatus"></select></div>
+        <div><label>Semana</label><select id="mWeek"></select></div>
+        <div><label>Responsable</label><select id="mOwner"></select></div>
+        <div><label>Tipo</label><select id="mType"></select></div>
+        <div><label>Prioridad</label><select id="mPrio"><option value="high">🔴 Alta</option><option value="med">🟡 Media</option><option value="low">🟢 Baja</option></select></div>
+        <div><label>Gate</label><select id="mGate"><option value="">-</option><option value="A">Gate A</option><option value="B">Gate B</option><option value="C">Gate C</option><option value="D">Gate D</option></select></div>
+      </div>
+      <div class="form-row" style="margin-top:12px">
+        <label>Fecha Objetivo</label>
+        <input type="date" id="mDue">
+      </div>
+      <div class="form-row">
+        <label>Descripción</label>
+        <textarea id="mDesc"></textarea>
+      </div>
+    </div>
+    <div class="m-foot">
+      <button class="btn-ghost" style="color:var(--danger)" onclick="deleteTask()">Eliminar</button>
+      <button class="btn-primary" onclick="saveTask()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast">Notificación</div>
+
+<script>
+  /* CONFIG */
+  const KEY = "4shine_roadmap_v8_brand";
+  const STATUSES = [
+    {id:"todo", name:"Por hacer", color:"#64748b"},
+    {id:"doing", name:"En proceso", color:"#3b82f6"},
+    {id:"review", name:"Revisión", color:"#f59e0b"},
+    {id:"done", name:"Hecho", color:"#10b981"}
+  ];
+  const WEEKS = [
+    {id:"W1", name:"W1 · Inicio (Ene 05-09)"},
+    {id:"W2", name:"W2 · Extracción (Ene 12-16)"},
+    {id:"W3", name:"W3 · Gate A (Ene 19-23)"},
+    {id:"W4", name:"W4 · Gate B (Ene 26-30)"},
+    {id:"W5", name:"W5 · Activación (Feb 02-06)"},
+    {id:"W6", name:"W6 · Producción (Feb 09-13)"},
+    {id:"W7", name:"W7 · Gate C (Feb 16-20)"},
+    {id:"W8", name:"W8 · Gate D (Feb 23-27)"},
+    {id:"W9", name:"W9 · Cierre (Mar 02-06)"}
+  ];
+  const TYPES = ["Gestión", "Inventario", "Metodología", "Evaluación", "Producción", "Comité", "IP-Ready"];
+  
+  // ROLES ESTRICTOS
+  const OWNERS = [
+    "Andrés Tabla (Metodólogo)",
+    "Carmenza Alarcón (Cliente)"
+  ];
+  
+  let tasks = [];
+
+  /* INIT */
+  function init(){
+    const stored = localStorage.getItem(KEY);
+    tasks = stored ? JSON.parse(stored) : seed();
+    
+    // Selects
+    const statusSel = document.getElementById("mStatus");
+    STATUSES.forEach(s => statusSel.add(new Option(s.name, s.id)));
+    
+    const weekSel = document.getElementById("mWeek");
+    const filterWeek = document.getElementById("filterWeek");
+    WEEKS.forEach(w => {
+      weekSel.add(new Option(w.name, w.id));
+      filterWeek.add(new Option(w.name, w.id));
+    });
+
+    const typeSel = document.getElementById("mType");
+    TYPES.forEach(t => typeSel.add(new Option(t, t)));
+
+    // POBLAR RESPONSABLES (SELECT CERRADO)
+    const ownerSel = document.getElementById("mOwner");
+    OWNERS.forEach(o => ownerSel.add(new Option(o, o)));
+
+    render();
+  }
+
+  // --- BASE DE DATOS ACTUALIZADA CON SOLO 2 ROLES ---
+  function seed(){
+    return [
+      // SEMANA 1
+      {id:101, week:"W1", name:"🚀 Sesión 1: Kickoff", status:"done", owner:"Andrés Tabla (Metodólogo)", type:"Gestión", prio:"high", gate:"", due:"2026-01-06", desc:"Facilitación de alcance y entregables."},
+      {id:102, week:"W1", name:"🗂️ Mapeo y acceso a fuentes", status:"doing", owner:"Andrés Tabla (Metodólogo)", type:"Inventario", prio:"high", gate:"", due:"2026-01-09", desc:"Consolidación de videos, libros, PDFs."},
+      {id:103, week:"W1", name:"Crear estructura repositorio", status:"doing", owner:"Andrés Tabla (Metodólogo)", type:"Gestión", prio:"high", gate:"", due:"2026-01-09", desc:"Estructura carpetas y nomenclatura."},
+      {id:104, week:"W1", name:"Taxonomía inicial", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Metodología", prio:"med", gate:"", due:"2026-01-09", desc:"Pilares → subtemas."},
+      
+      // SEMANA 2
+      {id:201, week:"W2", name:"Selección de piezas núcleo", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Inventario", prio:"high", gate:"", due:"2026-01-16", desc:"Identificar materiales clave."},
+      {id:202, week:"W2", name:"Extracción de ADN", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Metodología", prio:"high", gate:"", due:"2026-01-16", desc:"Principios y normalización."},
+      {id:203, week:"W2", name:"Mapa de Herramientas", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Producción", prio:"med", gate:"", due:"2026-01-16", desc:"Formatos y dinámicas."},
+      
+      // SEMANA 3
+      {id:301, week:"W3", name:"✅ Sesión 2: Validar Blueprint (Gate A)", status:"todo", owner:"Carmenza Alarcón (Cliente)", type:"Comité", prio:"high", gate:"A", due:"2026-01-20", desc:"Aprobación de promesa y proceso."},
+      {id:302, week:"W3", name:"Definir subcomponentes", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Metodología", prio:"high", gate:"A", due:"2026-01-23", desc:"Competencias y conductas."},
+      {id:303, week:"W3", name:"Diagramas de flujo", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Producción", prio:"med", gate:"", due:"2026-01-23", desc:"Mapa visual estructura."},
+      
+      // SEMANA 4
+      {id:401, week:"W4", name:"✅ Sesión 3: Estructura final", status:"todo", owner:"Carmenza Alarcón (Cliente)", type:"Comité", prio:"high", gate:"", due:"2026-01-27", desc:"Cierre estructura formal."},
+      {id:402, week:"W4", name:"Diseñar Baseline (Test 1)", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Evaluación", prio:"high", gate:"B", due:"2026-01-30", desc:"Escalas e instrucciones."},
+      {id:403, week:"W4", name:"Definir Rúbricas y Scoring", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Evaluación", prio:"high", gate:"B", due:"2026-01-30", desc:"Reglas de ponderación."},
+      
+      // SEMANA 5
+      {id:501, week:"W5", name:"✅ Sesión 4: Validar Baseline", status:"todo", owner:"Carmenza Alarcón (Cliente)", type:"Comité", prio:"high", gate:"", due:"2026-02-03", desc:"Validar medición y reportes."},
+      {id:502, week:"W5", name:"Matriz de recomendación", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Metodología", prio:"high", gate:"", due:"2026-02-06", desc:"Brecha → Intervención."},
+      {id:503, week:"W5", name:"Biblioteca mínima", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Inventario", prio:"med", gate:"", due:"2026-02-06", desc:"Contenido faltante."},
+      
+      // SEMANA 6
+      {id:601, week:"W6", name:"✅ Sesión 5: Aprobar Matriz", status:"todo", owner:"Carmenza Alarcón (Cliente)", type:"Comité", prio:"high", gate:"", due:"2026-02-10", desc:"Validar reglas de progresión."},
+      {id:602, week:"W6", name:"Redacción Dossier Maestro", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Producción", prio:"high", gate:"", due:"2026-02-13", desc:"Documento madre."},
+      {id:603, week:"W6", name:"Ensamble del Toolkit", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Producción", prio:"med", gate:"", due:"2026-02-13", desc:"Plantillas y checklists."},
+      
+      // SEMANA 7
+      {id:701, week:"W7", name:"✅ Sesión 6: Revisión Dossier", status:"todo", owner:"Carmenza Alarcón (Cliente)", type:"Comité", prio:"high", gate:"", due:"2026-02-17", desc:"Revisión narrativa."},
+      {id:702, week:"W7", name:"Guía del Mentor", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Producción", prio:"high", gate:"C", due:"2026-02-20", desc:"Scripts y objeciones."},
+      {id:703, week:"W7", name:"Workbook Participante", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"Producción", prio:"high", gate:"C", due:"2026-02-20", desc:"Ejercicios usuario."},
+      
+      // SEMANA 8
+      {id:801, week:"W8", name:"✅ Sesión 7: Validar Guía", status:"todo", owner:"Carmenza Alarcón (Cliente)", type:"Comité", prio:"high", gate:"", due:"2026-02-24", desc:"Validar tono y estilo."},
+      {id:802, week:"W8", name:"Consolidación v1.0", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"IP-Ready", prio:"high", gate:"D", due:"2026-02-27", desc:"Control consistencia."},
+      {id:803, week:"W8", name:"Paquete IP-ready", status:"todo", owner:"Andrés Tabla (Metodólogo)", type:"IP-Ready", prio:"high", gate:"D", due:"2026-02-27", desc:"Metadatos y versionado."},
+      
+      // SEMANA 9
+      {id:901, week:"W9", name:"✅ Sesión 8: Cierre (Freeze)", status:"todo", owner:"Carmenza Alarcón (Cliente)", type:"Comité", prio:"med", gate:"", due:"2026-03-03", desc:"Aprobación final."}
+    ];
+  }
+
+  /* RENDER */
+  function render(){
+    renderKanban();
+    renderTimeline();
+    renderAnalytics();
+    updateFilterOwnerList();
+  }
+
+  function getFiltered(){
+    const txt = document.getElementById("search").value.toLowerCase();
+    const wk = document.getElementById("filterWeek").value;
+    const ow = document.getElementById("filterOwner").value;
+    return tasks.filter(t => {
+      if(wk && t.week !== wk) return false;
+      if(ow && t.owner !== ow) return false;
+      if(txt && !((t.name+t.owner).toLowerCase().includes(txt))) return false;
+      return true;
+    });
+  }
+
+  function renderKanban(){
+    const list = getFiltered();
+    const laneContainer = document.getElementById("lanes");
+    laneContainer.innerHTML = "";
+
+    STATUSES.forEach(st => {
+      const colTasks = list.filter(t => t.status === st.id);
+      const lane = document.createElement("div");
+      lane.className = "lane";
+      lane.innerHTML = `
+        <div class="lane-head">
+          <span style="color:${st.color}">● ${st.name}</span>
+          <span class="counter">${colTasks.length}</span>
+        </div>
+        <div class="drop-zone" ondragover="allowDrop(event)" ondrop="drop(event, '${st.id}')" ondragleave="leaveDrop(event)">
+          ${colTasks.map(t => cardHTML(t)).join('')}
+        </div>
+      `;
+      laneContainer.appendChild(lane);
+    });
+  }
+
+  function cardHTML(t){
+    const gateTag = t.gate ? `<span class="chip gate">⛩️ ${t.gate}</span>` : '';
+    const prioClass = `p-${t.prio}`;
+    const ownerShort = t.owner.split(" (")[0]; 
+    return `
+      <div class="card ${prioClass}" draggable="true" ondragstart="drag(event, ${t.id})" onclick="edit(${t.id})">
+        <div class="card-top">
+          <span class="chip">${t.week}</span>
+          ${gateTag}
+        </div>
+        <div class="card-title">${esc(t.name)}</div>
+        <div class="card-desc">👤 ${ownerShort}</div>
+      </div>
+    `;
+  }
+
+  function renderTimeline(){
+    const list = getFiltered().sort((a,b) => (a.week > b.week) ? 1 : -1);
+    const container = document.getElementById("timeline");
+    container.innerHTML = "";
+    
+    WEEKS.forEach(w => {
+      const weekTasks = list.filter(t => t.week === w.id);
+      if(!weekTasks.length) return;
+      const group = document.createElement("div");
+      group.className = "tl-group";
+      group.innerHTML = `<div class="tl-header">${w.name}</div>`;
+      weekTasks.forEach(t => {
+        group.innerHTML += `
+          <div class="tl-item">
+            <div style="width:8px; height:8px; border-radius:50%; background:${STATUSES.find(s=>s.id===t.status).color}"></div>
+            <div style="flex:1">
+              <div style="font-weight:600; font-size:13px">${esc(t.name)}</div>
+              <div style="font-size:11px; color:var(--text-dim)">${t.owner} · ${t.type}</div>
+            </div>
+            <button class="btn-ghost" onclick="edit(${t.id})">✏️</button>
+          </div>
+        `;
+      });
+      container.appendChild(group);
+    });
+  }
+
+  function renderAnalytics(){
+    // 1. Global
+    const total = tasks.length;
+    const done = tasks.filter(t => t.status === "done").length;
+    const percent = total ? Math.round((done / total) * 100) : 0;
+    
+    document.getElementById("statTotal").innerText = total;
+    document.getElementById("statDone").innerText = done;
+    document.getElementById("statPercent").innerText = percent + "%";
+
+    // 2. Semanal
+    const weekCont = document.getElementById("weekProgressContainer");
+    weekCont.innerHTML = "";
+    WEEKS.forEach(w => {
+      const wTasks = tasks.filter(t => t.week === w.id);
+      if(!wTasks.length) return;
+      const wDone = wTasks.filter(t => t.status === "done").length;
+      const wPct = Math.round((wDone / wTasks.length) * 100);
+      weekCont.innerHTML += `
+        <div style="font-size:11px">
+          <div style="display:flex; justify-content:space-between; margin-bottom:2px">
+            <span>${w.id}</span> <span>${wPct}%</span>
+          </div>
+          <div class="prog-track">
+            <div class="prog-fill" style="width:${wPct}%; background:${wPct===100?'var(--success)':'var(--primary)'}"></div>
+          </div>
+        </div>
+      `;
+    });
+
+    // 3. Gates
+    const gateCont = document.getElementById("gateList");
+    gateCont.innerHTML = "";
+    ["A","B","C","D"].forEach(g => {
+      const gTasks = tasks.filter(t => t.gate === g);
+      if(!gTasks.length) return;
+      const allDone = gTasks.every(t => t.status === "done");
+      gateCont.innerHTML += `
+        <div style="display:flex; justify-content:space-between; font-size:12px; padding:6px; background:var(--panel-hover); border-radius:6px; align-items:center">
+          <strong>Gate ${g}</strong>
+          <span class="chip ${allDone?'gate':''}" style="${allDone?'color:var(--success);background:#ecfdf5':''}">${allDone?'🔓 Abierto':'🔒 Pendiente'}</span>
+        </div>
+      `;
+    });
+
+    // 4. Workload
+    const owners = {};
+    tasks.forEach(t => { 
+      if(t.status !== "done") owners[t.owner] = (owners[t.owner] || 0) + 1; 
+    });
+    const sortedOwners = Object.entries(owners).sort((a,b) => b[1] - a[1]);
+    const wlChart = document.getElementById("workloadChart");
+    wlChart.innerHTML = "";
+    
+    sortedOwners.forEach(([name, count]) => {
+      const max = sortedOwners[0][1];
+      const width = (count / max) * 100;
+      const shortName = name.split(" (")[0];
+      wlChart.innerHTML += `
+        <div style="margin-bottom:6px">
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px">
+            <span>${shortName}</span>
+            <span>${count}</span>
+          </div>
+          <div class="prog-track"><div class="prog-fill warn" style="width:${width}%"></div></div>
+        </div>
+      `;
+    });
+    if(!sortedOwners.length) wlChart.innerHTML = "<div style='font-size:11px; color:var(--text-dim)'>¡Sin tareas pendientes!</div>";
+
+    // 5. Vencimientos
+    const upList = document.getElementById("upcomingList");
+    upList.innerHTML = "";
+    const upcoming = tasks.filter(t => t.status !== "done" && t.due)
+      .sort((a,b) => a.due.localeCompare(b.due))
+      .slice(0, 4);
+    
+    if(!upcoming.length) upList.innerHTML = "<div style='font-size:11px;color:var(--text-dim)'>Sin vencimientos cercanos</div>";
+
+    upcoming.forEach(t => {
+      upList.innerHTML += `
+        <div style="background:var(--panel-hover); border:1px solid var(--border); padding:8px; border-radius:6px; font-size:11px; display:flex; justify-content:space-between; align-items:center">
+          <span style="color:var(--text); font-weight:600">${t.due.slice(5)}</span>
+          <span style="color:var(--text-dim); text-align:right; max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${esc(t.name)}</span>
+        </div>
+      `;
+    });
+  }
+
+  /* ACTIONS */
+  let draggedId = null;
+  function drag(ev, id){ draggedId = id; ev.dataTransfer.effectAllowed = "move"; }
+  function allowDrop(ev){ ev.preventDefault(); ev.currentTarget.classList.add("drag-over"); }
+  function leaveDrop(ev){ ev.currentTarget.classList.remove("drag-over"); }
+  function drop(ev, status){
+    ev.preventDefault(); ev.currentTarget.classList.remove("drag-over");
+    const t = tasks.find(x => x.id === draggedId);
+    if(t && t.status !== status){ t.status = status; save(); render(); toast("Actualizado"); }
+  }
+
+  let editingId = null;
+  const modal = document.getElementById("modal");
+  function edit(id){
+    editingId = id;
+    const t = id ? tasks.find(x => x.id === id) : {status:"todo", week:"W1", prio:"med", gate:"", type:"Metodología", owner:OWNERS[0]};
+    document.getElementById("mTitle").innerText = id ? "Editar" : "Nueva Tarea";
+    document.getElementById("mName").value = t.name || "";
+    document.getElementById("mStatus").value = t.status;
+    document.getElementById("mWeek").value = t.week;
+    document.getElementById("mOwner").value = t.owner; 
+    document.getElementById("mType").value = t.type;
+    document.getElementById("mPrio").value = t.prio;
+    document.getElementById("mGate").value = t.gate;
+    document.getElementById("mDue").value = t.due || "";
+    document.getElementById("mDesc").value = t.desc || "";
+    modal.style.display = "flex";
+  }
+
+  function saveTask(){
+    const name = document.getElementById("mName").value.trim();
+    if(!name) return alert("Nombre requerido");
+    const payload = {
+      id: editingId || Date.now(),
+      name: name,
+      status: document.getElementById("mStatus").value,
+      week: document.getElementById("mWeek").value,
+      owner: document.getElementById("mOwner").value,
+      type: document.getElementById("mType").value,
+      prio: document.getElementById("mPrio").value,
+      gate: document.getElementById("mGate").value,
+      due: document.getElementById("mDue").value,
+      desc: document.getElementById("mDesc").value
+    };
+    if(editingId){ tasks[tasks.findIndex(t => t.id === editingId)] = payload; }
+    else { tasks.push(payload); }
+    closeModal(); save(); render();
+  }
+
+  function deleteTask(){
+    if(confirm("¿Eliminar?")) { tasks = tasks.filter(t => t.id !== editingId); closeModal(); save(); render(); }
+  }
+  function closeModal(){ modal.style.display = "none"; }
+
+  /* UTILS */
+  function save(){ localStorage.setItem(KEY, JSON.stringify(tasks)); }
+  function esc(s){ return (s||"").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function toast(msg){ const t = document.getElementById("toast"); t.innerText = msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 2000); }
+  function setTab(name){
+    document.querySelectorAll(".view-section").forEach(el => el.classList.remove("active"));
+    document.getElementById("view-" + name).classList.add("active");
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    event.currentTarget.classList.add("active");
+  }
+  
+  function updateFilterOwnerList(){
+    const sel = document.getElementById("filterOwner");
+    const curr = sel.value;
+    sel.innerHTML = '<option value="">👤 Todos</option>';
+    OWNERS.forEach(o => sel.add(new Option(o, o)));
+    sel.value = curr;
+  }
+
+  function toggleTheme(){ document.body.classList.toggle("dark"); }
+
+  // Listeners
+  document.getElementById("btnAdd").onclick = () => edit(null);
+  document.getElementById("search").oninput = render;
+  document.getElementById("filterWeek").onchange = render;
+  document.getElementById("filterOwner").onchange = render;
+  document.getElementById("btnExport").onclick = () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks,null,2)], {type:"application/json"}));
+    a.download = "roadmap_4shine.json"; a.click();
+  };
+  document.getElementById("btnImport").onclick = () => document.getElementById("fileInput").click();
+  document.getElementById("fileInput").onchange = (e) => {
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader(); r.onload = (ev) => { try{ tasks=JSON.parse(ev.target.result); save(); render(); toast("Importado"); }catch(e){alert("Error");} };
+    r.readAsText(f);
+  };
+  document.getElementById("btnReset").onclick = () => { if(confirm("¿Recargar?")){ localStorage.removeItem(KEY); init(); toast("Reiniciado"); } };
+
+  init();
+</script>
+</body>
+</html>
