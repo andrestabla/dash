@@ -14,10 +14,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }, [pathname]);
 
     const menu = [
-        { name: '👥 Usuarios', href: '/admin/users', icon: '👤' },
-        { name: '📊 Tableros', href: '/admin/dashboards', icon: '📈' },
-        { name: '⚙️ Configuración', href: '/admin/settings', icon: '⚙️' },
-        { name: '🔔 Notificaciones', href: '/admin/notifications', icon: '🔔' },
+        { name: 'Usuarios', href: '/admin/users', icon: '👤' },
+        { name: 'Tableros', href: '/admin/dashboards', icon: '📈' },
+        { name: 'Configuración', href: '/admin/settings', icon: '⚙️' },
+        { name: 'Notificaciones', href: '/admin/notifications', icon: '🔔' },
     ];
 
     return (
@@ -28,7 +28,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <button className="btn-ghost icon-btn" onClick={() => setIsMobileOpen(true)}>
                     ☰
                 </button>
-                <span style={{ fontWeight: 700 }}>Admin Suite</span>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>Admin Suite</div>
             </div>
 
             {/* BACKDROP */}
@@ -38,12 +38,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             {/* SIDEBAR */}
             <aside className={`glass-panel admin-sidebar ${isMobileOpen ? 'open' : ''}`}>
-                <div style={{ padding: '24px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-main)' }}>
                         <span style={{ fontSize: 20 }}>⬅️</span>
                         <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>Regresar a</div>
-                            <div style={{ fontWeight: 700 }}>Workspace</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-dim)' }}>Regresar a</div>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>Workspace</div>
                         </div>
                     </Link>
                     {/* Mobile Close Button */}
@@ -54,7 +54,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                         Admin Suite
                     </div>
-                    <nav style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <nav style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {menu.map(item => {
                             const isActive = pathname === item.href;
                             return (
@@ -63,8 +63,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     href={item.href}
                                     className={`nav-item ${isActive ? 'active' : ''}`}
                                 >
-                                    <span>{item.icon}</span>
-                                    <span>{item.name}</span>
+                                    <span style={{ fontSize: 16 }}>{item.icon}</span>
+                                    <span style={{ fontSize: 14 }}>{item.name}</span>
                                 </Link>
                             )
                         })}
@@ -72,7 +72,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
 
                 <div style={{ marginTop: 'auto', padding: 20, textAlign: 'center', fontSize: 11, color: 'var(--text-dim)' }}>
-                    Project control &copy; 2026 by Algoritmo T<br />v10.5
+                    Project control &copy; 2026 by Algoritmo T<br />v10.6
                 </div>
             </aside>
 
@@ -87,7 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 .admin-layout {
                     display: flex;
                     min-height: 100vh;
-                    background: radial-gradient(circle at top left, #1e1b4b 0%, #0f172a 100%);
+                    background: var(--bg-main);
                     color: var(--text-main);
                     position: relative;
                 }
@@ -99,8 +99,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     border-radius: 24px;
                     display: flex;
                     flex-direction: column;
-                    border: 1px solid rgba(255,255,255,0.05);
-                    background: rgba(15, 23, 42, 0.6);
+                    border: 1px solid var(--border-dim);
+                    background: var(--bg-panel);
                     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     z-index: 50;
                 }
@@ -121,7 +121,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     padding: 40px;
                     overflow-y: auto;
                     border-radius: 24px;
-                    background: rgba(30, 41, 59, 0.4);
+                    background: var(--bg-card);
+                    border: 1px solid var(--border-dim);
                 }
 
                 /* NAV LINKS */
@@ -129,7 +130,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     display: flex;
                     align-items: center;
                     gap: 12px;
-                    padding: 12px 16px;
+                    padding: 10px 16px;
                     border-radius: 12px;
                     background: transparent;
                     color: var(--text-dim);
@@ -144,8 +145,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
                 }
                 .nav-item:hover:not(.active) {
-                    background: rgba(255,255,255,0.05);
+                    background: rgba(0,0,0,0.05);
                     color: var(--text-main);
+                }
+                .dark .nav-item:hover:not(.active) {
+                    background: rgba(255,255,255,0.05);
                 }
 
                 /* --- MOBILE RESPONSIVENESS (< 768px) --- */
@@ -156,12 +160,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                     .mobile-header {
                         display: flex;
+                        justify-content: space-between;
                         align-items: center;
-                        gap: 16px;
                         padding: 16px;
-                        background: rgba(15, 23, 42, 0.8);
-                        backdrop-filter: blur(10px);
-                        border-bottom: 1px solid rgba(255,255,255,0.1);
+                        background: var(--bg-panel);
+                        border-bottom: 1px solid var(--border-dim);
                         position: sticky;
                         top: 0;
                         z-index: 40;
@@ -174,9 +177,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         bottom: 0;
                         margin: 0;
                         border-radius: 0 24px 24px 0;
-                        transform: translateX(-110%); /* Hidden by default */
-                        background: #0f172a; /* Solid background for legibility */
-                        box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+                        transform: translateX(-110%);
+                        background: var(--bg-card);
+                        box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+                        border-right: 1px solid var(--border-dim);
                     }
                     .admin-sidebar.open {
                         transform: translateX(0);
@@ -186,8 +190,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         display: block;
                         position: fixed;
                         inset: 0;
-                        background: rgba(0,0,0,0.6);
-                        backdrop-filter: blur(2px);
+                        background: rgba(0,0,0,0.4);
+                        backdrop-filter: blur(4px);
                         z-index: 45;
                         animation: fadeIn 0.3s;
                     }
