@@ -56,8 +56,6 @@ export default function Workspace() {
     // Editing State
     const [editingDash, setEditingDash] = useState<Dashboard | null>(null);
 
-    // useEffect merged above
-
     const loadDashboards = () => {
         fetch('/api/dashboards')
             .then(res => res.json())
@@ -81,7 +79,7 @@ export default function Workspace() {
         const currentSettings = isEdit ? editingDash.settings : DEFAULT_SETTINGS;
 
         const finalSettings = {
-            weeks: isEdit ? currentSettings.weeks : generateWeeks(wizWeeks), // Preserve weeks on edit usually, but simple for now
+            weeks: isEdit ? currentSettings.weeks : generateWeeks(wizWeeks),
             owners: wizOwners.length > 0 ? wizOwners : ["Sin Asignar"],
             types: wizTypes.length > 0 ? wizTypes : ["General"],
             gates: wizGates,
@@ -89,14 +87,11 @@ export default function Workspace() {
             color: wizColor
         };
 
-        // If editing and weeks changed logic is complex, for now we skip regenerating weeks on edit unless specific request
-        // But for wizard, let's keep it simple: V5 focus is management.
-
         const payload = isEdit ? {
             id: editingDash.id,
             name: wizName,
             description: wizDesc,
-            settings: { ...editingDash.settings, icon: wizIcon, color: wizColor, name: wizName } // Partial update for visual
+            settings: { ...editingDash.settings, icon: wizIcon, color: wizColor, name: wizName }
         } : {
             name: wizName,
             description: wizDesc,
@@ -139,7 +134,6 @@ export default function Workspace() {
         setWizDesc(d.description);
         setWizIcon(d.settings.icon || "🗺️");
         setWizColor(d.settings.color || "#3b82f6");
-        // We only allow editing Name/Desc/Icon/Color in this mode for simplicity
         setIsCreating(true);
     };
 
@@ -170,7 +164,6 @@ export default function Workspace() {
         setWizColor("#3b82f6");
     };
 
-    // Generic List Managers
     const addItem = (list: string[], setList: any, item: string, setItem: any) => {
         if (item.trim()) {
             setList([...list, item.trim()]);
@@ -183,8 +176,7 @@ export default function Workspace() {
     };
 
     const [showLogout, setShowLogout] = useState(false);
-
-    // ... existing loadDashboards ...
+    const [user, setUser] = useState<any>(null);
 
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
@@ -192,229 +184,206 @@ export default function Workspace() {
         router.refresh();
     };
 
-    const [user, setUser] = useState<any>(null);
-
     useEffect(() => {
         loadDashboards();
         fetch('/api/auth/me').then(res => res.json()).then(data => setUser(data.user));
     }, []);
 
-    // ... existing loadDashboards ...
-
     return (
-        <div style={{ maxWidth: 1000, margin: '0 auto', padding: 40 }}>
-            <header style={{ marginBottom: 40, borderBottom: '1px solid var(--border)', paddingBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
+            <header style={{ marginBottom: 40, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>🗂️ Tu Espacio de Trabajo</h1>
-                    <p style={{ color: 'var(--text-dim)', margin: '4px 0 0 0' }}>Gestiona tus roadmaps y proyectos</p>
+                    <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }} className="text-gradient">Espacio de Trabajo</h1>
+                    <p style={{ color: 'var(--text-dim)', margin: '8px 0 0 0' }}>Tus proyectos estratégicos en un solo lugar</p>
                 </div>
-                <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 12 }}>
                     {user?.role === 'admin' && (
                         <Link href="/admin/users" style={{ textDecoration: 'none' }}>
-                            <button className="btn-ghost" style={{ color: 'var(--primary)', border: '1px solid var(--primary-light)', background: 'var(--primary-light)' }}>
-                                🛡️ Admin Panel
+                            <button className="btn-ghost" style={{ border: '1px solid rgba(59, 130, 246, 0.3)', color: '#60a5fa' }}>
+                                🛡️ Admin Suite
                             </button>
                         </Link>
                     )}
-                    <button className="btn-ghost" onClick={() => setShowLogout(true)} style={{ color: 'var(--text)', border: '1px solid var(--border)' }}>
-                        🚪 Cerrar Sesión
+                    <button className="btn-ghost" onClick={() => setShowLogout(true)}>
+                        🚪 Salir
                     </button>
                     <button className="btn-primary" onClick={startCreate}>
-                        + Nuevo Tablero
+                        + Nuevo Proyecto
                     </button>
                 </div>
             </header>
 
-            {/* Logout Confirmation Modal */}
+            {/* Logout Modal */}
             {showLogout && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: 'var(--panel)', padding: 30, borderRadius: 16, width: 400, border: '1px solid var(--border)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', textAlign: 'center' }}>
-                        <h2 style={{ marginTop: 0 }}>¿Cerrar Sesión?</h2>
-                        <p style={{ color: 'var(--text-dim)', marginBottom: 25 }}>Tendrás que ingresar tus credenciales nuevamente para acceder.</p>
-                        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <div className="backdrop">
+                    <div className="glass-panel animate-slide-up" style={{ padding: 32, width: 400, textAlign: 'center' }}>
+                        <h2 style={{ marginTop: 0, marginBottom: 12 }}>¿Cerrar Sesión?</h2>
+                        <p style={{ color: 'var(--text-dim)', marginBottom: 32 }}>Tendrás que ingresar tus credenciales para volver a entrar.</p>
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
                             <button className="btn-ghost" onClick={() => setShowLogout(false)}>Cancelar</button>
-                            <button className="btn-primary" onClick={handleLogout} style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>Sí, Salir</button>
+                            <button className="btn-primary" onClick={handleLogout} style={{ background: 'var(--danger-gradient)', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)' }}>Sí, Salir</button>
                         </div>
                     </div>
                 </div>
             )}
 
             {isCreating && (
-                <div className="wizard-modal" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: 'var(--panel)', padding: 30, borderRadius: 16, width: 600, border: '1px solid var(--border)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                            <h2 style={{ margin: 0 }}>{editingDash ? "Editar Tablero" : `Nuevo Proyecto (${wizardStep}/4)`}</h2>
-                            <button className="btn-ghost" onClick={resetWizard}>✕</button>
+                <div className="backdrop">
+                    <div className="glass-panel animate-slide-up" style={{ padding: 0, width: 700, overflow: 'hidden' }}>
+                        <div style={{ padding: '24px 32px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                            <h2 style={{ margin: 0, fontSize: 20 }}>{editingDash ? "Editar Tablero" : `Nuevo Proyecto (${wizardStep}/4)`}</h2>
+                            <button className="btn-ghost" onClick={resetWizard} style={{ padding: 4 }}>✕</button>
                         </div>
 
-                        {/* STEP 1: Basic Info & Visuals */}
-                        {(wizardStep === 1 || editingDash) && (
-                            <div className="wiz-step">
-                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Nombre del Proyecto</label>
-                                <input value={wizName} onChange={e => setWizName(e.target.value)} autoFocus style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid var(--border)', marginBottom: 16 }} placeholder="Ej: Lanzamiento 2026" />
-
-                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Descripción (Opcional)</label>
-                                <input value={wizDesc} onChange={e => setWizDesc(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid var(--border)', marginBottom: 16 }} placeholder="Breve resumen..." />
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                                    <div>
-                                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Ícono</label>
-                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                            {ICONS.map(ic => (
-                                                <div key={ic} onClick={() => setWizIcon(ic)} style={{ cursor: 'pointer', padding: 8, borderRadius: 6, background: wizIcon === ic ? 'var(--panel-active)' : 'transparent', border: wizIcon === ic ? '1px solid var(--primary)' : '1px solid transparent' }}>{ic}</div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Color</label>
-                                        <div style={{ display: 'flex', gap: 10 }}>
-                                            {COLORS.map(c => (
-                                                <div key={c} onClick={() => setWizColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: wizColor === c ? '0 0 0 2px var(--panel), 0 0 0 4px ' + c : 'none' }}></div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* STEPS 2-4: Only for Creation */}
-                        {!editingDash && wizardStep === 2 && (
-                            <div className="wiz-step">
-                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Duración (Semanas)</label>
-                                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                    <input type="range" min="4" max="52" value={wizWeeks} onChange={e => setWizWeeks(Number(e.target.value))} style={{ flex: 1 }} />
-                                    <span style={{ fontWeight: 700, fontSize: 18, width: 40, textAlign: 'center' }}>{wizWeeks}</span>
-                                </div>
-                                <p style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 4 }}>
-                                    Se generarán {wizWeeks} semanas (W1 - W{wizWeeks}).
-                                </p>
-                            </div>
-                        )}
-
-                        {!editingDash && wizardStep === 3 && (
-                            <div className="wiz-step">
-                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Equipo (Responsables)</label>
-                                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                                    <input value={newOwner} onChange={e => setNewOwner(e.target.value)} placeholder="Nombre..." style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizOwners, setWizOwners, newOwner, setNewOwner)} />
-                                    <button className="btn-ghost" onClick={() => addItem(wizOwners, setWizOwners, newOwner, setNewOwner)}>➕</button>
-                                </div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 150, overflowY: 'auto' }}>
-                                    {wizOwners.map((o, i) => (
-                                        <div key={i} style={{ background: 'var(--panel-hover)', padding: '4px 10px', borderRadius: 20, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            {o} <span style={{ cursor: 'pointer', opacity: 0.5 }} onClick={() => removeItem(wizOwners, setWizOwners, i)}>✕</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {!editingDash && wizardStep === 4 && (
-                            <div className="wiz-step" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                        <div style={{ padding: 32 }}>
+                            {/* STEP 1: Basic Info & Visuals */}
+                            {(wizardStep === 1 || editingDash) && (
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Tipos</label>
-                                    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                                        <input value={newType} onChange={e => setNewType(e.target.value)} placeholder="Tipo..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizTypes, setWizTypes, newType, setNewType)} />
-                                        <button className="btn-ghost" onClick={() => addItem(wizTypes, setWizTypes, newType, setNewType)}>➕</button>
+                                    <div style={{ marginBottom: 24 }}>
+                                        <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Nombre del Proyecto</label>
+                                        <input className="input-glass" value={wizName} onChange={e => setWizName(e.target.value)} autoFocus placeholder="Ej: Lanzamiento 2026" />
                                     </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                        {wizTypes.map((t, i) => (
-                                            <div key={i} style={{ background: 'var(--panel-hover)', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
-                                                {t} <span style={{ cursor: 'pointer', marginLeft: 4 }} onClick={() => removeItem(wizTypes, setWizTypes, i)}>x</span>
+
+                                    <div style={{ marginBottom: 24 }}>
+                                        <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Descripción</label>
+                                        <input className="input-glass" value={wizDesc} onChange={e => setWizDesc(e.target.value)} placeholder="Breve resumen..." />
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Ícono</label>
+                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                {ICONS.map(ic => (
+                                                    <div key={ic} onClick={() => setWizIcon(ic)} style={{ cursor: 'pointer', padding: 10, borderRadius: 8, background: wizIcon === ic ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.05)', transition: 'all 0.2s' }}>{ic}</div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Color Principal</label>
+                                            <div style={{ display: 'flex', gap: 12 }}>
+                                                {COLORS.map(c => (
+                                                    <div key={c} onClick={() => setWizColor(c)} style={{ width: 32, height: 32, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: wizColor === c ? `0 0 0 3px var(--bg-card), 0 0 0 5px ${c}` : 'none', transition: 'all 0.2s' }}></div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {/* STEPS 2-4: Only for Creation */}
+                            {!editingDash && wizardStep === 2 && (
+                                <div className="wiz-step">
+                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Duración (Semanas)</label>
+                                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                        <input type="range" min="4" max="52" value={wizWeeks} onChange={e => setWizWeeks(Number(e.target.value))} style={{ flex: 1 }} />
+                                        <span style={{ fontWeight: 700, fontSize: 18, width: 40, textAlign: 'center' }}>{wizWeeks}</span>
+                                    </div>
+                                    <p style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 4 }}>
+                                        Se generarán {wizWeeks} semanas (W1 - W{wizWeeks}).
+                                    </p>
+                                </div>
+                            )}
+
+                            {!editingDash && wizardStep === 3 && (
+                                <div className="wiz-step">
+                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Equipo (Responsables)</label>
+                                    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                                        <input value={newOwner} onChange={e => setNewOwner(e.target.value)} placeholder="Nombre..." style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizOwners, setWizOwners, newOwner, setNewOwner)} />
+                                        <button className="btn-ghost" onClick={() => addItem(wizOwners, setWizOwners, newOwner, setNewOwner)}>➕</button>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 150, overflowY: 'auto' }}>
+                                        {wizOwners.map((o, i) => (
+                                            <div key={i} style={{ background: 'var(--panel-hover)', padding: '4px 10px', borderRadius: 20, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {o} <span style={{ cursor: 'pointer', opacity: 0.5 }} onClick={() => removeItem(wizOwners, setWizOwners, i)}>✕</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
+                            )}
 
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Gates</label>
-                                    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                                        <input value={newGate} onChange={e => setNewGate(e.target.value)} placeholder="Gate..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizGates, setWizGates, newGate, setNewGate)} />
-                                        <button className="btn-ghost" onClick={() => addItem(wizGates, setWizGates, newGate, setNewGate)}>➕</button>
+                            {!editingDash && wizardStep === 4 && (
+                                <div className="wiz-step" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Tipos</label>
+                                        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                                            <input value={newType} onChange={e => setNewType(e.target.value)} placeholder="Tipo..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizTypes, setWizTypes, newType, setNewType)} />
+                                            <button className="btn-ghost" onClick={() => addItem(wizTypes, setWizTypes, newType, setNewType)}>➕</button>
+                                        </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                            {wizTypes.map((t, i) => (
+                                                <div key={i} style={{ background: 'var(--panel-hover)', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
+                                                    {t} <span style={{ cursor: 'pointer', marginLeft: 4 }} onClick={() => removeItem(wizTypes, setWizTypes, i)}>x</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                        {wizGates.map((g, i) => (
-                                            <div key={i} style={{ background: '#ecfdf5', color: '#000', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
-                                                {g} <span style={{ cursor: 'pointer', marginLeft: 4 }} onClick={() => removeItem(wizGates, setWizGates, i)}>x</span>
-                                            </div>
-                                        ))}
+
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Gates</label>
+                                        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                                            <input value={newGate} onChange={e => setNewGate(e.target.value)} placeholder="Gate..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizGates, setWizGates, newGate, setNewGate)} />
+                                            <button className="btn-ghost" onClick={() => addItem(wizGates, setWizGates, newGate, setNewGate)}>➕</button>
+                                        </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                            {wizGates.map((g, i) => (
+                                                <div key={i} style={{ background: '#ecfdf5', color: '#000', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
+                                                    {g} <span style={{ cursor: 'pointer', marginLeft: 4 }} onClick={() => removeItem(wizGates, setWizGates, i)}>x</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
 
-                        <div className="wiz-footer" style={{ marginTop: 30, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                        <div style={{ padding: '20px 32px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'flex-end', gap: 12, background: 'rgba(0,0,0,0.2)' }}>
                             {!editingDash && wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
-
-                            {/* NEXT Buttons */}
                             {!editingDash && wizardStep < 4 && <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>}
                             {!editingDash && wizardStep === 4 && <button className="btn-primary" onClick={handleSave} disabled={wizOwners.length === 0}>✨ Crear Tablero</button>}
-
-                            {/* SAVE Button for Edit */}
                             {editingDash && <button className="btn-primary" onClick={handleSave}>Guardar Cambios</button>}
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
                 {dashboards.map(d => (
                     <Link href={`/board/${d.id}`} key={d.id} style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <div className="dash-card" style={{
-                            background: 'var(--panel)',
-                            border: `1px solid var(--border)`,
-                            borderLeft: `5px solid ${d.settings?.color || '#3b82f6'}`,
-                            padding: 20,
-                            borderRadius: 12,
+                        <div className="glass-panel hover-lift" style={{
+                            padding: 24,
                             height: '100%',
                             display: 'flex',
                             flexDirection: 'column',
                             position: 'relative',
-                            transition: 'transform 0.2s, box-shadow 0.2s'
+                            borderTop: `4px solid ${d.settings?.color || '#3b82f6'}`
                         }}>
-                            <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6 }}>
-                                <div className="card-action" onClick={(e) => startEdit(e, d)} title="Editar">✏️</div>
-                                <div className="card-action" onClick={(e) => deleteDash(e, d.id)} title="Eliminar" style={{ color: 'var(--danger)' }}>🗑️</div>
+                            <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 8 }}>
+                                <button className="btn-ghost" onClick={(e) => startEdit(e, d)} style={{ padding: 6, fontSize: 14 }}>✏️</button>
+                                <button className="btn-ghost" onClick={(e) => deleteDash(e, d.id)} style={{ padding: 6, fontSize: 14, color: '#f87171' }}>🗑️</button>
                             </div>
 
-                            <div style={{ fontSize: 32, marginBottom: 10 }}>{d.settings?.icon || "🗺️"}</div>
-                            <h3 style={{ margin: '0 0 8px 0', fontSize: 18 }}>{d.name}</h3>
-                            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)', flex: 1 }}>
+                            <div style={{ fontSize: 48, marginBottom: 16 }}>{d.settings?.icon || "🗺️"}</div>
+                            <h3 style={{ margin: '0 0 8px 0', fontSize: 20 }}>{d.name}</h3>
+                            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-dim)', flex: 1, lineHeight: 1.5 }}>
                                 {d.description || "Sin descripción"}
                             </p>
-                            <div style={{ marginTop: 15, fontSize: 11, color: 'var(--text-dim)', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-                                Actualizado: {new Date(d.created_at).toLocaleDateString()}
+
+                            <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Actualizado: {new Date(d.created_at).toLocaleDateString()}</span>
+                                <span style={{ fontWeight: 600, color: d.settings?.color || 'white' }}>Abrir →</span>
                             </div>
                         </div>
                     </Link>
                 ))}
 
                 {dashboards.length === 0 && !isCreating && (
-                    <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 60, color: 'var(--text-dim)', border: '2px dashed var(--border)', borderRadius: 12 }}>
-                        No tienes tableros aún. ¡Crea el primero!
+                    <div className="glass-panel" style={{ gridColumn: '1/-1', textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '2px dashed rgba(255,255,255,0.1)' }}>
+                        <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.5 }}>📂</div>
+                        <h3 style={{ color: 'var(--text-main)' }}>No hay proyectos activos</h3>
+                        <p>Comienza creando tu primer tablero estratégico.</p>
+                        <button className="btn-primary" onClick={startCreate} style={{ marginTop: 20 }}>+ Crear Proyecto</button>
                     </div>
                 )}
             </div>
-
-            <style jsx>{`
-                .dash-card:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-                }
-                .card-action {
-                    opacity: 0;
-                    cursor: pointer;
-                    padding: 4px;
-                    border-radius: 4px;
-                    background: var(--panel-hover);
-                    font-size: 14px;
-                }
-                .dash-card:hover .card-action {
-                    opacity: 1;
-                }
-                .card-action:hover {
-                    background: var(--border);
-                }
-            `}</style>
         </div>
     );
 }
