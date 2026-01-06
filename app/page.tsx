@@ -579,41 +579,46 @@ export default function Workspace() {
             {/* 1. NEW/EDIT FOLDER */}
             {isCreatingFolder && (
                 <div className="backdrop">
-                    <div className="glass-panel animate-slide-up" style={{ padding: 32, width: '100%', maxWidth: 450, textAlign: 'center' }}>
-                        <h3 style={{ marginTop: 0, fontSize: 20 }}>{editingFolder ? 'Editar Carpeta' : 'Nueva Carpeta'}</h3>
-
-                        <div style={{ textAlign: 'left', marginTop: 24, marginBottom: 24 }}>
-                            <label style={{ display: 'block', marginBottom: 12, fontSize: 13, fontWeight: 600, color: 'var(--text-dim)', textAlign: 'center' }}>NOMBRE DE LA CARPETA</label>
-                            <input
-                                className="input-glass"
-                                value={folderName}
-                                onChange={e => setFolderName(e.target.value)}
-                                autoFocus
-                                placeholder="Ej: Q1 Marketing"
-                                style={{ textAlign: 'center', fontSize: 16, padding: '16px' }}
-                            />
+                    <div className="modal-container animate-slide-up" style={{ maxWidth: 450 }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">{editingFolder ? 'Editar Carpeta' : 'Nueva Carpeta'}</h3>
+                            <button className="btn-ghost" onClick={closeFolderModal} style={{ padding: 4 }}><X size={20} /></button>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 32 }}>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: 12, fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Ícono</label>
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                    {["📁", "📂", "💼", "📊", "🚀", "💡", "🎯"].map(ic => (
-                                        <div key={ic} onClick={() => setFolderIcon(ic)} style={{ cursor: 'pointer', padding: 8, borderRadius: 8, background: folderIcon === ic ? 'var(--bg-panel)' : 'transparent', border: folderIcon === ic ? '1px solid var(--primary)' : '1px solid transparent', transition: 'all 0.2s', fontSize: 20 }}>{ic}</div>
-                                    ))}
-                                </div>
+                        <div className="modal-body">
+                            <div className="form-group" style={{ textAlign: 'center' }}>
+                                <label className="form-label" style={{ textAlign: 'center' }}>NOMBRE DE LA CARPETA</label>
+                                <input
+                                    className="input-glass"
+                                    value={folderName}
+                                    onChange={e => setFolderName(e.target.value)}
+                                    autoFocus
+                                    placeholder="Ej: Q1 Marketing"
+                                    style={{ textAlign: 'center', fontSize: 16, padding: '16px' }}
+                                />
                             </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: 12, fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Color</label>
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                    {COLORS.map(c => (
-                                        <div key={c} onClick={() => setFolderColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: folderColor === c ? '0 0 0 2px var(--bg-card), 0 0 0 4px ' + c : 'none', transition: 'all 0.2s' }}></div>
-                                    ))}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                                <div>
+                                    <label className="form-label">Ícono</label>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                        {["📁", "📂", "💼", "📊", "🚀", "💡", "🎯"].map(ic => (
+                                            <div key={ic} onClick={() => setFolderIcon(ic)} style={{ cursor: 'pointer', padding: 8, borderRadius: 8, background: folderIcon === ic ? 'var(--bg-panel)' : 'transparent', border: folderIcon === ic ? '1px solid var(--primary)' : '1px solid transparent', transition: 'all 0.2s', fontSize: 20 }}>{ic}</div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="form-label">Color</label>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                        {COLORS.map(c => (
+                                            <div key={c} onClick={() => setFolderColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: folderColor === c ? '0 0 0 2px var(--bg-card), 0 0 0 4px ' + c : 'none', transition: 'all 0.2s' }}></div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+                        <div className="modal-footer">
                             <button className="btn-ghost" onClick={closeFolderModal}>Cancelar</button>
                             <button className="btn-primary" onClick={saveFolder}>Guardar</button>
                         </div>
@@ -624,31 +629,33 @@ export default function Workspace() {
             {/* 2. MOVE DASHBOARD */}
             {isMoving && (
                 <div className="backdrop">
-                    <div className="glass-panel animate-slide-up" style={{ padding: 24, width: '100%', maxWidth: 400 }}>
-                        <h3 style={{ marginTop: 0 }}>Mover Tablero a...</h3>
-                        <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border-dim)', borderRadius: 8, marginBottom: 20 }}>
-                            {/* Root Option */}
-                            <div
-                                onClick={() => setTargetFolderId(null)}
-                                style={{ padding: '10px 12px', cursor: 'pointer', background: targetFolderId === null ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}
-                            >
-                                <CornerUpLeft size={16} /> <span>Espacio Principal (Raíz)</span>
-                            </div>
-
-                            {/* Folder List - Hierarchical check? Basic flattened list for simplicity first? 
-                                Let's just list all folders. Ideally we recursive indentation but flat is ok for V1. 
-                            */}
-                            {folders.map(f => (
-                                <div
-                                    key={f.id}
-                                    onClick={() => setTargetFolderId(f.id)}
-                                    style={{ padding: '10px 12px', cursor: 'pointer', background: targetFolderId === f.id ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}
-                                >
-                                    <Folder size={16} /> <span>{f.name}</span>
-                                </div>
-                            ))}
+                    <div className="modal-container animate-slide-up" style={{ maxWidth: 400 }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">Mover Tablero a...</h3>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                        <div className="modal-body">
+                            <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border-dim)', borderRadius: 8, marginBottom: 20 }}>
+                                {/* Root Option */}
+                                <div
+                                    onClick={() => setTargetFolderId(null)}
+                                    style={{ padding: '10px 12px', cursor: 'pointer', background: targetFolderId === null ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}
+                                >
+                                    <CornerUpLeft size={16} /> <span>Espacio Principal (Raíz)</span>
+                                </div>
+
+                                {/* Folder List */}
+                                {folders.map(f => (
+                                    <div
+                                        key={f.id}
+                                        onClick={() => setTargetFolderId(f.id)}
+                                        style={{ padding: '10px 12px', cursor: 'pointer', background: targetFolderId === f.id ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}
+                                    >
+                                        <Folder size={16} /> <span>{f.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="modal-footer">
                             <button className="btn-ghost" onClick={() => setIsMoving(null)}>Cancelar</button>
                             <button className="btn-primary" onClick={executeMove}>Mover Aquí</button>
                         </div>
@@ -656,41 +663,43 @@ export default function Workspace() {
                 </div>
             )}
 
-            {/* 3. NEW DASHBOARD WIZARD (Existing logic mostly) */}
+            {/* 3. NEW DASHBOARD WIZARD */}
             {isCreating && (
                 <div className="backdrop">
-                    <div className="glass-panel animate-slide-up" style={{ padding: 0, width: '100%', maxWidth: 700, overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ padding: '24px 32px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)' }}>
-                            <h2 style={{ margin: 0, fontSize: 20 }}>{editingDash ? "Editar Tablero" : "Nuevo Proyecto (" + wizardStep + " / 4)"}</h2>
+                    <div className="modal-container animate-slide-up" style={{ maxWidth: 700 }}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">{editingDash ? "Editar Tablero" : "Nuevo Proyecto (" + wizardStep + " / 4)"}</h2>
                             <button className="btn-ghost" onClick={resetWizard} style={{ padding: 4 }}><X size={20} /></button>
                         </div>
-                        <div style={{ padding: 32 }}>
+
+                        <div className="modal-body">
                             {wizardStep === 1 && (
                                 <div className="animate-fade-in">
-                                    <div style={{ marginBottom: 24 }}>
+                                    <div className="form-group">
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Método de Creación</label>
+                                            <label className="form-label" style={{ marginBottom: 0 }}>Método de Creación</label>
                                             {isImporting && (
-                                                <button className="btn-ghost" onClick={handleDownloadTemplate} style={{ fontSize: 11, padding: 4, height: 'auto', color: 'var(--primary)' }}>
+                                                <button className="btn-ghost" onClick={handleDownloadTemplate} style={{ fontSize: 11, padding: '4px 8px', height: 'auto', color: 'var(--primary)' }}>
                                                     <Download size={12} style={{ marginRight: 4 }} /> Descargar Plantilla
                                                 </button>
                                             )}
                                         </div>
-                                        <div style={{ display: 'flex', gap: 12 }}>
-                                            <button
+
+                                        <div className="toggle-group">
+                                            <div
+                                                className={`toggle-option ${!isImporting ? 'active' : ''}`}
                                                 onClick={() => setIsImporting(false)}
-                                                style={{ flex: 1, padding: 12, borderRadius: 8, border: !isImporting ? '2px solid var(--primary)' : '1px solid var(--border-dim)', background: !isImporting ? 'rgba(59, 130, 246, 0.1)' : 'transparent', cursor: 'pointer', transition: 'all 0.2s' }}
                                             >
-                                                <div style={{ fontWeight: 600 }}>En Blanco</div>
-                                                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Iniciar desde cero</div>
-                                            </button>
-                                            <button
+                                                <div className="toggle-option-title">En Blanco</div>
+                                                <div className="toggle-option-desc">Iniciar desde cero</div>
+                                            </div>
+                                            <div
+                                                className={`toggle-option ${isImporting ? 'active' : ''}`}
                                                 onClick={() => setIsImporting(true)}
-                                                style={{ flex: 1, padding: 12, borderRadius: 8, border: isImporting ? '2px solid var(--primary)' : '1px solid var(--border-dim)', background: isImporting ? 'rgba(59, 130, 246, 0.1)' : 'transparent', cursor: 'pointer', transition: 'all 0.2s' }}
                                             >
-                                                <div style={{ fontWeight: 600 }}>Importar CSV</div>
-                                                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Desde archivo plano</div>
-                                            </button>
+                                                <div className="toggle-option-title">Importar CSV</div>
+                                                <div className="toggle-option-desc">Desde archivo plano</div>
+                                            </div>
                                         </div>
 
                                         {isImporting && (
@@ -704,12 +713,13 @@ export default function Workspace() {
                                             </div>
                                         )}
                                     </div>
-                                    <div style={{ marginBottom: 24 }}>
-                                        <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Nombre del Proyecto</label>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Nombre del Proyecto</label>
                                         <input className="input-glass" value={wizName} onChange={e => setWizName(e.target.value)} autoFocus placeholder="Ej: Lanzamiento 2026" />
                                     </div>
-                                    <div style={{ marginBottom: 24 }}>
-                                        <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Ubicación</label>
+                                    <div className="form-group">
+                                        <label className="form-label">Ubicación</label>
                                         <select
                                             className="input-glass"
                                             value={wizFolderId || ""}
@@ -722,13 +732,13 @@ export default function Workspace() {
                                             ))}
                                         </select>
                                     </div>
-                                    <div style={{ marginBottom: 24 }}>
-                                        <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Descripción</label>
+                                    <div className="form-group">
+                                        <label className="form-label">Descripción</label>
                                         <input className="input-glass" value={wizDesc} onChange={e => setWizDesc(e.target.value)} placeholder="Breve resumen..." />
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
                                         <div>
-                                            <label style={{ display: 'block', marginBottom: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Ícono</label>
+                                            <label className="form-label">Ícono</label>
                                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                                 {ICONS.map(ic => (
                                                     <div key={ic} onClick={() => setWizIcon(ic)} style={{ cursor: 'pointer', padding: 10, borderRadius: 8, background: wizIcon === ic ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.05)', transition: 'all 0.2s' }}>{ic}</div>
@@ -736,7 +746,7 @@ export default function Workspace() {
                                             </div>
                                         </div>
                                         <div>
-                                            <label style={{ display: 'block', marginBottom: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Color Principal</label>
+                                            <label className="form-label">Color Principal</label>
                                             <div style={{ display: 'flex', gap: 12 }}>
                                                 {COLORS.map(c => (
                                                     <div key={c} onClick={() => setWizColor(c)} style={{ width: 32, height: 32, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: wizColor === c ? '0 0 0 3px var(--bg-card), 0 0 0 5px ' + c : 'none', transition: 'all 0.2s' }}></div>
@@ -748,7 +758,7 @@ export default function Workspace() {
                             )}
                             {wizardStep === 2 && (
                                 <div className="wiz-step animate-fade-in">
-                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Duración (Semanas)</label>
+                                    <label className="form-label" style={{ fontSize: 14 }}>Duración (Semanas)</label>
                                     <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                                         <input type="range" min="4" max="52" value={wizWeeks} onChange={e => setWizWeeks(Number(e.target.value))} style={{ flex: 1 }} />
                                         <span style={{ fontWeight: 700, fontSize: 18, width: 40, textAlign: 'center' }}>{wizWeeks}</span>
@@ -763,17 +773,18 @@ export default function Workspace() {
                             )}
                             {wizardStep === 3 && (
                                 <div className="wiz-step animate-fade-in">
-                                    <label style={{ display: 'block', marginBottom: 12, fontWeight: 600 }}>Equipo (Responsables)</label>
+                                    <label className="form-label" style={{ fontSize: 14 }}>Equipo (Responsables)</label>
 
                                     {/* Option 1: Manual Input */}
-                                    <div style={{ marginBottom: 16 }}>
-                                        <label style={{ display: 'block', marginBottom: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>1. Manual (Separado por comas)</label>
+                                    <div className="form-group">
+                                        <label className="form-label">1. Manual (Separado por comas)</label>
                                         <div style={{ display: 'flex', gap: 8 }}>
                                             <input
+                                                className="input-glass"
                                                 value={newOwner}
                                                 onChange={e => setNewOwner(e.target.value)}
                                                 placeholder="Ej: Juan, Pedro, Maria..."
-                                                style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid var(--border)' }}
+                                                style={{ flex: 1 }}
                                                 onKeyDown={e => {
                                                     if (e.key === 'Enter') {
                                                         if (newOwner.includes(',')) {
@@ -799,10 +810,10 @@ export default function Workspace() {
                                     </div>
 
                                     {/* Option 2: System Users */}
-                                    <div style={{ marginBottom: 20 }}>
-                                        <label style={{ display: 'block', marginBottom: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>2. Usuarios del Sistema</label>
+                                    <div className="form-group">
+                                        <label className="form-label">2. Usuarios del Sistema</label>
                                         <select
-                                            style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--border)' }}
+                                            className="input-glass"
                                             onChange={(e) => {
                                                 if (e.target.value) {
                                                     addItem(wizOwners, setWizOwners, e.target.value, () => { });
@@ -831,9 +842,9 @@ export default function Workspace() {
                             {wizardStep === 4 && (
                                 <div className="wiz-step animate-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                                     <div>
-                                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Tipos</label>
+                                        <label className="form-label">Tipos</label>
                                         <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                                            <input value={newType} onChange={e => setNewType(e.target.value)} placeholder="Tipo..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizTypes, setWizTypes, newType, setNewType)} />
+                                            <input className="input-glass" value={newType} onChange={e => setNewType(e.target.value)} placeholder="Tipo..." style={{ flex: 1, padding: 6 }} onKeyDown={e => e.key === 'Enter' && addItem(wizTypes, setWizTypes, newType, setNewType)} />
                                             <button className="btn-ghost" onClick={() => addItem(wizTypes, setWizTypes, newType, setNewType)}><Plus size={16} /></button>
                                         </div>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -845,9 +856,9 @@ export default function Workspace() {
                                         </div>
                                     </div>
                                     <div>
-                                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Gates</label>
+                                        <label className="form-label">Gates</label>
                                         <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                                            <input value={newGate} onChange={e => setNewGate(e.target.value)} placeholder="Gate..." style={{ flex: 1, padding: 6, borderRadius: 4, border: '1px solid var(--border)' }} onKeyDown={e => e.key === 'Enter' && addItem(wizGates, setWizGates, newGate, setNewGate)} />
+                                            <input className="input-glass" value={newGate} onChange={e => setNewGate(e.target.value)} placeholder="Gate..." style={{ flex: 1, padding: 6 }} onKeyDown={e => e.key === 'Enter' && addItem(wizGates, setWizGates, newGate, setNewGate)} />
                                             <button className="btn-ghost" onClick={() => addItem(wizGates, setWizGates, newGate, setNewGate)}><Plus size={16} /></button>
                                         </div>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -861,14 +872,14 @@ export default function Workspace() {
                                 </div>
                             )}
                         </div>
-                        <div style={{ padding: '20px 32px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'flex-end', gap: 12, background: 'rgba(0,0,0,0.2)' }}>
-                            {wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
+
+                        <div className="modal-footer">
                             {wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
                             {wizardStep < 4 ? (
                                 <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>
                             ) : (
                                 <button className="btn-primary" onClick={handleSaveDashboard}>
-                                    {isImporting && parsedTasks.length > 0 ? `Crear e Importar (${parsedTasks.length} tareas)` : "Crear Proyecto"}
+                                    {isImporting && parsedTasks.length > 0 ? `Crear e Importar (${parsedTasks.length})` : "Crear Proyecto"}
                                 </button>
                             )}
                         </div>

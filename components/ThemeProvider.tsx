@@ -25,18 +25,18 @@ const ThemeContext = createContext<{
 export const useTheme = () => useContext(ThemeContext);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const [theme, setTheme] = useState<Theme>("light");
+    const [theme, setTheme] = useState<Theme>(() => {
+        if (typeof window !== "undefined") {
+            return (localStorage.getItem("theme") as Theme) || "light";
+        }
+        return "light";
+    });
     const [branding, setBranding] = useState<BrandingSettings>({});
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        const savedTheme = localStorage.getItem("theme") as Theme;
-        if (savedTheme) {
-            setTheme(savedTheme);
-            document.documentElement.classList.toggle("dark", savedTheme === "dark");
-        } else {
-            document.documentElement.classList.remove("dark");
-        }
+        // Apply initial theme classes
+        document.documentElement.classList.toggle("dark", theme === "dark");
 
         // Fetch Branding
         fetch('/api/settings/public')
@@ -45,7 +45,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
                 setBranding(data);
                 if (data.brand_primary_color) {
                     document.documentElement.style.setProperty('--primary', data.brand_primary_color);
-                    // Override gradient to use the selected solid color
                     document.documentElement.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${data.brand_primary_color} 0%, ${data.brand_primary_color} 100%)`);
                 }
                 if (data.brand_secondary_color) {
@@ -61,8 +60,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             })
             .catch(err => console.error("Failed to load branding", err));
 
-        setMounted(true);
-    }, []);
+        setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const toggleTheme = () => {
         const newTheme = theme === "light" ? "dark" : "light";

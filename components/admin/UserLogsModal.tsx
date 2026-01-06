@@ -47,25 +47,11 @@ export default function UserLogsModal({ isOpen, userId, userName, onClose }: Use
     if (!isOpen) return null;
 
     return (
-        <div style={{
-            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-            background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            zIndex: 1000
-        }}>
-            <div style={{
-                background: "var(--bg-panel)", width: "100%", maxWidth: 600, maxHeight: "80vh",
-                borderRadius: 16, border: "1px solid var(--border-dim)",
-                boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
-                display: "flex", flexDirection: "column"
-            }}>
-                <div style={{
-                    padding: "20px 24px", borderBottom: "1px solid var(--border-dim)",
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    flexShrink: 0
-                }}>
+        <div className="backdrop fade-in" onClick={onClose}>
+            <div className="modal-container animate-slide-up" style={{ maxWidth: 600, maxHeight: "85vh" }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
                     <div>
-                        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Registro de Actividad</h3>
+                        <h3 className="modal-title">Registro de Actividad</h3>
                         <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "var(--text-dim)" }}>
                             Historial para: <span style={{ color: "var(--text-main)", fontWeight: 500 }}>{userName || "Usuario"}</span>
                         </p>
@@ -73,7 +59,7 @@ export default function UserLogsModal({ isOpen, userId, userName, onClose }: Use
                     <button onClick={onClose} className="btn-ghost" style={{ padding: 4 }}><X size={20} /></button>
                 </div>
 
-                <div style={{ padding: 0, overflowY: "auto", flexGrow: 1 }}>
+                <div className="modal-body" style={{ padding: 0 }}>
                     {loading ? (
                         <div style={{ padding: 40, textAlign: "center", color: "var(--text-dim)" }}>Cargando actividad...</div>
                     ) : logs.length === 0 ? (
@@ -111,6 +97,9 @@ export default function UserLogsModal({ isOpen, userId, userName, onClose }: Use
                             ))}
                         </div>
                     )}
+                </div>
+                <div className="modal-footer">
+                    <button className="btn-ghost" onClick={onClose}>Cerrar</button>
                 </div>
             </div>
         </div>

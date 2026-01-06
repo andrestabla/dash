@@ -500,6 +500,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         }
     };
 
+    const cancelEditTask = () => {
+        setIsModalOpen(false);
+        setEditingTask({ id: undefined, name: "", status: settings?.statuses?.[0]?.id || "todo", week: settings?.weeks?.[0]?.id || "", owner: settings?.owners?.[0] || "", type: "Feature" });
+    };
+
     const requestDeleteTask = () => {
         setConfirmMessage("¿Estás seguro de que quieres eliminar esta tarea? No podrás deshacerlo.");
         setConfirmCallback(() => executeDeleteTask);
@@ -859,47 +864,37 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     <AnalyticsView tasks={tasks} settings={settings} statuses={statuses} />
                 )}
 
-                {/* TASK MODAL */}
                 {isModalOpen && settings && (
-                    <div className="backdrop fade-in" onClick={() => setIsModalOpen(false)}>
-                        <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()}>
-                            <div className="m-head">
-                                <h3 style={{ margin: 0, fontSize: 15 }}>{editingTask.id ? "Editar Tarea" : "Nueva Tarea"}</h3>
-                                <button className="btn-ghost" onClick={() => setIsModalOpen(false)}>✕</button>
-                            </div>
-                            <div className="m-body">
-                                <div className="form-row">
-                                    <label>Tarea</label>
-                                    <input value={editingTask.name || ""} onChange={(e) => setEditingTask({ ...editingTask, name: e.target.value })} style={{ fontWeight: 600 }} autoFocus />
+                    <div className="backdrop fade-in" onClick={cancelEditTask}>
+                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800 }}>
+                            <div className="modal-header">
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 4 }}>{editingTask.id}</div>
+                                    <input
+                                        className="modal-title"
+                                        value={editingTask.name}
+                                        onChange={(e) => setEditingTask({ ...editingTask, name: e.target.value })}
+                                        style={{ background: 'transparent', border: 'none', padding: 0, width: '100%', outline: 'none' }}
+                                    />
                                 </div>
+                                <button className="btn-ghost" onClick={cancelEditTask}>✕</button>
+                            </div>
+                            <div className="modal-body">
                                 <div className="form-grid">
-                                    <div>
-                                        <label>Estado</label>
-                                        <select value={editingTask.status} onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}>
-                                            {statuses.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label>Semana</label>
-                                        <select value={editingTask.week} onChange={(e) => setEditingTask({ ...editingTask, week: e.target.value })}>
-                                            {settings.weeks.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label>Responsable</label>
-                                        <select value={editingTask.owner} onChange={(e) => setEditingTask({ ...editingTask, owner: e.target.value })}>
-                                            <option value="">No Asignado</option>
-                                            {/* System Users */}
-                                            {availableUsers.length > 0 && (
-                                                <optgroup label="Usuarios del Sistema">
-                                                    {availableUsers.map(u => (
-                                                        <option key={u.id} value={`${u.name} (${u.email})`}>{u.name} ({u.email})</option>
-                                                    ))}
-                                                </optgroup>
-                                            )}
-                                            {/* Legacy Manual Owners */}
+                                    <div className="form-group">
+                                        <label className="form-label">Responsable</label>
+                                        <select
+                                            className="input-glass"
+                                            value={editingTask.owner}
+                                            onChange={(e) => setEditingTask({ ...editingTask, owner: e.target.value })}
+                                        >
+                                            <optgroup label="Usuarios del Sistema">
+                                                {availableUsers.map(u => (
+                                                    <option key={u.id} value={u.name}>{u.name}</option>
+                                                ))}
+                                            </optgroup>
                                             {settings.owners && settings.owners.length > 0 && (
-                                                <optgroup label="Configuración Manual (Legacy)">
+                                                <optgroup label="Manual (Legacy)">
                                                     {settings.owners.map(o => (
                                                         <option key={o} value={o}>{o}</option>
                                                     ))}
@@ -907,83 +902,81 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                             )}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label>Tipo</label>
-                                        <select value={editingTask.type} onChange={(e) => setEditingTask({ ...editingTask, type: e.target.value })}>
+                                    <div className="form-group">
+                                        <label className="form-label">Tipo</label>
+                                        <select className="input-glass" value={editingTask.type} onChange={(e) => setEditingTask({ ...editingTask, type: e.target.value })}>
                                             {settings.types.map(t => (<option key={t} value={t}>{t}</option>))}
                                         </select>
                                     </div>
                                 </div>
-                                <div className="form-row" style={{ marginTop: 12 }}>
-                                    <label>Fecha Objetivo</label>
-                                    <input type="date" value={editingTask.due || ""} onChange={(e) => setEditingTask({ ...editingTask, due: e.target.value })} />
+                                <div className="form-group">
+                                    <label className="form-label">Fecha Objetivo</label>
+                                    <input className="input-glass" type="date" value={editingTask.due || ""} onChange={(e) => setEditingTask({ ...editingTask, due: e.target.value })} />
                                 </div>
-                                <div className="form-row">
-                                    <label>Descripción</label>
-                                    <textarea value={editingTask.desc || ""} onChange={(e) => setEditingTask({ ...editingTask, desc: e.target.value })} rows={4} />
+                                <div className="form-group">
+                                    <label className="form-label">Descripción</label>
+                                    <textarea className="input-glass" value={editingTask.desc || ""} onChange={(e) => setEditingTask({ ...editingTask, desc: e.target.value })} rows={4} />
                                 </div>
 
                                 {/* COMMENTS SECTION */}
-                                {editingTask.id && (
-                                    <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                                        <h4 style={{ margin: '0 0 12px 0', fontSize: 13, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Comentarios</h4>
+                                <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                                    <h4 style={{ margin: '0 0 12px 0', fontSize: 13, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Comentarios</h4>
 
-                                        {/* Comment List */}
-                                        <div style={{ marginBottom: 16, maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                            {comments.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic' }}>No hay comentarios aún.</p>}
-                                            {comments.map(c => (
-                                                <div key={c.id} style={{ background: 'var(--panel-hover)', padding: '8px 12px', borderRadius: 8 }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <span style={{ fontWeight: 600, fontSize: 13 }}>{c.user_name}</span>
-                                                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{new Date(c.created_at).toLocaleString()}</span>
-                                                        </div>
-                                                        {currentUser?.email === c.user_email && (
-                                                            <div style={{ display: 'flex', gap: 4 }}>
-                                                                <button className="btn-ghost" onClick={() => startEditComment(c)} style={{ padding: 2, height: 'auto', opacity: 0.6 }}><Edit2 size={12} /></button>
-                                                                <button className="btn-ghost" onClick={() => handleDeleteComment(c.id)} style={{ padding: 2, height: 'auto', opacity: 0.6 }}><Trash2 size={12} /></button>
-                                                            </div>
-                                                        )}
+                                    {/* Comment List */}
+                                    <div style={{ marginBottom: 16, maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {comments.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic' }}>No hay comentarios aún.</p>}
+                                        {comments.map(c => (
+                                            <div key={c.id} style={{ background: 'var(--panel-hover)', padding: '8px 12px', borderRadius: 8 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <span style={{ fontWeight: 600, fontSize: 13 }}>{c.user_name}</span>
+                                                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{new Date(c.created_at).toLocaleString()}</span>
                                                     </div>
-
-                                                    {editingCommentId === c.id ? (
-                                                        <div style={{ marginTop: 4 }}>
-                                                            <textarea
-                                                                value={editContent}
-                                                                onChange={e => setEditContent(e.target.value)}
-                                                                style={{ width: '100%', padding: 6, fontSize: 13, borderRadius: 4, border: '1px solid var(--border)', minHeight: 60 }}
-                                                            />
-                                                            <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
-                                                                <button className="btn-ghost" onClick={() => setEditingCommentId(null)} style={{ fontSize: 11 }}>Cancelar</button>
-                                                                <button className="btn-primary" onClick={handleSaveEditComment} style={{ padding: '4px 10px', fontSize: 11, height: 'auto' }}>Guardar</button>
-                                                            </div>
+                                                    {currentUser?.email === c.user_email && (
+                                                        <div style={{ display: 'flex', gap: 4 }}>
+                                                            <button className="btn-ghost" onClick={() => startEditComment(c)} style={{ padding: 2, height: 'auto', opacity: 0.6 }}><Edit2 size={12} /></button>
+                                                            <button className="btn-ghost" onClick={() => handleDeleteComment(c.id)} style={{ padding: 2, height: 'auto', opacity: 0.6 }}><Trash2 size={12} /></button>
                                                         </div>
-                                                    ) : (
-                                                        <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{c.content}</div>
                                                     )}
                                                 </div>
-                                            ))}
-                                        </div>
 
-                                        {/* Add Comment */}
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <textarea
-                                                value={newComment}
-                                                onChange={e => setNewComment(e.target.value)}
-                                                placeholder="Escribe un comentario..."
-                                                style={{ flex: 1, minHeight: 40, padding: 8, fontSize: 13, borderRadius: 6, border: '1px solid var(--border)' }}
-                                            />
-                                            <button className="btn-ghost" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 'auto' }}>
-                                                <Send size={16} />
-                                            </button>
-                                        </div>
+                                                {editingCommentId === c.id ? (
+                                                    <div style={{ marginTop: 4 }}>
+                                                        <textarea
+                                                            value={editContent}
+                                                            onChange={e => setEditContent(e.target.value)}
+                                                            className="input-glass"
+                                                            style={{ width: '100%', padding: 6, fontSize: 13, minHeight: 60 }}
+                                                        />
+                                                        <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
+                                                            <button className="btn-ghost" onClick={() => setEditingCommentId(null)} style={{ fontSize: 11 }}>Cancelar</button>
+                                                            <button className="btn-primary" onClick={handleSaveEditComment} style={{ padding: '4px 10px', fontSize: 11, height: 'auto' }}>Guardar</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{c.content}</div>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
-                                )}
+
+                                    {/* Add Comment */}
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <textarea
+                                            value={newComment}
+                                            onChange={e => setNewComment(e.target.value)}
+                                            placeholder="Escribe un comentario..."
+                                            className="input-glass"
+                                            style={{ flex: 1, minHeight: 40, padding: 8, fontSize: 13 }}
+                                        />
+                                        <button className="btn-ghost" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 'auto' }}>
+                                            <Send size={16} />
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="m-foot">
-                                {editingTask.id && (
-                                    <button className="btn-ghost" style={{ color: "var(--danger)" }} onClick={requestDeleteTask}>Eliminar</button>
-                                )}
+                            <div className="modal-footer">
+                                <button className="btn-ghost" style={{ color: "var(--danger)" }} onClick={requestDeleteTask}>Eliminar</button>
                                 <button className="btn-primary" onClick={saveTask}>Guardar Tarea</button>
                             </div>
                         </div>
@@ -1004,15 +997,18 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {/* COLUMN MODAL */}
                 {isColModalOpen && (
                     <div className="backdrop fade-in" onClick={() => setIsColModalOpen(false)}>
-                        <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ width: 400 }}>
-                            <div className="m-head"><h3 style={{ margin: 0 }}>{editingColId ? "Editar Columna" : "Nueva Columna"}</h3><button className="btn-ghost" onClick={() => setIsColModalOpen(false)}>✕</button></div>
-                            <div className="m-body">
-                                <div className="form-row">
-                                    <label>Nombre columna</label>
-                                    <input value={newColName} onChange={e => setNewColName(e.target.value)} autoFocus placeholder="Ej: Bloqueado" />
+                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                            <div className="modal-header">
+                                <h3 className="modal-title">{editingColId ? "Editar Columna" : "Nueva Columna"}</h3>
+                                <button className="btn-ghost" onClick={() => setIsColModalOpen(false)}>✕</button>
+                            </div>
+                            <div className="modal-body">
+                                <div className="form-group">
+                                    <label className="form-label">Nombre columna</label>
+                                    <input className="input-glass" value={newColName} onChange={e => setNewColName(e.target.value)} autoFocus placeholder="Ej: Bloqueado" />
                                 </div>
-                                <div className="form-row">
-                                    <label>Color</label>
+                                <div className="form-group">
+                                    <label className="form-label">Color</label>
                                     <div style={{ display: 'flex', gap: 10 }}>
                                         {["#3b82f6", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6"].map(c => (
                                             <div key={c} onClick={() => setNewColColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: newColColor === c ? '0 0 0 2px var(--panel), 0 0 0 4px ' + c : 'none' }}></div>
@@ -1020,7 +1016,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     </div>
                                 </div>
                             </div>
-                            <div className="m-foot">
+                            <div className="modal-footer">
                                 <button className="btn-primary" onClick={handleSaveCol}>
                                     {editingColId ? "Actualizar" : "Crear Columna"}
                                 </button>
@@ -1032,19 +1028,19 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {/* EDIT DASHBOARD MODAL */}
                 {isSettingsOpen && settings && (
                     <div className="backdrop fade-in" onClick={() => setIsSettingsOpen(false)}>
-                        <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ width: 600 }}>
-                            <div className="m-head">
-                                <h3 style={{ margin: 0 }}>Configurar Tablero</h3>
+                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                            <div className="modal-header">
+                                <h3 className="modal-title">Configurar Tablero</h3>
                                 <button className="btn-ghost" onClick={() => setIsSettingsOpen(false)}>✕</button>
                             </div>
-                            <div className="m-body">
+                            <div className="modal-body">
                                 <div className="form-grid">
-                                    <div>
-                                        <label>Nombre del Proyecto</label>
-                                        <input value={editSettings.name} onChange={e => setEditSettings({ ...editSettings, name: e.target.value })} style={{ fontWeight: 700 }} />
+                                    <div className="form-group">
+                                        <label className="form-label">Nombre del Proyecto</label>
+                                        <input className="input-glass" value={editSettings.name} onChange={e => setEditSettings({ ...editSettings, name: e.target.value })} style={{ fontWeight: 700 }} />
                                     </div>
-                                    <div>
-                                        <label>Ícono</label>
+                                    <div className="form-group">
+                                        <label className="form-label">Ícono</label>
                                         <div style={{ display: 'flex', gap: 8 }}>
                                             {["🚀", "💻", "🎨", "📈", "🔥", "✨"].map(ic => (
                                                 <button key={ic} className="btn-ghost" style={{ fontSize: 18, background: editSettings.icon === ic ? 'var(--bg-panel)' : 'transparent', border: editSettings.icon === ic ? '1px solid var(--primary)' : '1px solid transparent' }} onClick={() => setEditSettings({ ...editSettings, icon: ic })}>{ic}</button>
@@ -1053,33 +1049,33 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     </div>
                                 </div>
 
-                                <div className="form-row" style={{ marginTop: 16 }}>
-                                    <label>Descripción</label>
-                                    <input value={editSettings.description || ""} onChange={e => setEditSettings({ ...editSettings, description: e.target.value })} placeholder="Breve descripción del objetivo..." />
+                                <div className="form-group">
+                                    <label className="form-label">Descripción</label>
+                                    <input className="input-glass" value={editSettings.description || ""} onChange={e => setEditSettings({ ...editSettings, description: e.target.value })} placeholder="Breve descripción del objetivo..." />
                                 </div>
 
-                                <div className="form-grid" style={{ marginTop: 16 }}>
-                                    <div>
-                                        <label>Duración (Semanas)</label>
-                                        <input type="number" value={editSettings.weekCount} onChange={e => setEditSettings({ ...editSettings, weekCount: parseInt(e.target.value) || 1 })} min={1} max={20} />
+                                <div className="form-grid">
+                                    <div className="form-group">
+                                        <label className="form-label">Duración (Semanas)</label>
+                                        <input className="input-glass" type="number" value={editSettings.weekCount} onChange={e => setEditSettings({ ...editSettings, weekCount: parseInt(e.target.value) || 1 })} min={1} max={20} />
                                     </div>
-                                    <div>
-                                        <label>Equipo (Separado por comas)</label>
-                                        <input value={editSettings.owners} onChange={e => setEditSettings({ ...editSettings, owners: e.target.value })} placeholder="Ana, Luis, Pedro..." />
+                                    <div className="form-group">
+                                        <label className="form-label">Equipo (Separado por comas)</label>
+                                        <input className="input-glass" value={editSettings.owners} onChange={e => setEditSettings({ ...editSettings, owners: e.target.value })} placeholder="Ana, Luis, Pedro..." />
                                     </div>
                                 </div>
 
-                                <div className="form-row" style={{ marginTop: 16 }}>
-                                    <label>Gates / Hitos (Separados por comas)</label>
-                                    <input value={editSettings.gates} onChange={e => setEditSettings({ ...editSettings, gates: e.target.value })} placeholder="Gate 1, Gate 2, Gate 3..." />
+                                <div className="form-group">
+                                    <label className="form-label">Gates / Hitos (Separados por comas)</label>
+                                    <input className="input-glass" value={editSettings.gates} onChange={e => setEditSettings({ ...editSettings, gates: e.target.value })} placeholder="Gate 1, Gate 2, Gate 3..." />
                                 </div>
 
-                                <div className="form-row" style={{ marginTop: 16 }}>
-                                    <label>Tipos de Tarea (Separados por comas)</label>
-                                    <input value={editSettings.types} onChange={e => setEditSettings({ ...editSettings, types: e.target.value })} placeholder="Feature, Bug, Spike..." />
+                                <div className="form-group">
+                                    <label className="form-label">Tipos de Tarea (Separados por comas)</label>
+                                    <input className="input-glass" value={editSettings.types} onChange={e => setEditSettings({ ...editSettings, types: e.target.value })} placeholder="Feature, Bug, Spike..." />
                                 </div>
                             </div>
-                            <div className="m-foot">
+                            <div className="modal-footer">
                                 <button className="btn-primary" onClick={saveDashboardSettings}>Guardar Cambios</button>
                             </div>
                         </div>
@@ -1132,19 +1128,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     .tl-item { display: flex; align-items: center; gap: 16px; padding: 12px; background: var(--bg-card); border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border-dim); transition: all 0.2s; }
                     .tl-item:hover { transform: translateX(5px); border-color: #3b82f6; }
 
-                    /* MODAL */
-                    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; }
-                    .modal { background: var(--bg-card); width: 500px; max-width: 90vw; max-height: 90vh; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); overflow: hidden; display: flex; flex-direction: column; }
-                    .m-head { padding: 20px 24px; border-bottom: 1px solid var(--border-dim); display: flex; justify-content: space-between; align-items: center; background: var(--bg-panel); }
-                    .m-body { padding: 24px; overflow-y: auto; flex: 1; }
-                    .m-foot { padding: 20px 24px; border-top: 1px solid var(--border-dim); display: flex; justify-content: flex-end; gap: 12px; background: var(--bg-panel); }
-                    
-                    .form-row { margin-bottom: 16px; }
-                    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-                    label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; }
-                    input, select, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-dim); background: var(--bg-card); color: var(--text-main); font-family: inherit; transition: all 0.2s; }
-                    input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
-                    
+
                     /* DARK MODE ADJUSTMENTS */
                     @media (prefers-color-scheme: dark) {
                         .chip.gate { background: rgba(5, 150, 105, 0.2); color: #34d399; }
@@ -1153,105 +1137,107 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             </main>
             {isShareModalOpen && (
                 <div className="backdrop animate-fade-in" onClick={() => setIsShareModalOpen(false)}>
-                    <div className="glass-panel animate-slide-up" style={{ width: 500, padding: 32 }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                            <h2 style={{ margin: 0, fontSize: 20 }}>Compartir Tablero</h2>
+                    <div className="modal-container animate-slide-up" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Compartir Tablero</h2>
                             <button onClick={() => setIsShareModalOpen(false)} className="btn-ghost"><X size={20} /></button>
                         </div>
 
-                        <div style={{ display: 'flex', gap: 4, marginBottom: 24, padding: 4, background: 'var(--bg-panel)', borderRadius: 12 }}>
-                            <button
-                                onClick={() => setShareTab('internal')}
-                                style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'internal' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'internal' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'internal' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                            >
-                                <Users size={16} /> Equipo
-                            </button>
-                            <button
-                                onClick={() => setShareTab('public')}
-                                style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'public' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'public' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'public' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                            >
-                                <Globe size={16} /> Público
-                            </button>
-                        </div>
-
-                        {shareTab === 'internal' ? (
-                            <div className="animate-fade-in">
-                                <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-                                    <select
-                                        className="input-glass"
-                                        value={inviteUserId}
-                                        onChange={e => setInviteUserId(e.target.value)}
-                                    >
-                                        <option value="">Seleccionar usuario...</option>
-                                        {availableUsers.filter(u => u.email !== currentUser?.email && !collaborators.some(c => c.email === u.email)).map(u => (
-                                            <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                                        ))}
-                                    </select>
-                                    <button className="btn-primary" disabled={!inviteUserId} onClick={handleInviteUser}>
-                                        <UserPlus size={16} /> Invitar
-                                    </button>
-                                </div>
-
-                                <h3 style={{ fontSize: 14, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Colaboradores</h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
-                                    {collaborators.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-dim)', textAlign: 'center', padding: 20 }}>No hay colaboradores aún.</p>}
-                                    {collaborators.map(c => (
-                                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-dim)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
-                                                    {c.name.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: 14, fontWeight: 500 }}>{c.name}</div>
-                                                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{c.email}</div>
-                                                </div>
-                                            </div>
-                                            <button className="btn-ghost" onClick={() => handleRemoveCollaborator(c.id)} title="Quitar acceso">
-                                                <Trash2 size={16} color="var(--text-dim)" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
+                        <div className="modal-body">
+                            <div style={{ display: 'flex', gap: 4, marginBottom: 24, padding: 4, background: 'var(--bg-panel)', borderRadius: 12 }}>
+                                <button
+                                    onClick={() => setShareTab('internal')}
+                                    style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'internal' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'internal' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'internal' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                >
+                                    <Users size={16} /> Equipo
+                                </button>
+                                <button
+                                    onClick={() => setShareTab('public')}
+                                    style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'public' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'public' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'public' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                >
+                                    <Globe size={16} /> Público
+                                </button>
                             </div>
-                        ) : (
-                            <div className="animate-fade-in">
-                                <div style={{ padding: 20, borderRadius: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)', marginBottom: 20 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                            <div style={{ width: 40, height: 40, borderRadius: '50%', background: isPublic ? '#10b981' : 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                                                <Globe size={20} />
-                                            </div>
-                                            <div>
-                                                <div style={{ fontWeight: 600 }}>Enlace Público</div>
-                                                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Cualquiera con el enlace puede ver.</div>
-                                            </div>
-                                        </div>
-                                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: 48, height: 24 }}>
-                                            <input type="checkbox" checked={isPublic} onChange={handleTogglePublic} style={{ opacity: 0, width: 0, height: 0 }} />
-                                            <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: isPublic ? '#10b981' : '#ccc', transition: '.4s', borderRadius: 34 }}></span>
-                                            <span style={{ position: 'absolute', content: '""', height: 16, width: 16, left: 4, bottom: 4, backgroundColor: 'white', transition: '.4s', borderRadius: '50%', transform: isPublic ? 'translateX(24px)' : 'translateX(0)' }}></span>
-                                        </label>
+
+                            {shareTab === 'internal' ? (
+                                <div className="animate-fade-in">
+                                    <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                                        <select
+                                            className="input-glass"
+                                            value={inviteUserId}
+                                            onChange={e => setInviteUserId(e.target.value)}
+                                        >
+                                            <option value="">Seleccionar usuario...</option>
+                                            {availableUsers.filter(u => u.email !== currentUser?.email && !collaborators.some(c => c.email === u.email)).map(u => (
+                                                <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                                            ))}
+                                        </select>
+                                        <button className="btn-primary" disabled={!inviteUserId} onClick={handleInviteUser}>
+                                            <UserPlus size={16} /> Invitar
+                                        </button>
                                     </div>
 
-                                    {isPublic && (
-                                        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                                            <input
-                                                className="input-glass"
-                                                readOnly
-                                                value={`${window.location.origin}/public/board/${publicToken}`}
-                                                style={{ fontSize: 12, color: 'var(--text-dim)' }}
-                                            />
-                                            <button className="btn-primary" onClick={copyPublicLink} style={{ padding: '0 12px' }}>
-                                                {copied ? <Check size={16} /> : <Copy size={16} />}
-                                            </button>
-                                        </div>
-                                    )}
+                                    <h3 style={{ fontSize: 14, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Colaboradores</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
+                                        {collaborators.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-dim)', textAlign: 'center', padding: 20 }}>No hay colaboradores aún.</p>}
+                                        {collaborators.map(c => (
+                                            <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-dim)' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+                                                        {c.name.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: 14, fontWeight: 500 }}>{c.name}</div>
+                                                        <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{c.email}</div>
+                                                    </div>
+                                                </div>
+                                                <button className="btn-ghost" onClick={() => handleRemoveCollaborator(c.id)} title="Quitar acceso">
+                                                    <Trash2 size={16} color="var(--text-dim)" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center' }}>
-                                    ⚠️ Los usuarios externos solo podrán ver el tablero, no editarlo.
-                                </p>
-                            </div>
-                        )}
+                            ) : (
+                                <div className="animate-fade-in">
+                                    <div style={{ padding: 20, borderRadius: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)', marginBottom: 20 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                <div style={{ width: 40, height: 40, borderRadius: '50%', background: isPublic ? '#10b981' : 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                                    <Globe size={20} />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 600 }}>Enlace Público</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Cualquiera con el enlace puede ver.</div>
+                                                </div>
+                                            </div>
+                                            <label className="switch" style={{ position: 'relative', display: 'inline-block', width: 48, height: 24 }}>
+                                                <input type="checkbox" checked={isPublic} onChange={handleTogglePublic} style={{ opacity: 0, width: 0, height: 0 }} />
+                                                <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: isPublic ? '#10b981' : '#ccc', transition: '.4s', borderRadius: 34 }}></span>
+                                                <span style={{ position: 'absolute', content: '""', height: 16, width: 16, left: 4, bottom: 4, backgroundColor: 'white', transition: '.4s', borderRadius: '50%', transform: isPublic ? 'translateX(24px)' : 'translateX(0)' }}></span>
+                                            </label>
+                                        </div>
+
+                                        {isPublic && (
+                                            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                                                <input
+                                                    className="input-glass"
+                                                    readOnly
+                                                    value={`${window.location.origin}/public/board/${publicToken}`}
+                                                    style={{ fontSize: 12, color: 'var(--text-dim)' }}
+                                                />
+                                                <button className="btn-primary" onClick={copyPublicLink} style={{ padding: '0 12px' }}>
+                                                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center' }}>
+                                        ⚠️ Los usuarios externos solo podrán ver el tablero, no editarlo.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

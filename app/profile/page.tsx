@@ -27,7 +27,7 @@ export default function ProfilePage() {
                 showToast("Error al cargar perfil", "error");
                 setLoading(false);
             });
-    }, []);
+    }, [showToast]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,7 +44,7 @@ export default function ProfilePage() {
             } else {
                 throw new Error("Update failed");
             }
-        } catch (error) {
+        } catch {
             showToast('Error al actualizar el perfil', 'error');
         }
     };
@@ -65,21 +65,23 @@ export default function ProfilePage() {
                     </button>
                 </div>
 
-                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                    <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase' }}>Email (No editable)</label>
-                        <input className="input-glass" value={user.email} disabled style={{ opacity: 0.6, cursor: 'not-allowed', padding: '10px 12px' }} />
+                <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div className="form-group">
+                        <label className="form-label">Email (No editable)</label>
+                        <input className="input-glass" value={user.email} disabled style={{ opacity: 0.6, cursor: 'not-allowed' }} />
                     </div>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase' }}>Nombre Completo</label>
-                        <input className="input-glass" value={user.name || ''} onChange={e => setUser({ ...user, name: e.target.value })} placeholder="Tu nombre..." style={{ padding: '10px 12px' }} />
+                    <div className="form-group">
+                        <label className="form-label">Nombre Completo</label>
+                        <input className="input-glass" value={user.name || ''} onChange={e => setUser({ ...user, name: e.target.value })} placeholder="Tu nombre..." />
                     </div>
 
-                    <div style={{ padding: 20, background: 'var(--bg-panel)', borderRadius: 12, border: '1px solid var(--border-dim)' }}>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase' }}>Nueva Contraseña (Opcional)</label>
-                        <input className="input-glass" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Dejar en blanco para no cambiar" style={{ padding: '10px 12px' }} />
-                        <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: '8px 0 0 0' }}>Mínimo 6 caracteres recomendado.</p>
+                    <div style={{ padding: 20, background: 'rgba(59, 130, 246, 0.05)', borderRadius: 16, border: '1px solid rgba(59, 130, 246, 0.1)', marginBottom: 10 }}>
+                        <div className="form-group" style={{ marginBottom: 8 }}>
+                            <label className="form-label" style={{ color: '#3b82f6' }}>Nueva Contraseña (Opcional)</label>
+                            <input className="input-glass" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Dejar en blanco para no cambiar" />
+                        </div>
+                        <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>Mínimo 6 caracteres recomendado.</p>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>

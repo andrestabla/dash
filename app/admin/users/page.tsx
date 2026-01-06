@@ -91,41 +91,45 @@ export default function AdminUsersPage() {
             </header>
 
             {isCreating && (
-                <div style={{ background: "var(--bg-panel)", padding: 20, borderRadius: 12, marginBottom: 30, border: "1px solid var(--border-dim)" }}>
-                    <h3 style={{ marginTop: 0 }}>Crear Usuario</h3>
-                    <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
-                        <div>
-                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Nombre</label>
-                            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Opcional" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border-dim)" }} />
+                <div className="glass-panel animate-slide-up" style={{ padding: 24, marginBottom: 30 }}>
+                    <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: 18, fontWeight: 600 }}>Crear Usuario</h3>
+                    <form onSubmit={handleCreate}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, alignItems: "start", marginBottom: 20 }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Nombre</label>
+                                <input className="input-glass" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Opcional" />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Email</label>
+                                <input className="input-glass" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Password</label>
+                                <input className="input-glass" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Role</label>
+                                <select className="input-glass" value={newRole} onChange={e => setNewRole(e.target.value)}>
+                                    <option value="user">User</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
                         </div>
-                        <div>
-                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Email</label>
-                            <input value={newEmail} onChange={e => setNewEmail(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border-dim)" }} />
-                        </div>
-                        <div>
-                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Password</label>
-                            <input value={newPassword} onChange={e => setNewPassword(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border-dim)" }} />
-                        </div>
-                        <div>
-                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Role</label>
-                            <select value={newRole} onChange={e => setNewRole(e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border-dim)" }}>
-                                <option value="user">User</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                        </div>
-                        <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                            <input
-                                type="checkbox"
-                                id="sendCreds"
-                                checked={sendCredentials}
-                                onChange={e => setSendCredentials(e.target.checked)}
-                                style={{ transform: "scale(1.2)" }}
-                            />
-                            <label htmlFor="sendCreds" style={{ fontSize: 13, cursor: "pointer", userSelect: "none" }}>Enviar credenciales de acceso al correo</label>
-                        </div>
-                        <div style={{ display: 'flex', gap: 10, gridColumn: "1 / -1", justifyContent: "flex-end" }}>
-                            <button type="button" className="btn-ghost" onClick={() => setIsCreating(false)}>Cancelar</button>
-                            <button type="submit" className="btn-primary">Crear Usuario</button>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <input
+                                    type="checkbox"
+                                    id="sendCreds"
+                                    checked={sendCredentials}
+                                    onChange={e => setSendCredentials(e.target.checked)}
+                                    style={{ transform: "scale(1.1)", cursor: "pointer" }}
+                                />
+                                <label htmlFor="sendCreds" style={{ fontSize: 13, cursor: "pointer", userSelect: "none" }}>Enviar credenciales de acceso al correo</label>
+                            </div>
+                            <div style={{ display: 'flex', gap: 10 }}>
+                                <button type="button" className="btn-ghost" onClick={() => setIsCreating(false)}>Cancelar</button>
+                                <button type="submit" className="btn-primary">Crear Usuario</button>
+                            </div>
                         </div>
                     </form>
                 </div>

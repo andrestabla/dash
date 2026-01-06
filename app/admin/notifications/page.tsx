@@ -65,12 +65,16 @@ export default function AdminNotificationsPage() {
             <h1 style={{ fontSize: 24, marginBottom: 10 }}>🔔 Centro de Mensajes</h1>
             <p style={{ color: 'var(--text-dim)', marginBottom: 30 }}>Envía anuncios importantes a tus usuarios.</p>
 
-            <div style={{ background: 'var(--bg-panel)', padding: 25, borderRadius: 12, border: '1px solid var(--border-dim)' }}>
-                <h3 style={{ marginTop: 0 }}>Nueva Notificación</h3>
+            <div className="glass-panel animate-slide-up" style={{ padding: 30, borderRadius: 20 }}>
+                <h3 style={{ marginTop: 0, marginBottom: 24, fontSize: 18, fontWeight: 600 }}>Nueva Notificación</h3>
 
-                <div style={{ marginBottom: 15 }}>
-                    <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>Destinatarios</label>
-                    <select className="input" value={target} onChange={(e) => setTarget(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid var(--border-dim)', background: 'var(--bg-main)', color: 'var(--text-main)' }}>
+                <div className="form-group">
+                    <label className="form-label">Destinatarios</label>
+                    <select
+                        className="input-glass"
+                        value={target}
+                        onChange={(e) => setTarget(e.target.value)}
+                    >
                         <option value="all">Todos los Usuarios (Broadcast)</option>
                         {users.map(u => (
                             <option key={u.id} value={u.id}>
@@ -80,14 +84,26 @@ export default function AdminNotificationsPage() {
                     </select>
                 </div>
 
-                <div style={{ marginBottom: 15 }}>
-                    <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>Título</label>
-                    <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej: Mantenimiento programado" style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid var(--border-dim)', background: 'var(--bg-main)', color: 'var(--text-main)' }} />
+                <div className="form-group">
+                    <label className="form-label">Título</label>
+                    <input
+                        className="input-glass"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Ej: Mantenimiento programado"
+                    />
                 </div>
 
-                <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>Mensaje</label>
-                    <textarea className="input" value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Escribe tu mensaje aquí..." style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid var(--border-dim)', background: 'var(--bg-main)', color: 'var(--text-main)' }} />
+                <div className="form-group" style={{ marginBottom: 24 }}>
+                    <label className="form-label">Mensaje</label>
+                    <textarea
+                        className="input-glass"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        rows={4}
+                        placeholder="Escribe tu mensaje aquí..."
+                        style={{ resize: 'vertical' }}
+                    />
                 </div>
 
                 <div style={{ textAlign: 'right' }}>

@@ -50,7 +50,6 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     const [dashboardName, setDashboardName] = useState("");
     const [statuses, setStatuses] = useState<StatusColumn[]>(DEFAULT_STATUSES);
 
-    const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
 
 
