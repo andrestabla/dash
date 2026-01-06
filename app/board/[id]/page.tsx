@@ -137,14 +137,23 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         }
     };
 
+    // Access State
+    const [accessDenied, setAccessDenied] = useState(false);
+
     // Load Data
     useEffect(() => {
         if (!dashboardId) return;
 
         fetch(`/api/dashboards/${dashboardId}`)
-            .then(res => res.json())
+            .then(async res => {
+                if (res.status === 403) {
+                    setAccessDenied(true);
+                    return null;
+                }
+                return res.json();
+            })
             .then(data => {
-                if (data.settings) {
+                if (data && data.settings) {
                     setSettings(data.settings);
                     setDashboardName(data.name);
                 }
@@ -158,6 +167,17 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             })
             .catch(err => console.error("Failed to load tasks", err));
     }, [dashboardId]);
+
+    if (accessDenied) {
+        return (
+            <div style={{ padding: 40, textAlign: 'center', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ fontSize: 64, marginBottom: 20 }}>🚫</div>
+                <h1 style={{ marginBottom: 10 }}>Acceso Denegado</h1>
+                <p style={{ color: 'var(--text-dim)', marginBottom: 20 }}>No tienes permisos para ver este tablero.</p>
+                <Link href="/" className="btn-primary">Volver al Inicio</Link>
+            </div>
+        );
+    }
 
     const statuses = useMemo(() => {
         return settings?.statuses || DEFAULT_STATUSES;
