@@ -22,10 +22,10 @@ const CustomSelect = ({ value, onChange, options, placeholder, icon, minWidth = 
     useEffect(() => {
         const selected = options.find((o: any) => o.value === value);
         if (selected) {
-            setSearchTerm(selected.label);
+            setSearchTerm(selected.label || "");
         } else if (value === '' || value === 'all') {
             const allOpt = options.find((o: any) => o.value === 'all');
-            if (value === 'all' && allOpt) setSearchTerm(allOpt.label);
+            if (value === 'all' && allOpt) setSearchTerm(allOpt.label || "");
             else setSearchTerm("");
         }
     }, [value, options]);
@@ -42,7 +42,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, icon, minWidth = 
     }, []);
 
     const filteredOptions = options.filter((o: any) =>
-        o.label.toLowerCase().includes(searchTerm.toLowerCase())
+        (o.label || "").toString().toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const handleSelect = (val: string, label: string) => {
