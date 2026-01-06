@@ -258,15 +258,26 @@ export default function AdminSettingsPage() {
                                     <div style={{ marginTop: 20, padding: 16, border: '1px dashed var(--border-dim)', borderRadius: 12 }}>
                                         <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Enviar correo de prueba a:</label>
                                         <div style={{ display: 'flex', gap: 10 }}>
-                                            <input
-                                                className="input-glass"
-                                                placeholder="tu@email.com"
-                                                value={info.testEmail || ''}
-                                                onChange={e => setInfo({ ...info, testEmail: e.target.value })}
+                                            className="input-glass"
+                                            placeholder="tu@email.com"
+                                            value={info.testEmail || ''}
+                                            style={{ color: 'var(--text-main)', borderColor: 'var(--border-dim)' }}
+                                            onChange={e => setInfo({ ...info, testEmail: e.target.value })}
                                             />
                                             <button
                                                 className="btn-primary"
-                                                style={{ whiteSpace: 'nowrap', background: testing ? '#94a3b8' : 'var(--primary)', cursor: testing ? 'not-allowed' : 'pointer' }}
+                                                style={{
+                                                    whiteSpace: 'nowrap',
+                                                    background: testing ? '#94a3b8' : '#3b82f6', // Force Blue
+                                                    color: '#ffffff',
+                                                    border: 'none',
+                                                    padding: '0 20px',
+                                                    cursor: testing ? 'not-allowed' : 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    minWidth: 120
+                                                }}
                                                 onClick={async () => {
                                                     if (!info.testEmail) return showToast("Ingresa un email para probar", "error");
                                                     setTesting(true);
