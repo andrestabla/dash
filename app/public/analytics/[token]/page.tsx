@@ -96,7 +96,14 @@ export default function PublicAnalyticsPage() {
     }, [tasks, filters]);
 
     // Unique values
-    const uniqueStatuses = useMemo(() => [...new Set(tasks.map(t => t.status).filter(Boolean))], [tasks]);
+    const uniqueStatuses = useMemo(() => {
+        const s = new Set();
+        tasks.forEach(t => {
+            const { name } = getStatusInfo(t);
+            if (name) s.add(name);
+        });
+        return Array.from(s);
+    }, [tasks]);
     const uniqueTypes = useMemo(() => [...new Set(tasks.map(t => t.type).filter(Boolean))], [tasks]);
     const uniqueOwners = useMemo(() => [...new Set(tasks.map(t => t.owner).filter(Boolean))], [tasks]);
     const uniqueDashboards = useMemo(() => {
