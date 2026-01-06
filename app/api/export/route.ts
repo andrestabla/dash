@@ -54,40 +54,61 @@ function createDashboardSheet(dashboard: any, tasks: any[]) {
 }
 
 export async function GET(request: Request) {
+    console.log("[Export API] Started");
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const type = searchParams.get('type'); // 'dashboard' | 'folder'
 
+    console.log(`[Export API] Request: id=${id}, type=${type}`);
+
     if (!id || !type) {
+        console.error("[Export API] Missing parameters");
         return NextResponse.json({ error: 'Missing id or type' }, { status: 400 });
     }
 
-    const client = await pool.connect();
+    let client;
     try {
+        console.log("[Export API] Connecting to DB...");
+        client = await pool.connect();
+
+        console.log("[Export API] Creating Workbook...");
         const workbook = XLSX.utils.book_new();
         let filename = "export.xlsx";
 
         if (type === 'dashboard') {
+            console.log(`[Export API] Fetching data for dashboard ${id}`);
             const data = await getDashboardData(client, id);
-            if (!data) return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
 
+            if (!data) {
+                console.error(`[Export API] Dashboard ${id} not found`);
+                return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+            }
+
+            console.log(`[Export API] Found dashboard: ${data.dashboard.name}, Tasks: ${data.tasks.length}`);
             const sheet = createDashboardSheet(data.dashboard, data.tasks);
             XLSX.utils.book_append_sheet(workbook, sheet, "Proyecto");
-            filename = `${data.dashboard.name.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
+
+            const cleanName = data.dashboard.name.replace(/[^a-z0-9]/gi, '_');
+            filename = `${cleanName}.xlsx`;
 
         } else if (type === 'folder') {
+            console.log(`[Export API] Fetching data for folder ${id}`);
             // 1. Get Folder Info
             const folderRes = await client.query('SELECT name FROM folders WHERE id = $1', [id]);
-            if (folderRes.rows.length === 0) return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+            if (folderRes.rows.length === 0) {
+                console.error(`[Export API] Folder ${id} not found`);
+                return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+            }
             const folderName = folderRes.rows[0].name;
             filename = `${folderName.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
 
             // 2. Get Dashboards in Folder
+            console.log(`[Export API] Fetching children dashboards for folder ${id}`);
             const dashRes = await client.query('SELECT id FROM dashboards WHERE folder_id = $1 ORDER BY created_at DESC', [id]);
             const dashboardIds = dashRes.rows.map((r: any) => r.id);
+            console.log(`[Export API] Found ${dashboardIds.length} dashboards`);
 
             if (dashboardIds.length === 0) {
-                // Empty folder, create dummy sheet
                 const sheet = XLSX.utils.json_to_sheet([{ Info: "Carpeta vacía" }]);
                 XLSX.utils.book_append_sheet(workbook, sheet, "Info");
             } else {
@@ -95,9 +116,7 @@ export async function GET(request: Request) {
                     const data = await getDashboardData(client, dId);
                     if (data) {
                         const sheet = createDashboardSheet(data.dashboard, data.tasks);
-                        // Sheet name max length is 31 chars
                         let sheetName = data.dashboard.name.substring(0, 30).replace(/[:\/?*\[\]\\]/g, "");
-                        // Ensure unique sheet names if duplicates exist (simple counter)
                         if (workbook.SheetNames.includes(sheetName)) {
                             sheetName = sheetName.substring(0, 27) + Math.floor(Math.random() * 100);
                         }
@@ -109,10 +128,10 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
         }
 
-        // Generate Buffer
+        console.log("[Export API] Writing workbook to buffer...");
         const buf = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+        console.log("[Export API] Buffer created, sending response.");
 
-        // Return response
         return new NextResponse(buf, {
             status: 200,
             headers: {
@@ -121,10 +140,10 @@ export async function GET(request: Request) {
             },
         });
 
-    } catch (error) {
-        console.error('Export error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('[Export API] Critical Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     } finally {
-        client.release();
+        if (client) client.release();
     }
 }
