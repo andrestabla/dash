@@ -19,6 +19,8 @@ export default function AdminSettingsPage() {
         pass: "",
         secure: true
     });
+    const [info, setInfo] = useState({ testEmail: "" });
+    const [testing, setTesting] = useState(false);
 
     useEffect(() => {
         loadSettings();
