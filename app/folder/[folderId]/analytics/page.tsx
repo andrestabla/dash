@@ -48,7 +48,12 @@ const CustomSelect = ({ value, onChange, options, placeholder, icon, minWidth = 
 
     const filteredOptions = isExactMatch
         ? options
-        : options.filter((o: any) => (o.label || "").toString().toLowerCase().includes(searchTerm.toLowerCase()));
+        : options.filter((o: any) => {
+            if (!o) return false;
+            const label = (o.label || "").toString();
+            const term = (searchTerm || "").toString();
+            return label.toLowerCase().includes(term.toLowerCase());
+        });
 
     const handleSelect = (val: string, label: string) => {
         onChange(val);
@@ -271,8 +276,12 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
 
     const combinedDashboards = useMemo(() => {
         const map = new Map();
-        availableDashboards.forEach(d => map.set(d.id, d.name));
-        uniqueDashboards.forEach(d => map.set(d.id, d.name));
+        availableDashboards.forEach(d => {
+            if (d && d.id) map.set(d.id, d.name || "Tablero Sin Nombre");
+        });
+        uniqueDashboards.forEach(d => {
+            if (d && d.id) map.set(d.id, d.name || "Tablero (Datos Huerfanos)");
+        });
         return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
     }, [availableDashboards, uniqueDashboards]);
 
