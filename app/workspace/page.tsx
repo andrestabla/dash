@@ -1013,8 +1013,8 @@ export default function Workspace() {
                 }
                 .workspace-header-right { 
                     display: flex; 
-                    flex-direction: column; 
-                    align-items: flex-end; 
+                    flex-direction: row; 
+                    align-items: center; 
                     gap: 16px; 
                 }
                 .workspace-actions { 
