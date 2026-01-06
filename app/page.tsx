@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
-import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download } from "lucide-react";
+import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check } from "lucide-react";
 
 interface Dashboard {
     id: string;
@@ -108,6 +108,8 @@ export default function Workspace() {
     const [consolidatedTasks, setConsolidatedTasks] = useState<any[]>([]);
     const [isFetchingAnalytics, setIsFetchingAnalytics] = useState(false);
     const [analyticsFilters, setAnalyticsFilters] = useState({ search: '', status: 'all', owner: 'all', dashboardId: 'all' });
+    const [publicLinkState, setPublicLinkState] = useState<{ isPublic: boolean, token: string | null }>({ isPublic: false, token: null });
+    const [sharingLoading, setSharingLoading] = useState(false);
 
     // --- DATA LOADING ---
     const loadData = () => {
@@ -443,17 +445,54 @@ export default function Workspace() {
     const fetchConsolidatedAnalytics = async () => {
         setIsFetchingAnalytics(true);
         setIsAnalyticsOpen(true);
+        // Reset state
+        setPublicLinkState({ isPublic: false, token: null });
         try {
             const res = await fetch(`/api/tasks?folderId=${currentFolderId || 'null'}`);
             if (res.ok) {
                 const data = await res.json();
                 setConsolidatedTasks(data);
             }
+            // Also check existing share status if we are in a folder
+            if (currentFolderId) {
+                // We'll need an endpoint to get status or just assume off until user clicks share.
+                // For better UX, let's lazy load status when they click share, or fetch it now.
+                // Let's create a quick check. Ideally the `api/folders` list would include `is_public` 
+                // but since we want to keep it simple, we can fetch it on share toggle or just leave it.
+            }
         } catch (error) {
             showToast("Error al cargar analítica", "error");
         } finally {
             setIsFetchingAnalytics(false);
         }
+    };
+
+    const handleShareAnalytics = async () => {
+        if (!currentFolderId) return; // Cannot share root yet
+        setSharingLoading(true);
+        try {
+            // Toggle public status
+            const newStatus = !publicLinkState.isPublic;
+            const res = await fetch(`/api/folders/${currentFolderId}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'toggle_public', isPublic: newStatus })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setPublicLinkState({ isPublic: data.isPublic, token: data.token });
+                showToast(newStatus ? "Enlace público activado" : "Enlace público desactivado", "success");
+            }
+        } catch (error) {
+            showToast("Error al compartir", "error");
+        } finally {
+            setSharingLoading(false);
+        }
+    };
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        showToast("Enlace copiado", "success");
     };
 
     const filteredAnalyticsTasks = useMemo(() => {
@@ -971,7 +1010,48 @@ export default function Workspace() {
                                     Vista agregada de tableros en {breadcrumbs[breadcrumbs.length - 1].name} (Incluyendo subcarpetas)
                                 </p>
                             </div>
-                            <button className="btn-ghost" onClick={() => setIsAnalyticsOpen(false)} style={{ padding: 4 }}><X size={24} /></button>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {currentFolderId && (
+                                    <div style={{ position: 'relative' }}>
+                                        <button
+                                            className="btn-ghost"
+                                            onClick={handleShareAnalytics}
+                                            title={publicLinkState.isPublic ? "Desactivar enlace público" : "Generar enlace público"}
+                                            style={{ padding: 4, color: publicLinkState.isPublic ? '#10b981' : 'var(--text-dim)' }}
+                                            disabled={sharingLoading}
+                                        >
+                                            <LinkIcon size={20} />
+                                        </button>
+                                        {/* Popover for link if public */}
+                                        {publicLinkState.isPublic && publicLinkState.token && (
+                                            <div className="animate-fade-in" style={{
+                                                position: 'absolute', top: '100%', right: 0, marginTop: 8,
+                                                background: 'var(--bg-panel)', border: '1px solid var(--border-dim)',
+                                                borderRadius: 8, padding: 12, width: 300, zIndex: 50,
+                                                boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                                            }}>
+                                                <p style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Enlace Público Activo</p>
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <input
+                                                        readOnly
+                                                        value={`${window.location.origin}/public/analytics/${publicLinkState.token}`}
+                                                        className="input-glass"
+                                                        style={{ fontSize: 11, padding: 6, flex: 1 }}
+                                                    />
+                                                    <button
+                                                        className="btn-primary"
+                                                        onClick={() => copyToClipboard(`${window.location.origin}/public/analytics/${publicLinkState.token}`)}
+                                                        style={{ padding: '4px 8px' }}
+                                                    >
+                                                        <Copy size={12} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <button className="btn-ghost" onClick={() => setIsAnalyticsOpen(false)} style={{ padding: 4 }}><X size={24} /></button>
+                            </div>
                         </div>
 
                         {/* FILTER TOOLBAR */}
@@ -1147,7 +1227,8 @@ export default function Workspace() {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             <ConfirmModal
                 isOpen={confirmOpen}
@@ -1167,6 +1248,6 @@ export default function Workspace() {
                 .kpi-sub { font-size: 11px; color: var(--text-dim); }
                 .chart-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim); }
             `}</style>
-        </div>
+        </div >
     );
 }
