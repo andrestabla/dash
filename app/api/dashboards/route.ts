@@ -15,19 +15,59 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { name, description, settings } = body;
+        const { name, description, settings, initialTasks, folder_id } = body;
 
         if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
         const client = await pool.connect();
-        const result = await client.query(
-            'INSERT INTO dashboards (name, description, settings) VALUES ($1, $2, $3) RETURNING *',
-            [name, description || '', settings || {}]
-        );
-        client.release();
+        try {
+            await client.query('BEGIN');
 
-        return NextResponse.json(result.rows[0], { status: 201 });
+            const result = await client.query(
+                'INSERT INTO dashboards (name, description, settings, folder_id) VALUES ($1, $2, $3, $4) RETURNING *',
+                [name, description || '', settings || {}, folder_id || null]
+            );
+            const newDash = result.rows[0];
+
+            // Handle Initial Tasks Import
+            if (initialTasks && Array.isArray(initialTasks) && initialTasks.length > 0) {
+                const values: any[] = [];
+                const placeholders: string[] = [];
+                let counter = 1;
+
+                initialTasks.forEach((t: any) => {
+                    placeholders.push(`($${counter++}, $${counter++}, $${counter++}, $${counter++}, $${counter++}, $${counter++}, $${counter++})`);
+                    values.push(
+                        newDash.id,
+                        t.name || 'Tarea Importada',
+                        // Map standard statuses to IDs
+                        t.status === 'Hecho' ? 'done' : t.status === 'En proceso' ? 'doing' : t.status === 'Revisión' ? 'review' : 'todo',
+                        t.owner || 'Sin Asignar',
+                        t.week || newDash.settings.weeks[0]?.id || 'W1',
+                        t.type || 'General',
+                        t.prio || 'med'
+                    );
+                });
+
+                if (values.length > 0) {
+                    const queryText = `
+                        INSERT INTO tasks (dashboard_id, name, status, owner, week, type, prio)
+                        VALUES ${placeholders.join(', ')}
+                    `;
+                    await client.query(queryText, values);
+                }
+            }
+
+            await client.query('COMMIT');
+            return NextResponse.json(newDash, { status: 201 });
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
     } catch (error) {
+        console.error("Dashboard Create Error", error);
         return NextResponse.json({ error: 'Failed to create dashboard' }, { status: 500 });
     }
 }

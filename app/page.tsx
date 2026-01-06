@@ -81,6 +81,11 @@ export default function Workspace() {
     const [wizColor, setWizColor] = useState("#3b82f6");
     const [wizFolderId, setWizFolderId] = useState<string | null>(null);
 
+    // Import State
+    const [isImporting, setIsImporting] = useState(false);
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [parsedTasks, setParsedTasks] = useState<any[]>([]);
+
     // Folder Wizard State
     // Folder Wizard State
     const [folderName, setFolderName] = useState("");
@@ -225,7 +230,8 @@ export default function Workspace() {
             name: wizName,
             description: wizDesc,
             settings: finalSettings,
-            folder_id: wizFolderId // Use selected folder from wizard
+            folder_id: wizFolderId, // Use selected folder from wizard
+            initialTasks: parsedTasks // Send parsed tasks if any
         };
 
         const method = isEdit ? 'PUT' : 'POST';
@@ -356,6 +362,56 @@ export default function Workspace() {
         setWizGates(DEFAULT_SETTINGS.gates);
         setWizIcon("🗺️");
         setWizColor("#3b82f6");
+        setWizIcon("🗺️");
+        setWizColor("#3b82f6");
+        setIsImporting(false);
+        setImportFile(null);
+        setParsedTasks([]);
+    };
+
+    // --- CSV IMPORT ---
+    const handleDownloadTemplate = () => {
+        const headers = "Name,Status,Owner,Week,Type,Priority";
+        const rows = [
+            "Lanzamiento Web,Hecho,Juan,W1,Gestión,high",
+            "Revisión de Diseño,En proceso,Maria,W2,Diseño,med",
+            "Pruebas QA,Por hacer,Pedro,W3,Calidad,low"
+        ];
+        const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + rows.join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "plantilla_importacion.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleFileRead = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setImportFile(file);
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const text = evt.target?.result as string;
+            const lines = text.split('\n');
+            const data = lines.slice(1).map(line => {
+                const [name, status, owner, week, type, prio] = line.split(',');
+                if (!name || !name.trim()) return null;
+                return {
+                    name: name.trim(),
+                    status: status?.trim(),
+                    owner: owner?.trim(),
+                    week: week?.trim(),
+                    type: type?.trim(),
+                    prio: prio?.trim()
+                };
+            }).filter(Boolean);
+            setParsedTasks(data);
+            showToast(`✅ ${data.length} tareas detectadas`, "success");
+        };
+        reader.readAsText(file);
     };
 
     const addItem = (list: string[], setList: any, item: string, setItem: any) => {
@@ -612,6 +668,43 @@ export default function Workspace() {
                             {wizardStep === 1 && (
                                 <div className="animate-fade-in">
                                     <div style={{ marginBottom: 24 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Método de Creación</label>
+                                            {isImporting && (
+                                                <button className="btn-ghost" onClick={handleDownloadTemplate} style={{ fontSize: 11, padding: 4, height: 'auto', color: 'var(--primary)' }}>
+                                                    <Download size={12} style={{ marginRight: 4 }} /> Descargar Plantilla
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 12 }}>
+                                            <button
+                                                onClick={() => setIsImporting(false)}
+                                                style={{ flex: 1, padding: 12, borderRadius: 8, border: !isImporting ? '2px solid var(--primary)' : '1px solid var(--border-dim)', background: !isImporting ? 'rgba(59, 130, 246, 0.1)' : 'transparent', cursor: 'pointer', transition: 'all 0.2s' }}
+                                            >
+                                                <div style={{ fontWeight: 600 }}>En Blanco</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Iniciar desde cero</div>
+                                            </button>
+                                            <button
+                                                onClick={() => setIsImporting(true)}
+                                                style={{ flex: 1, padding: 12, borderRadius: 8, border: isImporting ? '2px solid var(--primary)' : '1px solid var(--border-dim)', background: isImporting ? 'rgba(59, 130, 246, 0.1)' : 'transparent', cursor: 'pointer', transition: 'all 0.2s' }}
+                                            >
+                                                <div style={{ fontWeight: 600 }}>Importar CSV</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Desde archivo plano</div>
+                                            </button>
+                                        </div>
+
+                                        {isImporting && (
+                                            <div className="animate-fade-in" style={{ marginTop: 16, padding: 16, background: 'var(--bg-panel)', borderRadius: 8, border: '1px dashed var(--border-dim)' }}>
+                                                <input type="file" accept=".csv" onChange={handleFileRead} style={{ fontSize: 13, width: '100%' }} />
+                                                {parsedTasks.length > 0 && (
+                                                    <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-code)' }}>
+                                                        📋 {parsedTasks.length} tareas listas para importar.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ marginBottom: 24 }}>
                                         <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Nombre del Proyecto</label>
                                         <input className="input-glass" value={wizName} onChange={e => setWizName(e.target.value)} autoFocus placeholder="Ej: Lanzamiento 2026" />
                                     </div>
@@ -770,7 +863,14 @@ export default function Workspace() {
                         </div>
                         <div style={{ padding: '20px 32px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'flex-end', gap: 12, background: 'rgba(0,0,0,0.2)' }}>
                             {wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
-                            {wizardStep < 4 && <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>}
+                            {wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
+                            {wizardStep < 4 ? (
+                                <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>
+                            ) : (
+                                <button className="btn-primary" onClick={handleSaveDashboard}>
+                                    {isImporting && parsedTasks.length > 0 ? `Crear e Importar (${parsedTasks.length} tareas)` : "Crear Proyecto"}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
