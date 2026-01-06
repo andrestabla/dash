@@ -174,7 +174,15 @@ export default function FolderAnalyticsPage() {
                 const allDashboards = await dashboardsRes.json();
                 const folder = folders.find((f: any) => f.id === folderId);
 
-                if (folder) {
+                if (folderId === 'null') {
+                    // Root folder case
+                    setFolderName("Espacio de Trabajo");
+                    setBreadcrumbs([{ id: null, name: 'Espacio de Trabajo' }]);
+                    setAvailableDashboards(allDashboards);
+
+                    // Root public state check (global settings?) - For now disable share on root
+                    setPublicLinkState({ isPublic: false, token: null });
+                } else if (folder) {
                     setFolderName(folder.name);
 
                     // Recursive function to get all folder IDs in this subtree
