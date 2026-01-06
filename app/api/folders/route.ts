@@ -2,27 +2,35 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 
-// Helper to check authentication
-async function isAuthenticated() {
-    const session = await getSession();
-    return !!session;
-}
-
 export async function GET() {
-    if (!await isAuthenticated()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
         const client = await pool.connect();
-        const res = await client.query('SELECT * FROM folders ORDER BY name ASC');
+
+        let query;
+        let params: any[] = [];
+
+        if (session.role === 'admin') {
+            query = 'SELECT * FROM folders ORDER BY name ASC';
+        } else {
+            query = 'SELECT * FROM folders WHERE owner_id = $1 ORDER BY name ASC';
+            params = [session.id];
+        }
+
+        const res = await client.query(query, params);
         client.release();
         return NextResponse.json(res.rows);
     } catch (error) {
+        console.error("Folder Fetch error:", error);
         return NextResponse.json({ error: 'Failed to fetch folders' }, { status: 500 });
     }
 }
 
 export async function POST(request: Request) {
-    if (!await isAuthenticated()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
         const body = await request.json();
@@ -32,19 +40,21 @@ export async function POST(request: Request) {
 
         const client = await pool.connect();
         const res = await client.query(
-            'INSERT INTO folders (name, parent_id, icon, color) VALUES ($1, $2, $3, $4) RETURNING *',
-            [name, parent_id || null, icon || '📁', color || '#3b82f6']
+            'INSERT INTO folders (name, parent_id, icon, color, owner_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [name, parent_id || null, icon || '📁', color || '#3b82f6', session.id]
         );
         client.release();
 
         return NextResponse.json(res.rows[0]);
     } catch (error) {
+        console.error("Folder Create error:", error);
         return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 });
     }
 }
 
 export async function PUT(request: Request) {
-    if (!await isAuthenticated()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
         const body = await request.json();
@@ -52,26 +62,39 @@ export async function PUT(request: Request) {
 
         if (!id || !name) return NextResponse.json({ error: 'ID and Name are required' }, { status: 400 });
 
-        // Prevent circular reference if parent_id is being updated
+        // Prevent circular reference
         if (id === parent_id) return NextResponse.json({ error: 'Cannot move folder inside itself' }, { status: 400 });
 
         const client = await pool.connect();
+
+        // Check permission: Admin or Owner
+        const check = await client.query('SELECT owner_id FROM folders WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
+            client.release();
+            return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+        }
+
+        if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
+            client.release();
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const res = await client.query(
             'UPDATE folders SET name = $1, parent_id = $2, icon = $3, color = $4 WHERE id = $5 RETURNING *',
             [name, parent_id || null, icon || '📁', color || '#3b82f6', id]
         );
         client.release();
 
-        if (res.rows.length === 0) return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
-
         return NextResponse.json(res.rows[0]);
     } catch (error) {
+        console.error("Folder Update error:", error);
         return NextResponse.json({ error: 'Failed to update folder' }, { status: 500 });
     }
 }
 
 export async function DELETE(request: Request) {
-    if (!await isAuthenticated()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
         const { searchParams } = new URL(request.url);
@@ -81,9 +104,17 @@ export async function DELETE(request: Request) {
 
         const client = await pool.connect();
 
-        // Strategy: When deleting a folder, we move its children (subfolders and dashboards) to the ROOT (null)
-        // This is safer than cascade delete. Or should we delete? 
-        // Logic: "Move contents to root" is usually better UX than losing data.
+        // Check permission: Admin or Owner
+        const check = await client.query('SELECT owner_id FROM folders WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
+            client.release();
+            return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+        }
+
+        if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
+            client.release();
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
         // 1. Move subfolders to root
         await client.query('UPDATE folders SET parent_id = NULL WHERE parent_id = $1', [id]);
@@ -95,10 +126,9 @@ export async function DELETE(request: Request) {
         await client.query('DELETE FROM folders WHERE id = $1', [id]);
 
         client.release();
-
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error(error);
+        console.error("Folder Delete error:", error);
         return NextResponse.json({ error: 'Failed to delete folder' }, { status: 500 });
     }
 }

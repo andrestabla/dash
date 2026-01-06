@@ -1,18 +1,45 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { getSession } from '@/lib/auth';
 
 export async function GET() {
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT * FROM dashboards ORDER BY created_at DESC');
+
+        let query;
+        let params: any[] = [];
+
+        if (session.role === 'admin') {
+            // Admins see everything
+            query = 'SELECT * FROM dashboards ORDER BY created_at DESC';
+        } else {
+            // Users see their own OR shared ones
+            query = `
+                SELECT d.* FROM dashboards d
+                LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id
+                WHERE d.owner_id = $1 OR dc.user_id = $1
+                GROUP BY d.id
+                ORDER BY d.created_at DESC
+            `;
+            params = [session.id];
+        }
+
+        const result = await client.query(query, params);
         client.release();
         return NextResponse.json(result.rows);
     } catch (error) {
+        console.error("Dashboard Fetch Error", error);
         return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 }
 
 export async function POST(request: Request) {
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     try {
         const body = await request.json();
         const { name, description, settings, initialTasks, folder_id } = body;
@@ -24,8 +51,8 @@ export async function POST(request: Request) {
             await client.query('BEGIN');
 
             const result = await client.query(
-                'INSERT INTO dashboards (name, description, settings, folder_id) VALUES ($1, $2, $3, $4) RETURNING *',
-                [name, description || '', settings || {}, folder_id || null]
+                'INSERT INTO dashboards (name, description, settings, folder_id, owner_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+                [name, description || '', settings || {}, folder_id || null, session.id]
             );
             const newDash = result.rows[0];
 
@@ -73,6 +100,9 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     try {
         const body = await request.json();
         const { id, name, description, settings } = body;
@@ -80,23 +110,36 @@ export async function PUT(request: Request) {
         if (!id || !name) return NextResponse.json({ error: 'ID and Name required' }, { status: 400 });
 
         const client = await pool.connect();
+
+        // Check permission: Admin or Owner
+        const check = await client.query('SELECT owner_id FROM dashboards WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
+            client.release();
+            return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+        }
+
+        if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
+            client.release();
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const result = await client.query(
             'UPDATE dashboards SET name = $1, description = $2, settings = $3 WHERE id = $4 RETURNING *',
             [name, description || '', settings || {}, id]
         );
         client.release();
 
-        if (result.rows.length === 0) {
-            return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
-        }
-
         return NextResponse.json(result.rows[0]);
     } catch (error) {
+        console.error("Dashboard Update Error", error);
         return NextResponse.json({ error: 'Failed to update dashboard' }, { status: 500 });
     }
 }
 
 export async function DELETE(request: Request) {
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -104,16 +147,25 @@ export async function DELETE(request: Request) {
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
         const client = await pool.connect();
-        const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
-        client.release();
 
-        if (result.rows.length === 0) {
+        // Check permission: Admin or Owner
+        const check = await client.query('SELECT owner_id FROM dashboards WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
+            client.release();
             return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
         }
 
+        if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
+            client.release();
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
+        client.release();
+
         return NextResponse.json({ success: true, id });
     } catch (error) {
-        console.error(error);
+        console.error("Dashboard Delete Error", error);
         return NextResponse.json({ error: 'Failed to delete dashboard' }, { status: 500 });
     }
 }
