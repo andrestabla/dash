@@ -19,7 +19,26 @@ export async function POST(request: Request) {
         const user = result.rows[0];
 
         if (!user || !(await bcrypt.compare(password, user.password))) {
-            return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+            return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
+        }
+
+        // Check Account Status
+        if (user.status === 'pending') {
+            return NextResponse.json({
+                error: 'Tu cuenta está pendiente de aprobación',
+                detail: 'Un administrador revisará tu solicitud pronto.'
+            }, { status: 403 });
+        }
+
+        if (user.status === 'denied') {
+            return NextResponse.json({
+                error: 'Tu solicitud ha sido denegada',
+                detail: 'Contacta con soporte si crees que es un error.'
+            }, { status: 403 });
+        }
+
+        if (user.status !== 'active') {
+            return NextResponse.json({ error: 'Tu cuenta no está activa' }, { status: 403 });
         }
 
         // Create Session

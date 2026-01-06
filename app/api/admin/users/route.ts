@@ -34,7 +34,7 @@ export async function GET() {
 
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC');
+        const result = await client.query('SELECT id, email, name, role, status, created_at FROM users ORDER BY created_at DESC');
         client.release();
         return NextResponse.json(result.rows);
     } catch (error) {
@@ -99,7 +99,7 @@ export async function PUT(request: Request) {
 
     try {
         const body = await request.json();
-        const { id, email, name, role, password, resendCredentials } = body;
+        const { id, email, name, role, password, status, resendCredentials } = body;
 
         if (!id) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
 
@@ -113,6 +113,7 @@ export async function PUT(request: Request) {
         if (email) { updates.push(`email = $${idx++}`); values.push(email); }
         if (name !== undefined) { updates.push(`name = $${idx++}`); values.push(name); }
         if (role) { updates.push(`role = $${idx++}`); values.push(role); }
+        if (status) { updates.push(`status = $${idx++}`); values.push(status); }
         if (password) {
             const hashed = await bcrypt.hash(password, 10);
             updates.push(`password = $${idx++}`);
@@ -126,6 +127,7 @@ export async function PUT(request: Request) {
             if (email) logDetails.push(`Email changed to ${email}`);
             if (name !== undefined) logDetails.push(`Name changed`);
             if (role) logDetails.push(`Role changed to ${role}`);
+            if (status) logDetails.push(`Status changed to ${status}`);
             if (password) logDetails.push(`Password manually reset`);
 
             await logAction(client, id, 'UPDATE_USER', logDetails.join(', '), session.user.id);
@@ -148,6 +150,38 @@ export async function PUT(request: Request) {
             `;
             await sendEmail(email, subject, html);
             await logAction(client, id, 'RESEND_CREDS', `Credentials resent to ${email}`, session.user.id);
+        }
+
+        // 4. Send approval/denial emails if status changed
+        if (status && email) {
+            const { sendEmail } = await import('@/lib/email');
+            if (status === 'active') {
+                const subject = "Cuenta Aprobada - Project Control";
+                const html = `
+                    <div style="font-family: sans-serif; color: #333;">
+                        <h2>¡Tu cuenta ha sido aprobada! 🎉</h2>
+                        <p>Hola${name ? ' ' + name : ''},</p>
+                        <p>Nos complace informarte que tu solicitud de acceso ha sido aceptada.</p>
+                        <p>Ya puedes iniciar sesión en la plataforma.</p>
+                        <br/>
+                        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login" style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;">
+                            Ingresar ahora
+                        </a>
+                    </div>
+                `;
+                await sendEmail(email, subject, html);
+            } else if (status === 'denied') {
+                const subject = "Resultado de tu solicitud - Project Control";
+                const html = `
+                    <div style="font-family: sans-serif; color: #333;">
+                        <h2>Actualización de tu registro</h2>
+                        <p>Hola${name ? ' ' + name : ''},</p>
+                        <p>Lamentamos informarte que tu solicitud de registro ha sido denegada en este momento.</p>
+                        <p>Si tienes alguna pregunta, por favor contacta con el administrador.</p>
+                    </div>
+                `;
+                await sendEmail(email, subject, html);
+            }
         }
 
         client.release();

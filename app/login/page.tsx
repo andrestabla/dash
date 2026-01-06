@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useTheme } from '@/components/ThemeProvider';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [detail, setDetail] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
     const { branding } = useTheme();
@@ -16,6 +18,7 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setDetail('');
 
         const res = await fetch('/api/auth/login', {
             method: 'POST',
@@ -30,6 +33,7 @@ export default function LoginPage() {
             router.refresh();
         } else {
             setError(data.error || 'Credenciales inválidas');
+            if (data.detail) setDetail(data.detail);
             setLoading(false);
         }
     };
@@ -102,7 +106,8 @@ export default function LoginPage() {
 
                         {error && (
                             <div style={{ padding: 12, background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', borderRadius: 8, fontSize: 13, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                ⚠️ {error}
+                                <div style={{ fontWeight: 700 }}>⚠️ {error}</div>
+                                {detail && <div style={{ fontSize: 11, marginTop: 4, opacity: 0.9 }}>{detail}</div>}
                             </div>
                         )}
 
@@ -117,7 +122,13 @@ export default function LoginPage() {
 
                     </form>
 
-                    <div style={{ marginTop: 30, textAlign: 'center', fontSize: 12, color: 'var(--text-dim)' }}>
+                    <div style={{ marginTop: 24, textAlign: 'center', paddingTop: 24, borderTop: '1px solid var(--border-dim)' }}>
+                        <p style={{ color: 'var(--text-dim)', fontSize: 13 }}>
+                            ¿No tienes cuenta? <Link href="/register" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>Regístrate aquí</Link>
+                        </p>
+                    </div>
+
+                    <div style={{ marginTop: 20, textAlign: 'center', fontSize: 11, color: 'var(--text-dim)', opacity: 0.6 }}>
                         Project control &copy; 2026 by Algoritmo T
                     </div>
 

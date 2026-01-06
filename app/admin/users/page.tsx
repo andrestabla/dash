@@ -6,13 +6,14 @@ import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
 import EditUserModal from "@/components/admin/EditUserModal";
 import UserLogsModal from "@/components/admin/UserLogsModal";
-import { Users, UserPlus, Trash2, Shield, ArrowLeft, Edit2, History } from "lucide-react";
+import { Users, UserPlus, Trash2, Shield, ArrowLeft, Edit2, History, Check, X, Clock } from "lucide-react";
 
 interface User {
     id: string;
     email: string;
     name?: string;
     role: string;
+    status: string;
     created_at: string;
 }
 
@@ -74,6 +75,21 @@ export default function AdminUsersPage() {
         fetchUsers();
         setConfirmOpen(false);
         showToast("Usuario eliminado", "info");
+    };
+
+    const handleStatusUpdate = async (user: User, newStatus: string) => {
+        const res = await fetch("/api/admin/users", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: user.id, email: user.email, status: newStatus }),
+        });
+
+        if (res.ok) {
+            showToast(`Usuario ${newStatus === 'active' ? 'aprobado' : 'denegado'}`, "success");
+            fetchUsers();
+        } else {
+            showToast("Error al actualizar estado", "error");
+        }
     };
 
     return (
@@ -142,6 +158,7 @@ export default function AdminUsersPage() {
                             <th style={{ padding: '16px 24px' }}>Usuario</th>
                             <th>Email</th>
                             <th>Rol</th>
+                            <th>Estado</th>
                             <th>Creado</th>
                             <th style={{ textAlign: "right", paddingRight: 24 }}>Acciones</th>
                         </tr>
@@ -166,9 +183,34 @@ export default function AdminUsersPage() {
                                         {u.role.toUpperCase()}
                                     </span>
                                 </td>
+                                <td>
+                                    <span style={{
+                                        padding: "4px 10px",
+                                        borderRadius: 20,
+                                        background: u.status === 'active' ? 'rgba(16, 185, 129, 0.1)' : u.status === 'pending' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                        color: u.status === 'active' ? '#10b981' : u.status === 'pending' ? '#f59e0b' : '#ef4444',
+                                        fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
+                                        display: 'inline-flex', alignItems: 'center', gap: 4
+                                    }}>
+                                        {u.status === 'pending' && <Clock size={12} />}
+                                        {u.status === 'active' && <Check size={12} />}
+                                        {u.status === 'denied' && <X size={12} />}
+                                        {u.status?.toUpperCase() || 'ACTIVE'}
+                                    </span>
+                                </td>
                                 <td style={{ fontSize: 13, color: "var(--text-dim)" }}>{new Date(u.created_at).toLocaleDateString()}</td>
                                 <td style={{ textAlign: "right", paddingRight: 24 }}>
                                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 4 }}>
+                                        {u.status === 'pending' && (
+                                            <>
+                                                <button className="btn-ghost" style={{ color: "#10b981", padding: 8 }} onClick={() => handleStatusUpdate(u, 'active')} title="Aprobar Solicitud">
+                                                    <Check size={18} />
+                                                </button>
+                                                <button className="btn-ghost" style={{ color: "#ef4444", padding: 8 }} onClick={() => handleStatusUpdate(u, 'denied')} title="Denegar Solicitud">
+                                                    <X size={18} />
+                                                </button>
+                                            </>
+                                        )}
                                         <button className="btn-ghost" style={{ padding: 8 }} onClick={() => setViewingLogsUser(u)} title="Ver Logs">
                                             <History size={16} />
                                         </button>

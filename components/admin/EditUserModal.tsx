@@ -7,6 +7,7 @@ interface User {
     email: string;
     name?: string;
     role: string;
+    status: string;
 }
 
 interface EditUserModalProps {
@@ -20,6 +21,7 @@ export default function EditUserModal({ isOpen, user, onClose, onSave }: EditUse
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
     const [role, setRole] = useState("user");
+    const [status, setStatus] = useState("active");
     const [password, setPassword] = useState("");
     const [resendCredentials, setResendCredentials] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -30,6 +32,7 @@ export default function EditUserModal({ isOpen, user, onClose, onSave }: EditUse
             setEmail(user.email);
             setName(user.name || "");
             setRole(user.role);
+            setStatus(user.status || "active");
             setPassword("");
             setResendCredentials(false);
         }
@@ -50,6 +53,7 @@ export default function EditUserModal({ isOpen, user, onClose, onSave }: EditUse
                     email,
                     name,
                     role,
+                    status,
                     password: password || undefined,
                     resendCredentials: password ? resendCredentials : false
                 }),
@@ -110,6 +114,19 @@ export default function EditUserModal({ isOpen, user, onClose, onSave }: EditUse
                                     <option value="admin">Administrador (Admin)</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Estado de la cuenta</label>
+                            <select
+                                className="input-glass"
+                                value={status}
+                                onChange={e => setStatus(e.target.value)}
+                            >
+                                <option value="active">Activa</option>
+                                <option value="pending">Pendiente de Aprobación</option>
+                                <option value="denied">Denegada / Inactiva</option>
+                            </select>
                         </div>
 
                         <hr style={{ border: 0, borderTop: "1px solid var(--border-dim)", margin: "0 0 20px 0" }} />
