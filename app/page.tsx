@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
-import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft } from "lucide-react";
+import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download } from "lucide-react";
 
 interface Dashboard {
     id: string;
@@ -301,6 +301,13 @@ export default function Workspace() {
         }
     };
 
+    const handleExport = (e: React.MouseEvent, id: string, type: 'dashboard' | 'folder') => {
+        e.preventDefault(); e.stopPropagation();
+        const url = `/api/export?id=${id}&type=${type}`;
+        // Trigger download via hidden link or window.open
+        window.open(url, '_blank');
+    };
+
     // --- HELPERS ---
     const generateWeeks = (count: number) => {
         return Array.from({ length: count }, (_, i) => ({
@@ -435,6 +442,7 @@ export default function Workspace() {
                                     <span style={{ fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
 
                                     <div className="folder-actions" onClick={e => e.stopPropagation()} style={{ display: 'flex' }}>
+                                        <button className="btn-ghost" onClick={(e) => handleExport(e, f.id, 'folder')} style={{ padding: 4 }} title="Descargar Reporte"><Download size={14} /></button>
                                         <button className="btn-ghost" onClick={(e) => editFolder(e, f)} style={{ padding: 4 }}><Edit2 size={12} /></button>
                                         <button className="btn-ghost" onClick={(e) => deleteFolder(e, f.id)} style={{ padding: 4, color: '#f87171' }}><Trash2 size={12} /></button>
                                     </div>
@@ -460,6 +468,7 @@ export default function Workspace() {
                             >
                                 {/* Action Menus */}
                                 <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 4 }}>
+                                    <button className="btn-ghost" onClick={(e) => handleExport(e, d.id, 'dashboard')} style={{ padding: 6 }} title="Descargar Reporte"><Download size={14} /></button>
                                     <button className="btn-ghost" onClick={(e) => startMove(e, d.id)} style={{ padding: 6 }} title="Mover"><Move size={14} /></button>
                                     <button className="btn-ghost" onClick={(e) => duplicateDash(e, d.id)} style={{ padding: 6 }} title="Duplicar"><Copy size={14} /></button>
                                     <button className="btn-ghost" onClick={(e) => startEdit(e, d)} style={{ padding: 6 }} title="Editar"><Edit2 size={14} /></button>
