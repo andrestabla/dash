@@ -104,6 +104,9 @@ export default function Workspace() {
     const [availableUsers, setAvailableUsers] = useState<any[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
+    const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+    const [consolidatedTasks, setConsolidatedTasks] = useState<any[]>([]);
+    const [isFetchingAnalytics, setIsFetchingAnalytics] = useState(false);
 
     // --- DATA LOADING ---
     const loadData = () => {
@@ -436,6 +439,22 @@ export default function Workspace() {
         setConfirmOpen(true);
     };
 
+    const fetchConsolidatedAnalytics = async () => {
+        setIsFetchingAnalytics(true);
+        setIsAnalyticsOpen(true);
+        try {
+            const res = await fetch(`/api/tasks?folderId=${currentFolderId || 'null'}`);
+            if (res.ok) {
+                const data = await res.json();
+                setConsolidatedTasks(data);
+            }
+        } catch (error) {
+            showToast("Error al cargar analítica", "error");
+        } finally {
+            setIsFetchingAnalytics(false);
+        }
+    };
+
     return (
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
             {/* HEADER & NAV */}
@@ -480,6 +499,17 @@ export default function Workspace() {
 
                     {/* Main action row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {currentItems.dashboards.length > 0 && (
+                            <button
+                                className="btn-ghost"
+                                onClick={fetchConsolidatedAnalytics}
+                                title="Analítica Consolidada"
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, borderColor: 'var(--primary)', color: 'var(--text-main)' }}
+                            >
+                                <Shield size={18} /> <span style={{ fontSize: 13 }}>Analítica Consolidada</span>
+                            </button>
+                        )}
+
                         <button className="btn-ghost" onClick={() => setIsCreatingFolder(true)} title="Nueva Carpeta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <FolderOpen size={18} /> <span style={{ fontSize: 13 }}>Nueva Carpeta</span>
                         </button>
@@ -900,6 +930,140 @@ export default function Workspace() {
                 </div>
             )}
             {/* CONFIRM MODAL */}
+            {/* 4. CONSOLIDATED ANALYTICS MODAL */}
+            {isAnalyticsOpen && (
+                <div className="backdrop" onClick={() => setIsAnalyticsOpen(false)}>
+                    <div className="modal-container animate-slide-up" style={{ maxWidth: 1000, height: '90vh' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div>
+                                <h2 className="modal-title">Analítica Consolidada</h2>
+                                <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>
+                                    Vista agregada de {currentItems.dashboards.length} tableros en {breadcrumbs[breadcrumbs.length - 1].name}
+                                </p>
+                            </div>
+                            <button className="btn-ghost" onClick={() => setIsAnalyticsOpen(false)} style={{ padding: 4 }}><X size={24} /></button>
+                        </div>
+
+                        <div className="modal-body" style={{ background: 'var(--bg-main)' }}>
+                            {isFetchingAnalytics ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                                    <img src="/loading.gif" alt="Cargando..." style={{ width: 48, height: 48, marginBottom: 16 }} />
+                                    <span>Consolidando datos...</span>
+                                </div>
+                            ) : consolidatedTasks.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: 40 }}>
+                                    <p>No hay tareas suficientes para generar analítica.</p>
+                                </div>
+                            ) : (
+                                <div className="analytics-grid">
+                                    {/* Summary KPIs */}
+                                    <div className="kpi-card">
+                                        <div className="kpi-label">Proyectos</div>
+                                        <div className="kpi-value">{currentItems.dashboards.length}</div>
+                                        <div className="kpi-sub">Tableros en esta carpeta</div>
+                                    </div>
+                                    <div className="kpi-card">
+                                        <div className="kpi-label">Total Tareas</div>
+                                        <div className="kpi-value" style={{ color: 'var(--primary)' }}>{consolidatedTasks.length}</div>
+                                        <div className="kpi-sub">Agregadas</div>
+                                    </div>
+                                    <div className="kpi-card">
+                                        <div className="kpi-label">Progreso Global</div>
+                                        <div className="kpi-value" style={{ color: '#10b981' }}>
+                                            {Math.round((consolidatedTasks.filter(t => t.status === 'done').length / consolidatedTasks.length) * 100)}%
+                                        </div>
+                                        <div className="kpi-sub">Estatus "Hecho"</div>
+                                    </div>
+
+                                    {/* Status Distribution */}
+                                    <div className="chart-card" style={{ gridColumn: 'span 2' }}>
+                                        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>ESTADO CONSOLIDADO</h3>
+                                        <div className="status-pill-bar" style={{ height: 32, borderRadius: 16, overflow: 'hidden', display: 'flex', marginBottom: 20 }}>
+                                            {['done', 'doing', 'review', 'todo'].map(s => {
+                                                const count = consolidatedTasks.filter(t => t.status === s).length;
+                                                const pct = (count / consolidatedTasks.length) * 100;
+                                                const colors: any = { done: '#10b981', doing: '#3b82f6', review: '#f59e0b', todo: '#64748b' };
+                                                if (count === 0) return null;
+                                                return <div key={s} style={{ width: `${pct}%`, background: colors[s] }} title={`${s}: ${count}`}></div>
+                                            })}
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: 12 }}>
+                                            {[
+                                                { label: 'Hecho', key: 'done', color: '#10b981' },
+                                                { label: 'En Proceso', key: 'doing', color: '#3b82f6' },
+                                                { label: 'Revisión', key: 'review', color: '#f59e0b' },
+                                                { label: 'Pendiente', key: 'todo', color: '#64748b' }
+                                            ].map(s => (
+                                                <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                                                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.color }}></div>
+                                                    <span style={{ fontWeight: 600 }}>{consolidatedTasks.filter(t => t.status === s.key).length}</span>
+                                                    <span style={{ color: 'var(--text-dim)' }}>{s.label}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Priority Volume */}
+                                    <div className="chart-card">
+                                        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>VOLUMEN POR PRIORIDAD</h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            {[
+                                                { label: 'Alta', key: 'high', color: '#ef4444' },
+                                                { label: 'Media', key: 'med', color: '#f59e0b' },
+                                                { label: 'Baja', key: 'low', color: '#10b981' }
+                                            ].map(p => {
+                                                const count = consolidatedTasks.filter(t => t.prio === p.key).length;
+                                                const max = Math.max(...['high', 'med', 'low'].map(k => consolidatedTasks.filter(t => t.prio === k).length));
+                                                return (
+                                                    <div key={p.key}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                                                            <span>{p.label}</span>
+                                                            <span style={{ fontWeight: 700 }}>{count}</span>
+                                                        </div>
+                                                        <div style={{ height: 6, background: 'var(--bg-panel)', borderRadius: 3 }}>
+                                                            <div style={{ height: '100%', width: `${(count / (max || 1)) * 100}%`, background: p.color, borderRadius: 3 }}></div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Workload */}
+                                    <div className="chart-card" style={{ gridColumn: 'span 3' }}>
+                                        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>CARGA DE TRABAJO (TOP 10)</h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 24 }}>
+                                            {Array.from(new Set(consolidatedTasks.map(t => t.owner))).slice(0, 10).map(o => {
+                                                const ownerTasks = consolidatedTasks.filter(t => t.owner === o);
+                                                const done = ownerTasks.filter(t => t.status === 'done').length;
+                                                const total = ownerTasks.length;
+                                                const pct = Math.round((done / total) * 100);
+                                                return (
+                                                    <div key={o} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--bg-panel)', borderRadius: 12 }}>
+                                                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary-gradient)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12 }}>
+                                                            {o.substring(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                                                                <span style={{ fontWeight: 600 }}>{o}</span>
+                                                                <span>{done}/{total}</span>
+                                                            </div>
+                                                            <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+                                                                <div style={{ height: '100%', width: `${pct}%`, background: '#10b981', borderRadius: 2 }}></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <ConfirmModal
                 isOpen={confirmOpen}
                 title={confirmTitle}
@@ -909,6 +1073,15 @@ export default function Workspace() {
                 isDestructive={isDestructive}
                 confirmText={confirmActionText}
             />
+
+            <style jsx>{`
+                .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px; }
+                .kpi-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim); text-align: center; }
+                .kpi-value { font-size: 32px; font-weight: 800; margin: 8px 0; }
+                .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+                .kpi-sub { font-size: 11px; color: var(--text-dim); }
+                .chart-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim); }
+            `}</style>
         </div>
     );
 }

@@ -1,18 +1,81 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { getSession } from '@/lib/auth';
 
 export async function GET(request: Request) {
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     try {
         const { searchParams } = new URL(request.url);
         const dashboardId = searchParams.get('dashboardId');
+        const folderId = searchParams.get('folderId');
 
         const client = await pool.connect();
+
+        // Base Query
         let query = 'SELECT id, week, name, status, owner, type, prio, gate, due, description as desc, dashboard_id FROM tasks';
         const params: any[] = [];
 
         if (dashboardId) {
+            // Check Access to specific dashboard
+            const accessQuery = session.role === 'admin'
+                ? 'SELECT id FROM dashboards WHERE id = $1'
+                : `SELECT d.id FROM dashboards d 
+                   LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+                   WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2)`;
+
+            const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
+            const accessCheck = await client.query(accessQuery, accessParams);
+
+            if (accessCheck.rows.length === 0) {
+                client.release();
+                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            }
+
             query += ' WHERE dashboard_id = $1';
             params.push(dashboardId);
+        } else if (folderId !== null && folderId !== undefined && folderId !== 'null') {
+            // Consolidated for a specific folder
+            // 1. Get all accessible dashboards in this folder
+            const dashQuery = session.role === 'admin'
+                ? 'SELECT id FROM dashboards WHERE folder_id = $1'
+                : `SELECT d.id FROM dashboards d 
+                   LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+                   WHERE d.folder_id = $1 AND (d.owner_id = $2 OR dc.user_id = $2)`;
+
+            const dashParams = session.role === 'admin' ? [folderId] : [folderId, session.id];
+            const dashResult = await client.query(dashQuery, dashParams);
+            const dashIds = dashResult.rows.map(r => r.id);
+
+            if (dashIds.length === 0) {
+                client.release();
+                return NextResponse.json([]);
+            }
+
+            const placeholders = dashIds.map((_, i) => `$${i + 1}`).join(',');
+            query += ` WHERE dashboard_id IN (${placeholders})`;
+            params.push(...dashIds);
+        } else {
+            // Root consolidated or all accessible
+            const dashQuery = session.role === 'admin'
+                ? 'SELECT id FROM dashboards WHERE folder_id IS NULL'
+                : `SELECT d.id FROM dashboards d 
+                   LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+                   WHERE d.folder_id IS NULL AND (d.owner_id = $1 OR dc.user_id = $1)`;
+
+            const dashParams = session.role === 'admin' ? [] : [session.id];
+            const dashResult = await client.query(dashQuery, dashParams);
+            const dashIds = dashResult.rows.map(r => r.id);
+
+            if (dashIds.length === 0) {
+                client.release();
+                return NextResponse.json([]);
+            }
+
+            const placeholders = dashIds.map((_, i) => `$${i + 1}`).join(',');
+            query += ` WHERE dashboard_id IN (${placeholders})`;
+            params.push(...dashIds);
         }
 
         query += ' ORDER BY id ASC';
