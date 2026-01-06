@@ -264,6 +264,13 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
         return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
     }, [tasks]);
 
+    const combinedDashboards = useMemo(() => {
+        const map = new Map();
+        availableDashboards.forEach(d => map.set(d.id, d.name));
+        uniqueDashboards.forEach(d => map.set(d.id, d.name));
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    }, [availableDashboards, uniqueDashboards]);
+
     const uniqueStatuses = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.status).filter(Boolean))], [tasksInSelectedDashboard]);
     const uniqueOwners = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.owner).filter(Boolean))], [tasksInSelectedDashboard]);
     const uniqueTypes = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.type).filter(Boolean))], [tasksInSelectedDashboard]);
@@ -368,10 +375,10 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                         value={filters.dashboardId}
                         onChange={(v: any) => setFilters(prev => ({ ...prev, dashboardId: v, search: '', status: 'all', owner: 'all', type: 'all' }))}
                         options={[
-                            { value: 'all', label: 'Todos los Proyectos' },
-                            ...availableDashboards.map(d => ({ value: d.id, label: d.name }))
+                            { value: 'all', label: 'Todos los Tableros' },
+                            ...combinedDashboards.map(d => ({ value: d.id, label: d.name }))
                         ]}
-                        placeholder="Todos los Proyectos"
+                        placeholder="Todos los Tableros"
                     // icon={<div style={{ fontSize: 14 }}>📊</div>}
                     />
 
@@ -450,8 +457,8 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                         </div>
                     </div>
                     <div className="glass-panel" style={{ padding: 24 }}>
-                        <div className="kpi-label">Proyectos</div>
-                        <div className="kpi-value">{filters.dashboardId === 'all' ? uniqueDashboards.length : 1}</div>
+                        <div className="kpi-label">Tableros</div>
+                        <div className="kpi-value">{filters.dashboardId === 'all' ? combinedDashboards.length : 1}</div>
                     </div>
                 </div>
 
