@@ -37,7 +37,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
                 INNER JOIN folder_tree ft ON f.parent_id = ft.id
             )
             SELECT 
-                t.id, t.name, t.status, t.priority as prio, t.owner, 
+                t.id, t.name, t.status, t.prio, t.owner, 
                 d.id as dashboard_id, d.name as dashboard_name
             FROM tasks t
             JOIN dashboards d ON t.dashboard_id = d.id
