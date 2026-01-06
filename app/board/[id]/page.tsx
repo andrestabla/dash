@@ -67,6 +67,76 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [newColName, setNewColName] = useState("");
     const [newColColor, setNewColColor] = useState("#64748b");
 
+    // Dashboard Settings
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [editSettings, setEditSettings] = useState({
+        name: "",
+        description: "",
+        icon: "🚀",
+        weekCount: 8,
+        owners: "",
+        gates: "",
+        types: ""
+    });
+
+    const openSettings = () => {
+        if (!settings) return;
+        setEditSettings({
+            name: dashboardName,
+            description: "", // We need to fetch/store description in BoardSettings if we want to edit it properly, currently simpler to keep blank or read from somewhere else
+            icon: settings.icon || "🚀",
+            weekCount: settings.weeks.length,
+            owners: settings.owners.join(", "),
+            gates: settings.gates.join(", "),
+            types: settings.types.join(", ")
+        });
+        setIsSettingsOpen(true);
+    };
+
+    const saveDashboardSettings = async () => {
+        if (!editSettings.name.trim()) return showToast("El nombre es requerido", "error");
+
+        // Reconstruct Weeks
+        const weeks = Array.from({ length: editSettings.weekCount }, (_, i) => ({
+            id: `W${i + 1}`,
+            name: `Semana ${i + 1}`
+        }));
+
+        const newSettingsData: BoardSettings = {
+            ...settings!,
+            weeks: weeks, // Note: This resets week names to default "Semana X" if they were custom. For now this is acceptable behavior for "Change Duration".
+            owners: editSettings.owners.split(",").map(s => s.trim()).filter(Boolean),
+            gates: editSettings.gates.split(",").map(s => s.trim()).filter(Boolean),
+            types: editSettings.types.split(",").map(s => s.trim()).filter(Boolean),
+            icon: editSettings.icon
+        };
+
+        const body = {
+            id: dashboardId,
+            name: editSettings.name,
+            description: editSettings.description, // We will update the top level description
+            settings: newSettingsData
+        };
+
+        try {
+            const res = await fetch('/api/dashboards', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                setSettings(newSettingsData);
+                setDashboardName(editSettings.name);
+                setIsSettingsOpen(false);
+                showToast("Tablero actualizado", "success");
+            } else {
+                showToast("Error al guardar", "error");
+            }
+        } catch (err) {
+            showToast("Error de conexión", "error");
+        }
+    };
+
     // Load Data
     useEffect(() => {
         if (!dashboardId) return;
@@ -335,6 +405,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
                 {/* ABSOLUTE TOP RIGHT CONTROLS */}
                 <div style={{ position: 'absolute', right: 24, top: 0, height: 70, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button className="btn-ghost" onClick={openSettings} title="Configuración del Tablero">
+                        ⚙️
+                    </button>
                     <button className="btn-ghost" onClick={toggleTheme} title="Cambiar Tema">
                         🌓
                     </button>
@@ -633,6 +706,63 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 <button className="btn-primary" onClick={handleSaveCol}>
                                     {editingColId ? "Actualizar" : "Crear Columna"}
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* EDIT DASHBOARD MODAL */}
+                {isSettingsOpen && settings && (
+                    <div className="backdrop fade-in" onClick={() => setIsSettingsOpen(false)}>
+                        <div className="modal animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ width: 600 }}>
+                            <div className="m-head">
+                                <h3 style={{ margin: 0 }}>Configurar Tablero</h3>
+                                <button className="btn-ghost" onClick={() => setIsSettingsOpen(false)}>✕</button>
+                            </div>
+                            <div className="m-body">
+                                <div className="form-grid">
+                                    <div>
+                                        <label>Nombre del Proyecto</label>
+                                        <input value={editSettings.name} onChange={e => setEditSettings({ ...editSettings, name: e.target.value })} style={{ fontWeight: 700 }} />
+                                    </div>
+                                    <div>
+                                        <label>Ícono</label>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            {["🚀", "💻", "🎨", "📈", "🔥", "✨"].map(ic => (
+                                                <button key={ic} className="btn-ghost" style={{ fontSize: 18, background: editSettings.icon === ic ? 'var(--bg-panel)' : 'transparent', border: editSettings.icon === ic ? '1px solid var(--primary)' : '1px solid transparent' }} onClick={() => setEditSettings({ ...editSettings, icon: ic })}>{ic}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="form-row" style={{ marginTop: 16 }}>
+                                    <label>Descripción</label>
+                                    <input value={editSettings.description || ""} onChange={e => setEditSettings({ ...editSettings, description: e.target.value })} placeholder="Breve descripción del objetivo..." />
+                                </div>
+
+                                <div className="form-grid" style={{ marginTop: 16 }}>
+                                    <div>
+                                        <label>Duración (Semanas)</label>
+                                        <input type="number" value={editSettings.weekCount} onChange={e => setEditSettings({ ...editSettings, weekCount: parseInt(e.target.value) || 1 })} min={1} max={20} />
+                                    </div>
+                                    <div>
+                                        <label>Equipo (Separado por comas)</label>
+                                        <input value={editSettings.owners} onChange={e => setEditSettings({ ...editSettings, owners: e.target.value })} placeholder="Ana, Luis, Pedro..." />
+                                    </div>
+                                </div>
+
+                                <div className="form-row" style={{ marginTop: 16 }}>
+                                    <label>Gates / Hitos (Separados por comas)</label>
+                                    <input value={editSettings.gates} onChange={e => setEditSettings({ ...editSettings, gates: e.target.value })} placeholder="Gate 1, Gate 2, Gate 3..." />
+                                </div>
+
+                                <div className="form-row" style={{ marginTop: 16 }}>
+                                    <label>Tipos de Tarea (Separados por comas)</label>
+                                    <input value={editSettings.types} onChange={e => setEditSettings({ ...editSettings, types: e.target.value })} placeholder="Feature, Bug, Spike..." />
+                                </div>
+                            </div>
+                            <div className="m-foot">
+                                <button className="btn-primary" onClick={saveDashboardSettings}>Guardar Cambios</button>
                             </div>
                         </div>
                     </div>
