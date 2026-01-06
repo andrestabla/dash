@@ -37,12 +37,10 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
                 INNER JOIN folder_tree ft ON f.parent_id = ft.id
             )
             SELECT 
-                t.id, t.name, t.status, t.priority as prio, t.owner_id, 
-                d.id as dashboard_id, d.name as dashboard_name,
-                u.name as owner
+                t.id, t.name, t.status, t.priority as prio, t.owner, 
+                d.id as dashboard_id, d.name as dashboard_name
             FROM tasks t
             JOIN dashboards d ON t.dashboard_id = d.id
-            LEFT JOIN users u ON t.owner_id = u.id
             WHERE d.folder_id IN (SELECT id FROM folder_tree)
             AND d.deleted_at IS NULL;
         `;
