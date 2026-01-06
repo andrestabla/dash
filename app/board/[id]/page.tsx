@@ -118,9 +118,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 const comment = await res.json();
                 setComments(prev => [comment, ...prev]);
                 setNewComment("");
+            } else {
+                const err = await res.json();
+                showToast(`Error: ${err.error || "Fallo al guardar"}`, "error");
             }
         } catch (err) {
-            showToast("Error al agregar comentario", "error");
+            showToast("Error al agregar comentario (Red)", "error");
         }
     };
 

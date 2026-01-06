@@ -36,7 +36,7 @@ export async function POST(request: Request) {
         const client = await pool.connect();
         const result = await client.query(
             'INSERT INTO task_comments (task_id, user_email, user_name, content) VALUES ($1, $2, $3, $4) RETURNING *',
-            [taskId, userEmail, userName, content]
+            [taskId, userEmail, userName || userEmail.split('@')[0], content]
         );
         client.release();
 
