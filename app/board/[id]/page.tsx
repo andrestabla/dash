@@ -448,6 +448,32 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         }
     };
 
+    const duplicateTask = async (task: Task) => {
+        try {
+            const newTask = {
+                ...task,
+                id: Date.now(),
+                name: `${task.name} (Copia)`,
+            };
+            const res = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newTask)
+            });
+            if (res.ok) {
+                showToast('Tarea duplicada exitosamente', 'success');
+                // Reload tasks
+                const tasksRes = await fetch(`/api/tasks?dashboardId=${dashboardId}`);
+                if (tasksRes.ok) {
+                    const tasksData = await tasksRes.json();
+                    setTasks(tasksData);
+                }
+            }
+        } catch (error) {
+            showToast('Error al duplicar tarea', 'error');
+        }
+    };
+
     // TASK MANAGEMENT
     const openModal = (task?: Task) => {
         if (!settings) return;
@@ -847,9 +873,25 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: statuses.find(s => s.id === t.status)?.color }}></div>
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</div>
-                                                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t.owner} · {t.type}</div>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                                                        <span style={{
+                                                            background: statuses.find(s => s.id === t.status)?.color || '#64748b',
+                                                            color: 'white',
+                                                            padding: '2px 8px',
+                                                            borderRadius: 4,
+                                                            fontSize: 10,
+                                                            fontWeight: 600,
+                                                            marginRight: 8
+                                                        }}>
+                                                            {statuses.find(s => s.id === t.status)?.name || t.status}
+                                                        </span>
+                                                        {t.owner} · {t.type}
+                                                    </div>
                                                 </div>
-                                                <button className="btn-ghost" onClick={() => openModal(t)}>✏️</button>
+                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                    <button className="btn-ghost" onClick={() => duplicateTask(t)} title="Duplicar tarea" style={{ padding: 4 }}><Copy size={16} /></button>
+                                                    <button className="btn-ghost" onClick={() => openModal(t)} style={{ padding: 4 }}>✏️</button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
