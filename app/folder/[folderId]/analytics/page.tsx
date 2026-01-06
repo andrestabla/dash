@@ -41,9 +41,14 @@ const CustomSelect = ({ value, onChange, options, placeholder, icon, minWidth = 
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const filteredOptions = options.filter((o: any) =>
-        (o.label || "").toString().toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // If search matches the current selection exactly, show ALL options (don't filter yet)
+    // This allows users to open the dropdown and see the full list immediately
+    const selectedOption = options.find((o: any) => String(o.value) === String(value));
+    const isExactMatch = selectedOption && (selectedOption.label || "") === searchTerm;
+
+    const filteredOptions = isExactMatch
+        ? options
+        : options.filter((o: any) => (o.label || "").toString().toLowerCase().includes(searchTerm.toLowerCase()));
 
     const handleSelect = (val: string, label: string) => {
         onChange(val);
