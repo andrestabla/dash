@@ -17,6 +17,7 @@ export default function AdminSettingsPage() {
         port: "",
         user: "",
         pass: "",
+        from: "",
         secure: true
     });
     const [info, setInfo] = useState({ testEmail: "" });
@@ -34,6 +35,7 @@ export default function AdminSettingsPage() {
                 port: data.smtp_port || "587",
                 user: data.smtp_user || "",
                 pass: data.smtp_pass || "",
+                from: data.smtp_from || "",
                 secure: data.smtp_secure === "true"
             });
             setLoading(false);
@@ -66,6 +68,7 @@ export default function AdminSettingsPage() {
             smtp_port: wizData.port,
             smtp_user: wizData.user,
             smtp_pass: wizData.pass,
+            smtp_from: wizData.from,
             smtp_secure: String(wizData.secure)
         };
         saveSettings(newSettings);
@@ -122,6 +125,11 @@ export default function AdminSettingsPage() {
                             <div>
                                 <span style={{ fontWeight: 600 }}>User:</span> {settings.smtp_user}
                             </div>
+                            {settings.smtp_from && (
+                                <div>
+                                    <span style={{ fontWeight: 600 }}>From:</span> {settings.smtp_from}
+                                </div>
+                            )}
                             <div>
                                 <span style={{ fontWeight: 600 }}>Secure:</span> {settings.smtp_secure === 'true' ? 'Sí' : 'No'}
                             </div>
@@ -216,8 +224,8 @@ export default function AdminSettingsPage() {
                                 <div className="animate-fade-in">
                                     <div style={{ textAlign: 'center', marginBottom: 24 }}>
                                         <div style={{ display: 'inline-flex', padding: 16, borderRadius: '50%', background: 'var(--bg-panel)', marginBottom: 16 }}><User size={32} color="#f59e0b" /></div>
-                                        <h4 style={{ margin: 0, fontSize: 18 }}>Credenciales</h4>
-                                        <p style={{ color: 'var(--text-dim)', fontSize: 14 }}>Usuario y contraseña para autenticar el envío.</p>
+                                        <h4 style={{ margin: 0, fontSize: 18 }}>Credenciales y Remitente</h4>
+                                        <p style={{ color: 'var(--text-dim)', fontSize: 14 }}>Usuario, contraseña y dirección de envío.</p>
                                     </div>
                                     <div style={{ display: 'grid', gap: 16 }}>
                                         <div>
@@ -227,6 +235,11 @@ export default function AdminSettingsPage() {
                                         <div>
                                             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Contraseña</label>
                                             <input className="input-glass" type="password" placeholder="••••••••" value={wizData.pass} onChange={e => setWizData({ ...wizData, pass: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Remitente (From) <span style={{ fontWeight: 400, opacity: 0.7 }}>(Opcional)</span></label>
+                                            <input className="input-glass" placeholder='Ej: "Soporte" <soporte@empresa.com>' value={wizData.from} onChange={e => setWizData({ ...wizData, from: e.target.value })} />
+                                            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>Si se deja vacío, se usará el usuario.</div>
                                         </div>
                                     </div>
                                 </div>
@@ -250,7 +263,8 @@ export default function AdminSettingsPage() {
                                         <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>
                                             Host: <b style={{ color: 'var(--text-main)' }}>{wizData.host}</b><br />
                                             Puerto: <b style={{ color: 'var(--text-main)' }}>{wizData.port}</b><br />
-                                            Usuario: <b style={{ color: 'var(--text-main)' }}>{wizData.user}</b>
+                                            Usuario: <b style={{ color: 'var(--text-main)' }}>{wizData.user}</b><br />
+                                            From: <b style={{ color: 'var(--text-main)' }}>{wizData.from || '(Igual al usuario)'}</b>
                                         </div>
                                     </div>
 

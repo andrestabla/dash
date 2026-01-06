@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { host, port, user, pass, secure, to } = body;
+        const { host, port, user, pass, secure, to, from } = body;
 
         if (!host || !port || !user || !pass || !to) {
             return NextResponse.json({ error: 'Missing configuration fields' }, { status: 400 });
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
         // Send test email
         await transporter.sendMail({
-            from: `"Test System" <${user}>`,
+            from: from || `"Test System" <${user}>`,
             to: to,
             subject: "Prueba de conexión SMTP - Roadmap 4Shine",
             text: "Si estás leyendo esto, la configuración SMTP funciona correctamente.",
