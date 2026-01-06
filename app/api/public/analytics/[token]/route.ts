@@ -38,7 +38,8 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
             )
             SELECT 
                 t.id, t.name, t.status, t.prio, t.owner, t.type,
-                d.id as dashboard_id, d.name as dashboard_name
+                d.id as dashboard_id, d.name as dashboard_name,
+                d.settings as dashboard_settings
             FROM tasks t
             JOIN dashboards d ON t.dashboard_id = d.id
             WHERE d.folder_id IN (SELECT id FROM folder_tree);

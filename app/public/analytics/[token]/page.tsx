@@ -13,6 +13,13 @@ export default function PublicAnalyticsPage() {
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<{ folderName: string, tasks: any[] } | null>(null);
 
+    // Helper for loose status matching (Same as internal)
+    const isTaskDone = (status: string) => {
+        if (!status) return false;
+        const s = status.toLowerCase();
+        return s === 'done' || s.includes('validado') || s.includes('final') || s.includes('complet') || s.includes('entregado') || s.includes('aprobado') || s.includes('closed');
+    };
+
     // Filters State (Client-side)
     const [filters, setFilters] = useState({ search: '', status: 'all', owner: 'all', dashboardId: 'all', type: 'all' });
 
@@ -34,6 +41,47 @@ export default function PublicAnalyticsPage() {
     }, [token]);
 
     const tasks = data?.tasks || [];
+
+    // Helper to get status info including color from task's dashboard settings
+    const getStatusInfo = (task: any) => {
+        const settings = task.dashboard_settings;
+
+        if (!settings || !settings.statuses) {
+            const isDone = isTaskDone(task.status);
+            return {
+                name: task.status,
+                color: isDone ? '#10b981' : '#64748b',
+                progress: isDone ? 100 : 0
+            };
+        }
+
+        const columns = settings.statuses;
+        const colIndex = columns.findIndex((c: any) => c.id === task.status);
+
+        if (colIndex === -1) {
+            const isDone = isTaskDone(task.status);
+            return {
+                name: task.status,
+                color: isDone ? '#10b981' : '#64748b',
+                progress: isDone ? 100 : 0
+            };
+        }
+
+        const col = columns[colIndex];
+        const name = col.name;
+        const color = col.color || '#64748b';
+
+        // Progress Logic
+        let progress = 0;
+        if (typeof col.percentage === 'number') {
+            progress = col.percentage;
+        } else {
+            if (columns.length <= 1) progress = 100;
+            else progress = Math.round((colIndex / (columns.length - 1)) * 100);
+        }
+
+        return { name, color, progress };
+    };
 
     // --- FILTER LOGIC ---
     const filteredTasks = useMemo(() => {
@@ -146,7 +194,7 @@ export default function PublicAnalyticsPage() {
                     <div className="card" style={{ background: '#1e293b', padding: 20, borderRadius: 12 }}>
                         <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 4 }}>Progreso Global</div>
                         <div style={{ fontSize: 32, fontWeight: 700, color: '#10b981' }}>
-                            {filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => t.status === 'done').length / filteredTasks.length) * 100) : 0}%
+                            {filteredTasks.length > 0 ? Math.round((filteredTasks.reduce((acc, t) => acc + getStatusInfo(t).progress, 0) / filteredTasks.length)) : 0}%
                         </div>
                     </div>
                     <div className="card" style={{ background: '#1e293b', padding: 20, borderRadius: 12 }}>
@@ -162,22 +210,33 @@ export default function PublicAnalyticsPage() {
                     <div style={{ background: '#1e293b', padding: 24, borderRadius: 16 }}>
                         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase' }}>Estado Consolidado</h3>
                         <div style={{ height: 32, borderRadius: 16, overflow: 'hidden', display: 'flex', marginBottom: 20 }}>
-                            {['done', 'doing', 'review', 'todo'].map(s => {
-                                const count = filteredTasks.filter(t => t.status === s).length;
+                            {uniqueStatuses.map((s: any) => {
+                                // Find representative color
+                                const sampleTask = filteredTasks.find(t => getStatusInfo(t).name === s);
+                                const { color } = sampleTask ? getStatusInfo(sampleTask) : { color: '#64748b' };
+
+                                const count = filteredTasks.filter(t => getStatusInfo(t).name === s).length;
                                 const pct = (count / filteredTasks.length) * 100;
-                                const colors: any = { done: '#10b981', doing: '#3b82f6', review: '#f59e0b', todo: '#64748b' };
+
                                 if (count === 0) return null;
-                                return <div key={s} style={{ width: `${pct}%`, background: colors[s] }} title={`${s}: ${count}`}></div>
+                                return <div key={s} style={{ width: `${pct}%`, background: color }} title={`${s}: ${count}`}></div>
                             })}
                         </div>
                         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                            {/* Legend items similar to main app */}
-                            {[{ l: 'Hecho', c: '#10b981', k: 'done' }, { l: 'En Progreso', c: '#3b82f6', k: 'doing' }, { l: 'Pendiente', c: '#64748b', k: 'todo' }].map(i => (
-                                <div key={i.k} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: i.c }}></div>
-                                    <span style={{ fontSize: 13 }}>{i.l} ({filteredTasks.filter(t => t.status === i.k).length})</span>
-                                </div>
-                            ))}
+                            {uniqueStatuses.map((s: any) => {
+                                // Find representative color
+                                const sampleTask = filteredTasks.find(t => getStatusInfo(t).name === s);
+                                const { color } = sampleTask ? getStatusInfo(sampleTask) : { color: '#64748b' };
+
+                                const count = filteredTasks.filter(t => getStatusInfo(t).name === s).length;
+
+                                return (
+                                    <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }}></div>
+                                        <span style={{ fontSize: 13 }}>{s} ({count})</span>
+                                    </div>
+                                )
+                            })}
                         </div>
                     </div>
 

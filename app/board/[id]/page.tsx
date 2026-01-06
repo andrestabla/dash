@@ -852,6 +852,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                                                 </div>
 
                                                                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.8 }}>
+                                                                                    <div className="btn-icon-hover" onClick={(e) => { e.stopPropagation(); duplicateTask(t); }} title="Duplicar Tarea">
+                                                                                        <Copy size={14} />
+                                                                                    </div>
                                                                                     <div title={`Responsable: ${t.owner}`} style={{ fontSize: 14, cursor: 'help' }}>👤</div>
 
                                                                                     {/* Priority Icons with Tooltips */}
