@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, use } from "react";
+import { useEffect, useState, useMemo, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Share2, Copy, Check, X, Search, Filter } from "lucide-react";
 import { useToast } from "@/components/ToastProvider";
@@ -12,51 +12,108 @@ const isTaskDone = (status: string) => {
     return s === 'done' || s.includes('validado') || s.includes('final') || s.includes('complet') || s.includes('entregado') || s.includes('aprobado') || s.includes('closed');
 };
 
-// Custom Select Component for robust rendering
+// Custom Select Component upgraded to Searchable Combobox
 const CustomSelect = ({ value, onChange, options, placeholder, icon, minWidth = 140, flex = 0 }: any) => {
     const [isOpen, setIsOpen] = useState(false);
-    const selectedLabel = options.find((o: any) => o.value === value)?.label || placeholder;
+    const [searchTerm, setSearchTerm] = useState("");
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    // Sync input with external value
+    useEffect(() => {
+        const selected = options.find((o: any) => o.value === value);
+        if (selected) {
+            setSearchTerm(selected.label);
+        } else if (value === '' || value === 'all') {
+            const allOpt = options.find((o: any) => o.value === 'all');
+            if (value === 'all' && allOpt) setSearchTerm(allOpt.label);
+            else setSearchTerm("");
+        }
+    }, [value, options]);
+
+    // Close on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const filteredOptions = options.filter((o: any) =>
+        o.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const handleSelect = (val: string, label: string) => {
+        onChange(val);
+        setSearchTerm(label);
+        setIsOpen(false);
+    };
 
     return (
-        <div style={{ position: 'relative', minWidth, flex: flex ? 1 : undefined }}>
-            {isOpen && <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setIsOpen(false)} />}
+        <div ref={wrapperRef} style={{ position: 'relative', minWidth, flex: flex ? 1 : undefined }}>
             <div
                 className="input-glass"
-                onClick={() => setIsOpen(!isOpen)}
                 style={{
-                    cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    background: 'var(--bg-panel)', color: 'var(--text-main)', padding: '8px 12px', fontSize: 13,
-                    border: '1px solid var(--border-dim)'
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                    background: 'var(--bg-panel)', border: '1px solid var(--border-dim)',
+                    cursor: 'text'
                 }}
+                onClick={() => setIsOpen(true)}
             >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                    {icon && icon}
-                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedLabel}</span>
-                </div>
-                <span style={{ fontSize: 10, opacity: 0.5 }}>▼</span>
+                {icon}
+                <input
+                    value={searchTerm}
+                    onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setIsOpen(true);
+                        if (e.target.value === '') onChange('all');
+                    }}
+                    onFocus={() => setIsOpen(true)}
+                    placeholder={placeholder}
+                    style={{
+                        background: 'transparent', border: 'none', outline: 'none',
+                        width: '100%', color: 'var(--text-main)', fontSize: 13,
+                        cursor: 'text'
+                    }}
+                />
+                <span style={{ fontSize: 10, opacity: 0.5, cursor: 'pointer' }} onClick={(e) => {
+                    e.stopPropagation();
+                    setIsOpen(!isOpen);
+                }}>▼</span>
             </div>
+
             {isOpen && (
                 <div className="animate-fade-in" style={{
                     position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
                     background: 'var(--bg-panel)', border: '1px solid var(--border-dim)',
-                    borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.2)', zIndex: 50,
+                    borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', zIndex: 1000,
                     maxHeight: 300, overflowY: 'auto'
                 }}>
-                    {options.map((o: any) => (
-                        <div
-                            key={o.value}
-                            onClick={() => { onChange(o.value); setIsOpen(false); }}
-                            style={{
-                                padding: '8px 12px', fontSize: 13, cursor: 'pointer',
-                                background: value === o.value ? 'var(--primary-gradient)' : 'transparent',
-                                color: value === o.value ? 'white' : 'var(--text-main)',
-                                fontWeight: value === o.value ? 600 : 400,
-                                borderBottom: '1px dotted var(--border-dim)'
-                            }}
-                        >
-                            {o.label}
+                    {filteredOptions.length > 0 ? (
+                        filteredOptions.map((o: any) => (
+                            <div
+                                key={o.value}
+                                onClick={() => handleSelect(o.value, o.label)}
+                                style={{
+                                    padding: '8px 12px', fontSize: 13, cursor: 'pointer',
+                                    background: value === o.value ? 'var(--primary-gradient)' : 'transparent',
+                                    color: value === o.value ? 'white' : 'var(--text-main)',
+                                    fontWeight: value === o.value ? 600 : 400,
+                                    borderBottom: '1px dotted var(--border-dim)',
+                                    display: 'flex', justifyContent: 'space-between'
+                                }}
+                            >
+                                <span>{o.label}</span>
+                                {value === o.value && <span>✓</span>}
+                            </div>
+                        ))
+                    ) : (
+                        <div style={{ padding: 12, fontSize: 13, color: 'var(--text-dim)', textAlign: 'center' }}>
+                            No se encontraron resultados
                         </div>
-                    ))}
+                    )}
                 </div>
             )}
         </div>
