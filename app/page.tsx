@@ -439,7 +439,7 @@ export default function Workspace() {
     return (
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
             {/* HEADER & NAV */}
-            <header style={{ marginBottom: 40, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header style={{ marginBottom: 40, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
                 <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
                         {breadcrumbs.map((crumb, i) => (
@@ -464,26 +464,30 @@ export default function Workspace() {
                     </h1>
                 </div>
 
-                <div style={{ display: 'flex', gap: 12 }}>
-                    <button className="btn-ghost" onClick={() => setIsCreatingFolder(true)} title="Nueva Carpeta">
-                        <FolderOpen size={20} /> <span style={{ marginLeft: 8, fontSize: 13 }}>Nueva Carpeta</span>
-                    </button>
-
-                    <button className="btn-primary" onClick={startCreate}>
-                        <Plus size={18} /> Nuevo Proyecto
-                    </button>
-
-                    <div style={{ width: 1, background: 'var(--border-dim)', margin: '0 8px' }}></div>
-
-                    {user?.role === 'admin' && (
-                        <Link href="/admin/users" style={{ textDecoration: 'none' }}>
-                            <button className="btn-ghost" title="Panel de Admin"><Shield size={20} /></button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
+                    {/* Top utility row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {user?.role === 'admin' && (
+                            <Link href="/admin/users" style={{ textDecoration: 'none' }}>
+                                <button className="btn-ghost" title="Panel de Admin" style={{ padding: 6 }}><Shield size={18} /></button>
+                            </Link>
+                        )}
+                        <Link href="/profile">
+                            <button className="btn-ghost" title="Mi Perfil" style={{ padding: 6 }}><User size={18} /></button>
                         </Link>
-                    )}
-                    <Link href="/profile">
-                        <button className="btn-ghost" title="Mi Perfil"><User size={20} /></button>
-                    </Link>
-                    <button className="btn-ghost" onClick={confirmLogout} title="Cerrar Sesión"><LogOut size={20} /></button>
+                        <button className="btn-ghost" onClick={confirmLogout} title="Cerrar Sesión" style={{ padding: 6 }}><LogOut size={18} /></button>
+                    </div>
+
+                    {/* Main action row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="btn-ghost" onClick={() => setIsCreatingFolder(true)} title="Nueva Carpeta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <FolderOpen size={18} /> <span style={{ fontSize: 13 }}>Nueva Carpeta</span>
+                        </button>
+
+                        <button className="btn-primary" onClick={startCreate} style={{ padding: '8px 16px' }}>
+                            <Plus size={18} /> Nuevo Proyecto
+                        </button>
+                    </div>
                 </div>
             </header>
 
