@@ -11,8 +11,10 @@ export async function GET() {
         // Get boards + basic stats
         const res = await client.query(`
             SELECT d.id, d.name, d.description, d.created_at, 
-                   (SELECT COUNT(*) FROM tasks t WHERE t.dashboard_id = d.id) as task_count
+                   (SELECT COUNT(*) FROM tasks t WHERE t.dashboard_id = d.id) as task_count,
+                   u.name as owner_name, u.email as owner_email
             FROM dashboards d
+            LEFT JOIN users u ON d.owner_id = u.id
             ORDER BY d.created_at DESC
         `);
         client.release();

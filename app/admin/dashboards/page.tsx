@@ -95,6 +95,7 @@ export default function AdminDashboardsPage() {
                         <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left", background: "var(--panel-hover)" }}>
                             <th style={{ padding: 15 }}>Nombre</th>
                             <th style={{ padding: 15 }}>Descripción</th>
+                            <th style={{ padding: 15 }}>Dueño</th>
                             <th style={{ padding: 15 }}>Tareas</th>
                             <th style={{ padding: 15 }}>Creado</th>
                             <th style={{ padding: 15, textAlign: "right" }}>Acciones</th>
@@ -105,6 +106,10 @@ export default function AdminDashboardsPage() {
                             <tr key={b.id} style={{ borderBottom: "1px solid var(--border)" }}>
                                 <td style={{ padding: 15, fontWeight: 600 }}>{b.name}</td>
                                 <td style={{ padding: 15, color: 'var(--text-dim)' }}>{b.description || '-'}</td>
+                                <td style={{ padding: 15 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 500 }}>{b.owner_name || 'Desconocido'}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{b.owner_email}</div>
+                                </td>
                                 <td style={{ padding: 15 }}>{b.task_count}</td>
                                 <td style={{ padding: 15, fontSize: 13, color: "var(--text-dim)" }}>{new Date(b.created_at).toLocaleDateString()}</td>
                                 <td style={{ padding: 15, textAlign: "right", display: "flex", gap: 10, justifyContent: "flex-end" }}>
