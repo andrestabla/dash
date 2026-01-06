@@ -1,4 +1,3 @@
-```javascript
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -164,7 +163,7 @@ export default function Workspace() {
         e.preventDefault(); e.stopPropagation();
         setConfirmMsg("⚠️ ¿Eliminar carpeta? El contenido se moverá al Espacio Principal.");
         setConfirmCallback(() => async () => {
-            await fetch(`/ api / folders ? id = ${ id } `, { method: 'DELETE' });
+            await fetch('/api/folders?id=' + id, { method: 'DELETE' });
             // Optimistic update: Move children to root (null)
             setFolders(prev => prev.filter(f => f.id !== id).map(f => f.parent_id === id ? { ...f, parent_id: null } : f));
             setDashboards(prev => prev.map(d => d.folder_id === id ? { ...d, folder_id: null } : d));
@@ -226,7 +225,7 @@ export default function Workspace() {
                     setDashboards([dash, ...dashboards]);
                 }
                 resetWizard();
-                if (!isEdit) router.push(`/ board / ${ dash.id } `);
+                if (!isEdit) router.push('/board/' + dash.id);
             }
         } catch (err) {
             alert("Error guardando tablero");
@@ -237,7 +236,7 @@ export default function Workspace() {
         e.preventDefault(); e.stopPropagation();
         setConfirmMsg("¿Estás seguro de que quieres eliminar este tablero y todas sus tareas? Esta acción es irreversible.");
         setConfirmCallback(() => async () => {
-            await fetch(`/ api / dashboards ? id = ${ id } `, { method: 'DELETE' });
+            await fetch('/api/dashboards?id=' + id, { method: 'DELETE' });
             setDashboards(dashboards.filter(d => d.id !== id));
             setConfirmOpen(false);
             showToast("Tablero eliminado", "info");
@@ -290,8 +289,8 @@ export default function Workspace() {
     // --- HELPERS ---
     const generateWeeks = (count: number) => {
         return Array.from({ length: count }, (_, i) => ({
-            id: `W${ i + 1 } `,
-            name: `W${ i + 1 } · Semana ${ i + 1 } `
+            id: "W" + (i + 1),
+            name: "W" + (i + 1) + " · Semana " + (i + 1)
         }));
     };
 
@@ -423,10 +422,11 @@ export default function Workspace() {
                 {currentItems.dashboards.length > 0 ? (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
                         {currentItems.dashboards.map(d => (
-                            <Link href={`/ board / ${ d.id } `} key={d.id} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Link href={"/board/" + d.id} key={d.id} style={{ textDecoration: "none", color: "inherit" }}>
                                 <div className="glass-panel hover-lift" style={{
-                                    padding: 24, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
-                                    borderTop: `4px solid ${ d.settings?.color || '#3b82f6' } `
+                                    padding: 24, height: "100%", display: "flex", flexDirection: "column", position: "relative",
+                                    borderTop: "4px solid " + (d.settings?.color || "#3b82f6")
+
                                 }}>
                                     {/* Action Menus */}
                                     <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 4 }}>
@@ -522,7 +522,7 @@ export default function Workspace() {
                 <div className="backdrop">
                     <div className="glass-panel animate-slide-up" style={{ padding: 0, width: 700, overflow: 'hidden' }}>
                         <div style={{ padding: '24px 32px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)' }}>
-                            <h2 style={{ margin: 0, fontSize: 20 }}>{editingDash ? "Editar Tablero" : `Nuevo Proyecto(${ wizardStep } / 4)`}</h2>
+                            <h2 style={{ margin: 0, fontSize: 20 }}>{editingDash ? "Editar Tablero" : "Nuevo Proyecto (" + wizardStep + " / 4)"}</h2>
                             <button className="btn-ghost" onClick={resetWizard} style={{ padding: 4 }}><X size={20} /></button>
                         </div>
                         <div style={{ padding: 32 }}>
@@ -549,7 +549,7 @@ export default function Workspace() {
                                             <label style={{ display: 'block', marginBottom: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Color Principal</label>
                                             <div style={{ display: 'flex', gap: 12 }}>
                                                 {COLORS.map(c => (
-                                                    <div key={c} onClick={() => setWizColor(c)} style={{ width: 32, height: 32, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: wizColor === c ? `0 0 0 3px var(--bg - card), 0 0 0 5px ${ c } ` : 'none', transition: 'all 0.2s' }}></div>
+                                                    <div key={c} onClick={() => setWizColor(c)} style={{ width: 32, height: 32, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: wizColor === c ? '0 0 0 3px var(--bg-card), 0 0 0 5px ' + c : 'none', transition: 'all 0.2s' }}></div>
                                                 ))}
                                             </div>
                                         </div>
@@ -563,10 +563,10 @@ export default function Workspace() {
                                         <input type="range" min="4" max="52" value={wizWeeks} onChange={e => setWizWeeks(Number(e.target.value))} style={{ flex: 1 }} />
                                         <span style={{ fontWeight: 700, fontSize: 18, width: 40, textAlign: 'center' }}>{wizWeeks}</span>
                                     </div>
-                                    <p style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 4 }}>
+                                    <p style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 4 }}>
                                         {editingDash
                                             ? "⚠️ Editar la duración regenerará la lista de semanas. (No afecta tareas existentes si los IDs coinciden)."
-                                            : `Se generarán ${ wizWeeks } semanas(W1 - W${ wizWeeks }).`
+                                            : "Se generarán " + wizWeeks + " semanas (W1 - W" + wizWeeks + ")."
                                         }
                                     </p>
                                 </div>
@@ -623,21 +623,10 @@ export default function Workspace() {
                         <div style={{ padding: '20px 32px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'flex-end', gap: 12, background: 'rgba(0,0,0,0.2)' }}>
                             {wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
                             {wizardStep < 4 && <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>}
-                            </div>
-
-                            <div style={{ fontSize: 48, marginBottom: 16 }}>{d.settings?.icon || "🗺️"}</div>
-                            <h3 style={{ margin: '0 0 8px 0', fontSize: 20 }}>{d.name}</h3>
-                            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-dim)', flex: 1, lineHeight: 1.5 }}>
-                                {d.description || "Sin descripción"}
-                            </p>
-
-                            <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Actualizado: {new Date(d.created_at).toLocaleDateString()}</span>
-                                <span style={{ fontWeight: 600, color: d.settings?.color || 'white', display: 'flex', alignItems: 'center', gap: 4 }}>Abrir <ArrowRight size={14} /></span>
-                            </div>
                         </div>
-                    </Link>
-                ))}
+                    </div>
+                </div>
+            )}
 
                 {dashboards.length === 0 && !isCreating && (
                     <div className="glass-panel" style={{ gridColumn: '1/-1', textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '2px dashed rgba(255,255,255,0.1)' }}>
@@ -647,7 +636,6 @@ export default function Workspace() {
                         <button className="btn-primary" onClick={startCreate} style={{ marginTop: 20 }}>+ Crear Proyecto</button>
                     </div>
                 )}
-            </div>
             {/* CONFIRM MODAL */}
             <ConfirmModal
                 isOpen={confirmOpen}
