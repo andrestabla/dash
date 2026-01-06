@@ -79,7 +79,7 @@ export async function PUT(request: Request) {
             const link = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/board/${id}`;
 
             // We'll fire these in parallel
-            owners.forEach(async (email: string) => {
+            const emailPromises = owners.map(async (email: string) => {
                 const html = `
                     <div style="font-family: sans-serif; color: #333;">
                         <h2>¡Te han invitado a un Tablero! 📊</h2>
@@ -93,6 +93,8 @@ export async function PUT(request: Request) {
                 `;
                 await sendEmail(email, subject, html);
             });
+
+            await Promise.allSettled(emailPromises);
         }
 
         return NextResponse.json({ success: true });
