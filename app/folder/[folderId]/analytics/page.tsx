@@ -276,11 +276,17 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
 
     const combinedDashboards = useMemo(() => {
         const map = new Map();
+        // 1. First populate with derived data from tasks (fallback)
+        uniqueDashboards.forEach(d => {
+            if (d && d.id) {
+                // Only set if not already present (though map.set would overwrite, order matters)
+                // Actually, we want availableDashboards to OVERWRITE this if present.
+                map.set(d.id, d.name || "Tablero (Datos Huerfanos)");
+            }
+        });
+        // 2. Then overwrite with authoritative data from API (source of truth)
         availableDashboards.forEach(d => {
             if (d && d.id) map.set(d.id, d.name || "Tablero Sin Nombre");
-        });
-        uniqueDashboards.forEach(d => {
-            if (d && d.id) map.set(d.id, d.name || "Tablero (Datos Huerfanos)");
         });
         return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
     }, [availableDashboards, uniqueDashboards]);
