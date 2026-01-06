@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
-import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check } from "lucide-react";
+import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check, Share2, UserPlus, Mail } from "lucide-react";
 
 interface Dashboard {
     id: string;
@@ -112,6 +112,13 @@ export default function Workspace() {
     const [showLogout, setShowLogout] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+
+    // Folder Sharing State
+    const [isSharingFolder, setIsSharingFolder] = useState(false);
+    const [sharingFolder, setSharingFolder] = useState<any>(null);
+    const [shareEmail, setShareEmail] = useState("");
+    const [shareNotify, setShareNotify] = useState(true);
+    const [isSavingShare, setIsSavingShare] = useState(false);
 
     const [isLoading, setIsLoading] = useState(true);
 
@@ -542,6 +549,7 @@ export default function Workspace() {
                                     <span style={{ fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
 
                                     <div className="folder-actions" onClick={e => e.stopPropagation()} style={{ display: 'flex' }}>
+                                        <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); setSharingFolder(f); setIsSharingFolder(true); }} style={{ padding: 4 }} title="Compartir"><Share2 size={12} /></button>
                                         <button className="btn-ghost" onClick={(e) => handleExport(e, f.id, 'folder')} style={{ padding: 4 }} title="Descargar Reporte"><Download size={14} /></button>
                                         <button className="btn-ghost" onClick={(e) => editFolder(e, f)} style={{ padding: 4 }}><Edit2 size={12} /></button>
                                         <button className="btn-ghost" onClick={(e) => deleteFolder(e, f.id)} style={{ padding: 4, color: '#f87171' }}><Trash2 size={12} /></button>
@@ -1000,6 +1008,97 @@ export default function Workspace() {
                 .kpi-sub { font-size: 11px; color: var(--text-dim); }
                 .chart-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim); }
             `}</style>
+            {/* SHARE MODAL */}
+            {isSharingFolder && (
+                <div className="backdrop fade-in" onClick={() => setIsSharingFolder(false)}>
+                    <div className="modal-container animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
+                        <div className="modal-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ color: sharingFolder?.color || '#3b82f6' }}><Folder size={24} /></div>
+                                <h3 className="modal-title">Compartir Carpeta</h3>
+                            </div>
+                            <button className="btn-ghost" onClick={() => setIsSharingFolder(false)}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ color: 'var(--text-dim)', fontSize: 14, marginBottom: 24 }}>
+                                Comparte <b>{sharingFolder?.name}</b> con otros usuarios registrados.
+                            </p>
+
+                            <div className="form-group">
+                                <label className="form-label"><UserPlus size={14} style={{ marginRight: 6 }} /> Seleccionar Usuario</label>
+                                <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border-dim)', borderRadius: 12, padding: 8, background: 'rgba(0,0,0,0.1)' }}>
+                                    {availableUsers.length === 0 && <p style={{ padding: 10, color: 'var(--text-dim)', fontSize: 13, textAlign: 'center' }}>No hay usuarios para asignar.</p>}
+                                    {availableUsers.map(u => (
+                                        <div key={u.id} className="hover-lift" style={{
+                                            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', transition: 'background 0.2s',
+                                            background: shareEmail === u.email ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                                            border: shareEmail === u.email ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid transparent'
+                                        }} onClick={() => setShareEmail(u.email)}>
+                                            <input
+                                                type="radio"
+                                                name="shareEmail"
+                                                checked={shareEmail === u.email}
+                                                onChange={() => { }}
+                                                style={{ cursor: 'pointer' }}
+                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: 14, fontWeight: 500 }}>{u.name || u.email.split('@')[0]}</span>
+                                                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{u.email}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'rgba(59, 130, 246, 0.05)', borderRadius: 12, border: '1px solid rgba(59, 130, 246, 0.1)' }}>
+                                <input
+                                    type="checkbox"
+                                    id="shareNotify"
+                                    checked={shareNotify}
+                                    onChange={e => setShareNotify(e.target.checked)}
+                                    style={{ transform: 'scale(1.1)', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="shareNotify" style={{ color: '#3b82f6', fontWeight: 600, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Mail size={14} /> Enviar notificación por correo
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="modal-footer">
+                            <button className="btn-ghost" onClick={() => setIsSharingFolder(false)}>Cancelar</button>
+                            <button
+                                className="btn-primary"
+                                disabled={!shareEmail || isSavingShare}
+                                onClick={async () => {
+                                    setIsSavingShare(true);
+                                    try {
+                                        const res = await fetch(`/api/folders/${sharingFolder.id}/share`, {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ email: shareEmail, notify: shareNotify })
+                                        });
+
+                                        if (res.ok) {
+                                            showToast("Acceso compartido correctamente", "success");
+                                            setIsSharingFolder(false);
+                                            setShareEmail("");
+                                        } else {
+                                            const data = await res.json();
+                                            showToast(data.error || "Error al compartir", "error");
+                                        }
+                                    } catch (e) {
+                                        showToast("Error de conexión", "error");
+                                    } finally {
+                                        setIsSavingShare(false);
+                                    }
+                                }}
+                            >
+                                {isSavingShare ? "Compartiendo..." : "Compartir Acceso"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

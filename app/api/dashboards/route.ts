@@ -20,7 +20,9 @@ export async function GET() {
             query = `
                 SELECT d.* FROM dashboards d
                 LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id
-                WHERE d.owner_id = $1 OR dc.user_id = $1
+                WHERE d.owner_id = $1 
+                OR dc.user_id = $1
+                OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
                 GROUP BY d.id
                 ORDER BY d.created_at DESC
             `;

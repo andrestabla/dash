@@ -15,7 +15,12 @@ export async function GET() {
         if (session.role === 'admin') {
             query = 'SELECT * FROM folders ORDER BY name ASC';
         } else {
-            query = 'SELECT * FROM folders WHERE owner_id = $1 ORDER BY name ASC';
+            query = `
+                SELECT f.* FROM folders f
+                WHERE f.owner_id = $1
+                OR f.id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
+                ORDER BY f.name ASC
+            `;
             params = [session.id];
         }
 

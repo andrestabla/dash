@@ -1,22 +1,18 @@
 import { NextResponse } from 'next/server';
-import { Pool } from 'pg';
-
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
+import pool from '@/lib/db';
+import { getSession } from '@/lib/auth';
 
 export async function GET() {
-    const client = await pool.connect();
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     try {
-        const result = await client.query('SELECT id, name, email FROM users ORDER BY name ASC');
+        const client = await pool.connect();
+        // Return minimal user data for selection
+        const result = await client.query('SELECT id, email, name FROM users WHERE status = \'active\' ORDER BY name ASC');
+        client.release();
         return NextResponse.json(result.rows);
     } catch (error) {
-        console.error('Error fetching users:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-    } finally {
-        client.release();
+        return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 }
