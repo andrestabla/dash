@@ -52,6 +52,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [dashboardName, setDashboardName] = useState("Roadmap");
     const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
+    const [availableUsers, setAvailableUsers] = useState<{ id: string, name: string, email: string }[]>([]);
 
     // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,6 +62,69 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
     const [confirmMessage, setConfirmMessage] = useState("");
+
+    // Comments State
+    const [comments, setComments] = useState<any[]>([]);
+    const [newComment, setNewComment] = useState("");
+    const [currentUser, setCurrentUser] = useState<{ name: string, email: string } | null>(null);
+
+    // Fetch Current User
+    useEffect(() => {
+        fetch('/api/auth/me').then(res => res.json()).then(data => {
+            if (data.user) setCurrentUser(data.user);
+        }).catch(() => { });
+    }, []);
+
+    // Load Comments when Modal Opens
+    useEffect(() => {
+        if (isModalOpen && editingTask.id) {
+            fetch(`/api/comments?taskId=${editingTask.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) setComments(data);
+                })
+                .catch(err => console.error("Failed to load comments", err));
+        } else {
+            setComments([]);
+        }
+    }, [isModalOpen, editingTask.id]);
+
+    const handleAddComment = async () => {
+        if (!newComment.trim() || !editingTask.id || !currentUser) return;
+
+        try {
+            const res = await fetch('/api/comments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    taskId: editingTask.id,
+                    userEmail: currentUser.email,
+                    userName: currentUser.name,
+                    content: newComment
+                })
+            });
+
+            if (res.ok) {
+                const comment = await res.json();
+                setComments(prev => [comment, ...prev]);
+                setNewComment("");
+            }
+        } catch (err) {
+            showToast("Error al agregar comentario", "error");
+        }
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        if (!confirm("¿Eliminar comentario?")) return;
+        try {
+            const res = await fetch(`/api/comments?id=${commentId}`, { method: 'DELETE' });
+            if (res.ok) {
+                setComments(prev => prev.filter(c => c.id !== commentId));
+            }
+        } catch (err) {
+            showToast("Error al eliminar comentario", "error");
+        }
+    };
 
     // Column Editing
     const [isColModalOpen, setIsColModalOpen] = useState(false);
@@ -144,6 +208,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     useEffect(() => {
         if (!dashboardId) return;
 
+        // Fetch Dashboard Settings
         fetch(`/api/dashboards/${dashboardId}`)
             .then(async res => {
                 if (res.status === 403) {
@@ -160,13 +225,25 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             })
             .catch(err => console.error("Failed to load dashboard settings", err));
 
+        // Fetch Tasks
         fetch(`/api/tasks?dashboardId=${dashboardId}`)
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) setTasks(data);
             })
             .catch(err => console.error("Failed to load tasks", err));
+
+        // Fetch Available Users for Dropdown
+        fetch('/api/users/list')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) setAvailableUsers(data);
+            })
+            .catch(err => console.error("Failed to load users", err));
+
     }, [dashboardId]);
+
+
 
     if (accessDenied) {
         return (
@@ -663,7 +740,23 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     <div>
                                         <label>Responsable</label>
                                         <select value={editingTask.owner} onChange={(e) => setEditingTask({ ...editingTask, owner: e.target.value })}>
-                                            {settings.owners.map(o => (<option key={o} value={o}>{o}</option>))}
+                                            <option value="">No Asignado</option>
+                                            {/* System Users */}
+                                            {availableUsers.length > 0 && (
+                                                <optgroup label="Usuarios del Sistema">
+                                                    {availableUsers.map(u => (
+                                                        <option key={u.id} value={`${u.name} (${u.email})`}>{u.name} ({u.email})</option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+                                            {/* Legacy Manual Owners */}
+                                            {settings.owners && settings.owners.length > 0 && (
+                                                <optgroup label="Configuración Manual (Legacy)">
+                                                    {settings.owners.map(o => (
+                                                        <option key={o} value={o}>{o}</option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
                                         </select>
                                     </div>
                                     <div>
@@ -681,6 +774,45 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     <label>Descripción</label>
                                     <textarea value={editingTask.desc || ""} onChange={(e) => setEditingTask({ ...editingTask, desc: e.target.value })} rows={4} />
                                 </div>
+
+                                {/* COMMENTS SECTION */}
+                                {editingTask.id && (
+                                    <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: 13, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Comentarios</h4>
+
+                                        {/* Comment List */}
+                                        <div style={{ marginBottom: 16, maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            {comments.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic' }}>No hay comentarios aún.</p>}
+                                            {comments.map(c => (
+                                                <div key={c.id} style={{ background: 'var(--panel-hover)', padding: '8px 12px', borderRadius: 8 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <span style={{ fontWeight: 600, fontSize: 13 }}>{c.user_name}</span>
+                                                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{new Date(c.created_at).toLocaleString()}</span>
+                                                        </div>
+                                                        {currentUser?.email === c.user_email && (
+                                                            <button className="btn-ghost" onClick={() => handleDeleteComment(c.id)} style={{ padding: 2, height: 'auto', opacity: 0.6 }}>🗑️</button>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{c.content}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Add Comment */}
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <textarea
+                                                value={newComment}
+                                                onChange={e => setNewComment(e.target.value)}
+                                                placeholder="Escribe un comentario..."
+                                                style={{ flex: 1, minHeight: 40, padding: 8, fontSize: 13, borderRadius: 6, border: '1px solid var(--border)' }}
+                                            />
+                                            <button className="btn-ghost" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 'auto' }}>
+                                                ✈️
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="m-foot">
                                 {editingTask.id && (
