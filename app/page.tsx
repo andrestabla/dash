@@ -97,15 +97,19 @@ export default function Workspace() {
     const [showLogout, setShowLogout] = useState(false);
     const [user, setUser] = useState<any>(null);
 
+    const [isLoading, setIsLoading] = useState(true);
+
     // --- DATA LOADING ---
     const loadData = () => {
+        setIsLoading(true);
         Promise.all([
             fetch('/api/dashboards').then(res => res.json()),
             fetch('/api/folders').then(res => res.json())
         ]).then(([dData, fData]) => {
             if (Array.isArray(dData)) setDashboards(dData);
             if (Array.isArray(fData)) setFolders(fData);
-        }).catch(err => console.error(err));
+        }).catch(err => console.error(err))
+            .finally(() => setIsLoading(false));
     };
 
     useEffect(() => {
@@ -426,8 +430,16 @@ export default function Workspace() {
 
             {/* CONTENT GRID */}
             <div>
+                {/* LOADING STATE */}
+                {isLoading && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
+                        <img src="/loading.gif" alt="Cargando..." style={{ width: 64, height: 64, marginBottom: 16 }} />
+                        <span style={{ color: 'var(--text-dim)', fontSize: 14 }}>Cargando espacio de trabajo...</span>
+                    </div>
+                )}
+
                 {/* 1. Folders Section (if any) */}
-                {currentItems.folders.length > 0 && (
+                {!isLoading && currentItems.folders.length > 0 && (
                     <div style={{ marginBottom: 32 }}>
                         <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 16 }}>Carpetas</h4>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
@@ -453,7 +465,7 @@ export default function Workspace() {
                 )}
 
                 {/* 2. Dashboards Section */}
-                {currentItems.dashboards.length > 0 ? (
+                {!isLoading && currentItems.dashboards.length > 0 ? (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
                         {currentItems.dashboards.map(d => (
                             <div
