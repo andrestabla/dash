@@ -231,13 +231,13 @@ export default function AdminSettingsPage() {
                                 </div>
                             )}
 
-                            {/* STEP 3: SECURITY */}
+                            {/* STEP 3: SECURITY & TEST */}
                             {wizardStep === 3 && (
                                 <div className="animate-fade-in">
                                     <div style={{ textAlign: 'center', marginBottom: 24 }}>
                                         <div style={{ display: 'inline-flex', padding: 16, borderRadius: '50%', background: 'var(--bg-panel)', marginBottom: 16 }}><Shield size={32} color="#10b981" /></div>
-                                        <h4 style={{ margin: 0, fontSize: 18 }}>Seguridad y Confirmación</h4>
-                                        <p style={{ color: 'var(--text-dim)', fontSize: 14 }}>Revisa los ajustes finales.</p>
+                                        <h4 style={{ margin: 0, fontSize: 18 }}>Seguridad y Prueba</h4>
+                                        <p style={{ color: 'var(--text-dim)', fontSize: 14 }}>Verifica la conexión antes de guardar.</p>
                                     </div>
 
                                     <div style={{ background: 'var(--bg-panel)', padding: 16, borderRadius: 12, marginBottom: 20 }}>
@@ -250,6 +250,44 @@ export default function AdminSettingsPage() {
                                             Host: <b style={{ color: 'var(--text-main)' }}>{wizData.host}</b><br />
                                             Puerto: <b style={{ color: 'var(--text-main)' }}>{wizData.port}</b><br />
                                             Usuario: <b style={{ color: 'var(--text-main)' }}>{wizData.user}</b>
+                                        </div>
+                                    </div>
+
+                                    {/* Test Connection */}
+                                    <div style={{ marginTop: 20, padding: 16, border: '1px dashed var(--border-dim)', borderRadius: 12 }}>
+                                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Enviar correo de prueba a:</label>
+                                        <div style={{ display: 'flex', gap: 10 }}>
+                                            <input
+                                                className="input-glass"
+                                                placeholder="tu@email.com"
+                                                value={info.testEmail || ''}
+                                                onChange={e => setInfo({ ...info, testEmail: e.target.value })}
+                                            />
+                                            <button
+                                                className="btn-primary"
+                                                style={{ whiteSpace: 'nowrap', background: testing ? '#94a3b8' : 'var(--primary)', cursor: testing ? 'not-allowed' : 'pointer' }}
+                                                onClick={async () => {
+                                                    if (!info.testEmail) return showToast("Ingresa un email para probar", "error");
+                                                    setTesting(true);
+                                                    try {
+                                                        const res = await fetch("/api/admin/settings/test-email", {
+                                                            method: "POST",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({ ...wizData, to: info.testEmail, secure: String(wizData.secure) })
+                                                        });
+                                                        const data = await res.json();
+                                                        if (res.ok) showToast("¡Conexión exitosa! Correo enviado.", "success");
+                                                        else showToast(`Error: ${data.error}`, "error");
+                                                    } catch (err) {
+                                                        showToast("Error de red al probar conexión", "error");
+                                                    } finally {
+                                                        setTesting(false);
+                                                    }
+                                                }}
+                                                disabled={testing}
+                                            >
+                                                {testing ? 'Probando...' : 'Probar Envío'}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
