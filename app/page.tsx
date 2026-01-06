@@ -79,6 +79,7 @@ export default function Workspace() {
     const [newGate, setNewGate] = useState("");
     const [wizIcon, setWizIcon] = useState("🗺️");
     const [wizColor, setWizColor] = useState("#3b82f6");
+    const [wizFolderId, setWizFolderId] = useState<string | null>(null);
 
     // Folder Wizard State
     // Folder Wizard State
@@ -214,11 +215,10 @@ export default function Workspace() {
         };
 
         const payload = {
-            id: isEdit ? editingDash.id : undefined,
             name: wizName,
             description: wizDesc,
             settings: finalSettings,
-            folder_id: isEdit ? editingDash.folder_id : currentFolderId // Create in current folder
+            folder_id: wizFolderId // Use selected folder from wizard
         };
 
         const method = isEdit ? 'PUT' : 'POST';
@@ -319,6 +319,7 @@ export default function Workspace() {
         setEditingDash(d);
         setWizName(d.name);
         setWizDesc(d.description);
+        setWizFolderId(d.folder_id);
         setWizIcon(d.settings?.icon || "🗺️");
         setWizColor(d.settings?.color || "#3b82f6");
         setWizWeeks(d.settings?.weeks?.length || 9);
@@ -334,6 +335,7 @@ export default function Workspace() {
         setWizardStep(1);
         setWizName("");
         setWizDesc("");
+        setWizFolderId(currentFolderId); // Default to current folder
         setWizWeeks(9);
         setWizOwners(["Andrés Tabla"]);
         setWizTypes(DEFAULT_SETTINGS.types);
@@ -446,32 +448,35 @@ export default function Workspace() {
                 {currentItems.dashboards.length > 0 ? (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
                         {currentItems.dashboards.map(d => (
-                            <Link href={"/board/" + d.id} key={d.id} style={{ textDecoration: "none", color: "inherit" }}>
-                                <div className="glass-panel hover-lift" style={{
+                            <div
+                                key={d.id}
+                                className="glass-panel hover-lift"
+                                onClick={() => router.push("/board/" + d.id)}
+                                style={{
+                                    textDecoration: "none", color: "inherit", cursor: "pointer",
                                     padding: 24, height: "100%", display: "flex", flexDirection: "column", position: "relative",
                                     borderTop: "4px solid " + (d.settings?.color || "#3b82f6")
-
-                                }}>
-                                    {/* Action Menus */}
-                                    <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 4 }}>
-                                        <button className="btn-ghost" onClick={(e) => startMove(e, d.id)} style={{ padding: 6 }} title="Mover"><Move size={14} /></button>
-                                        <button className="btn-ghost" onClick={(e) => duplicateDash(e, d.id)} style={{ padding: 6 }} title="Duplicar"><Copy size={14} /></button>
-                                        <button className="btn-ghost" onClick={(e) => startEdit(e, d)} style={{ padding: 6 }} title="Editar"><Edit2 size={14} /></button>
-                                        <button className="btn-ghost" onClick={(e) => deleteDash(e, d.id)} style={{ padding: 6, color: '#f87171' }} title="Eliminar"><Trash2 size={14} /></button>
-                                    </div>
-
-                                    <div style={{ fontSize: 48, marginBottom: 16 }}>{d.settings?.icon || "🗺️"}</div>
-                                    <h3 style={{ margin: '0 0 8px 0', fontSize: 20 }}>{d.name}</h3>
-                                    <p style={{ margin: 0, fontSize: 14, color: 'var(--text-dim)', flex: 1, lineHeight: 1.5 }}>
-                                        {d.description || "Sin descripción"}
-                                    </p>
-
-                                    <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>Actualizado: {new Date(d.created_at).toLocaleDateString()}</span>
-                                        <span style={{ fontWeight: 600, color: d.settings?.color || 'white', display: 'flex', alignItems: 'center', gap: 4 }}>Abrir <ArrowRight size={14} /></span>
-                                    </div>
+                                }}
+                            >
+                                {/* Action Menus */}
+                                <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 4 }}>
+                                    <button className="btn-ghost" onClick={(e) => startMove(e, d.id)} style={{ padding: 6 }} title="Mover"><Move size={14} /></button>
+                                    <button className="btn-ghost" onClick={(e) => duplicateDash(e, d.id)} style={{ padding: 6 }} title="Duplicar"><Copy size={14} /></button>
+                                    <button className="btn-ghost" onClick={(e) => startEdit(e, d)} style={{ padding: 6 }} title="Editar"><Edit2 size={14} /></button>
+                                    <button className="btn-ghost" onClick={(e) => deleteDash(e, d.id)} style={{ padding: 6, color: '#f87171' }} title="Eliminar"><Trash2 size={14} /></button>
                                 </div>
-                            </Link>
+
+                                <div style={{ fontSize: 48, marginBottom: 16 }}>{d.settings?.icon || "🗺️"}</div>
+                                <h3 style={{ margin: '0 0 8px 0', fontSize: 20 }}>{d.name}</h3>
+                                <p style={{ margin: 0, fontSize: 14, color: 'var(--text-dim)', flex: 1, lineHeight: 1.5 }}>
+                                    {d.description || "Sin descripción"}
+                                </p>
+
+                                <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Actualizado: {new Date(d.created_at).toLocaleDateString()}</span>
+                                    <span style={{ fontWeight: 600, color: d.settings?.color || 'white', display: 'flex', alignItems: 'center', gap: 4 }}>Abrir <ArrowRight size={14} /></span>
+                                </div>
+                            </div>
                         ))}
                     </div>
                 ) : (
@@ -557,6 +562,20 @@ export default function Workspace() {
                                     <div style={{ marginBottom: 24 }}>
                                         <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Nombre del Proyecto</label>
                                         <input className="input-glass" value={wizName} onChange={e => setWizName(e.target.value)} autoFocus placeholder="Ej: Lanzamiento 2026" />
+                                    </div>
+                                    <div style={{ marginBottom: 24 }}>
+                                        <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Ubicación</label>
+                                        <select
+                                            className="input-glass"
+                                            value={wizFolderId || ""}
+                                            onChange={e => setWizFolderId(e.target.value || null)}
+                                            style={{ width: '100%' }}
+                                        >
+                                            <option value="">Espacio Principal (Raíz)</option>
+                                            {folders.map(f => (
+                                                <option key={f.id} value={f.id}>📁 {f.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div style={{ marginBottom: 24 }}>
                                         <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Descripción</label>
