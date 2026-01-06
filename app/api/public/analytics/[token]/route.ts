@@ -41,8 +41,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
                 d.id as dashboard_id, d.name as dashboard_name
             FROM tasks t
             JOIN dashboards d ON t.dashboard_id = d.id
-            WHERE d.folder_id IN (SELECT id FROM folder_tree)
-            AND d.deleted_at IS NULL;
+            WHERE d.folder_id IN (SELECT id FROM folder_tree);
         `;
 
         const tasksRes = await client.query(query, [folderId]);
