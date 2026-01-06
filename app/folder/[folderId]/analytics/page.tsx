@@ -129,6 +129,8 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
     const [folderName, setFolderName] = useState("");
     const [breadcrumbs, setBreadcrumbs] = useState<{ id: string | null, name: string }[]>([]);
     const [tasks, setTasks] = useState<any[]>([]);
+    const [availableDashboards, setAvailableDashboards] = useState<any[]>([]); // New state for all dashboards
+
     const [filters, setFilters] = useState({
         dashboardId: 'all',
         search: '',
@@ -149,35 +151,57 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
     const loadData = async () => {
         setLoading(true);
         try {
-            // Fetch folder info and breadcrumbs
-            const folderRes = await fetch('/api/folders');
-            if (folderRes.ok) {
+            // Fetch folder info, breadcrumbs, and comprehensive dashboard list
+            const [folderRes, dashboardsRes, tasksRes] = await Promise.all([
+                fetch('/api/folders'),
+                fetch('/api/dashboards'),
+                fetch(`/api/tasks?folderId=${folderId}`)
+            ]);
+
+            if (folderRes.ok && dashboardsRes.ok) {
                 const folders = await folderRes.json();
+                const allDashboards = await dashboardsRes.json();
                 const folder = folders.find((f: any) => f.id === folderId);
+
                 if (folder) {
                     setFolderName(folder.name);
-                    // Build breadcrumbs
+
+                    // Recursive function to get all folder IDs in this subtree
+                    const getSubFolderIds = (parentId: string): string[] => {
+                        const children = folders.filter((f: any) => f.parent_id === parentId);
+                        let ids = [parentId];
+                        children.forEach((child: any) => {
+                            ids = [...ids, ...getSubFolderIds(child.id)];
+                        });
+                        return ids;
+                    };
+
+                    const relevantFolderIds = getSubFolderIds(folderId);
+
+                    // Filter dashboards that belong to this folder subtree
+                    const relevantDashboards = allDashboards.filter((d: any) => relevantFolderIds.includes(d.folder_id));
+                    setAvailableDashboards(relevantDashboards);
+
+                    // Build breadcrumbs logic
                     const crumbs = [{ id: null, name: 'Espacio de Trabajo' }];
                     let current = folder;
-                    const path = [current];
-                    while (current.parent_id) {
+                    const path = [];
+                    while (current) {
+                        path.unshift({ id: current.id, name: current.name });
                         current = folders.find((f: any) => f.id === current.parent_id);
-                        if (current) path.unshift(current);
                     }
-                    crumbs.push(...path.map((f: any) => ({ id: f.id, name: f.name })));
-                    crumbs.push({ id: null, name: 'Analítica' });
-                    setBreadcrumbs(crumbs);
+                    setBreadcrumbs([...crumbs, ...path]);
                 }
             }
 
-            // Fetch consolidated tasks
-            const tasksRes = await fetch(`/api/tasks?folderId=${folderId}`);
+            // Set Tasks
             if (tasksRes.ok) {
                 const tasksData = await tasksRes.json();
                 setTasks(tasksData);
             }
         } catch (error) {
             showToast("Error al cargar datos", "error");
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -334,7 +358,7 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                         onChange={(v: any) => setFilters(prev => ({ ...prev, dashboardId: v }))}
                         options={[
                             { value: 'all', label: 'Todos los Proyectos' },
-                            ...uniqueDashboards.map(d => ({ value: d.id, label: d.name }))
+                            ...availableDashboards.map(d => ({ value: d.id, label: d.name }))
                         ]}
                         placeholder="Todos los Proyectos"
                     // icon={<div style={{ fontSize: 14 }}>📊</div>}
