@@ -53,9 +53,29 @@ export default function AdminSettingsPage() {
             body: JSON.stringify(finalSettings),
         });
         if (res.ok) {
-            showToast("Configuración guardada correctamente", "success");
+            showToast("Configuración guardada y aplicada", "success");
             setSettings(finalSettings);
             setIsWizardOpen(false);
+
+            // REAL-TIME APPLY
+            // 1. Primary
+            if (finalSettings.brand_primary_color) {
+                document.documentElement.style.setProperty('--primary', finalSettings.brand_primary_color);
+                document.documentElement.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${finalSettings.brand_primary_color} 0%, ${finalSettings.brand_primary_color} 100%)`);
+            }
+            // 2. Secondary
+            if (finalSettings.brand_secondary_color) {
+                document.documentElement.style.setProperty('--secondary', finalSettings.brand_secondary_color);
+            }
+            // 3. Favicon
+            if (finalSettings.brand_favicon_url) {
+                const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+                link.type = 'image/x-icon';
+                link.rel = 'shortcut icon';
+                link.href = finalSettings.brand_favicon_url;
+                document.getElementsByTagName('head')[0].appendChild(link);
+            }
+
         } else {
             showToast("Error al guardar configuración", "error");
         }
@@ -145,7 +165,7 @@ export default function AdminSettingsPage() {
                     </div>
 
                     <div style={{ display: 'grid', gap: 24 }}>
-                        {/* Primary Color */}
+                        {/* Primary Color & Secondary Color */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Color Primario</label>
@@ -166,12 +186,43 @@ export default function AdminSettingsPage() {
                                 </div>
                             </div>
                             <div>
+                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Color Secundario</label>
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    <input
+                                        type="color"
+                                        value={settings.brand_secondary_color || '#64748b'}
+                                        onChange={(e) => handleChange('brand_secondary_color', e.target.value)}
+                                        style={{ height: 42, width: 60, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                    />
+                                    <input
+                                        className="input-glass"
+                                        value={settings.brand_secondary_color || ''}
+                                        placeholder="#64748b"
+                                        onChange={(e) => handleChange('brand_secondary_color', e.target.value)}
+                                        style={{ flex: 1 }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Logos */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                            <div>
                                 <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Logo URL</label>
                                 <input
                                     className="input-glass"
                                     value={settings.brand_logo_url || ''}
                                     placeholder="https://..."
                                     onChange={(e) => handleChange('brand_logo_url', e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Favicon URL</label>
+                                <input
+                                    className="input-glass"
+                                    value={settings.brand_favicon_url || ''}
+                                    placeholder="https://.../favicon.ico"
+                                    onChange={(e) => handleChange('brand_favicon_url', e.target.value)}
                                 />
                             </div>
                         </div>
@@ -218,6 +269,9 @@ export default function AdminSettingsPage() {
                 </div>
             </div>
 
+            <div style={{ textAlign: 'right' }}>
+                <button className="btn-primary" onClick={() => saveSettings(settings)}>Guardar y Aplicar Cambios Generales</button>
+            </div>
             {/* WIZARD MODAL */}
             {isWizardOpen && (
                 <div className="backdrop">

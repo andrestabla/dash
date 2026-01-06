@@ -6,7 +6,9 @@ type Theme = "light" | "dark";
 
 interface BrandingSettings {
     brand_primary_color?: string;
+    brand_secondary_color?: string;
     brand_logo_url?: string;
+    brand_favicon_url?: string;
     brand_login_bg?: string;
 }
 
@@ -43,8 +45,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
                 setBranding(data);
                 if (data.brand_primary_color) {
                     document.documentElement.style.setProperty('--primary', data.brand_primary_color);
-                    // Override gradient to use the selected solid color (or we could calculate a variant, but solid is safest for user selection)
+                    // Override gradient to use the selected solid color
                     document.documentElement.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${data.brand_primary_color} 0%, ${data.brand_primary_color} 100%)`);
+                }
+                if (data.brand_secondary_color) {
+                    document.documentElement.style.setProperty('--secondary', data.brand_secondary_color);
+                }
+                if (data.brand_favicon_url) {
+                    const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+                    link.type = 'image/x-icon';
+                    link.rel = 'shortcut icon';
+                    link.href = data.brand_favicon_url;
+                    document.getElementsByTagName('head')[0].appendChild(link);
                 }
             })
             .catch(err => console.error("Failed to load branding", err));

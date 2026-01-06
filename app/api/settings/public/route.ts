@@ -13,6 +13,7 @@ export async function GET() {
                 'brand_logo_url', 
                 'brand_favicon_url', 
                 'brand_primary_color', 
+                'brand_secondary_color',
                 'brand_login_bg'
             )
         `);
