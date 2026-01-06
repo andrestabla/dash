@@ -6,7 +6,8 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { useToast } from "@/components/ToastProvider";
 
 import ConfirmModal from "@/components/ConfirmModal";
-import { Send, Edit2, Trash2, X } from 'lucide-react';
+
+import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -73,6 +74,97 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     // Comment Editing State
     const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
+
+    // Share Modal State
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [shareTab, setShareTab] = useState<'internal' | 'public'>('internal');
+    const [collaborators, setCollaborators] = useState<any[]>([]);
+    const [isPublic, setIsPublic] = useState(false);
+    const [publicToken, setPublicToken] = useState<string | null>(null);
+    const [inviteUserId, setInviteUserId] = useState("");
+    const [copied, setCopied] = useState(false);
+
+    // Fetch Share Data
+    const fetchShareData = async () => {
+        try {
+            const res = await fetch(`/api/dashboards/${dashboardId}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'list_collaborators' })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setCollaborators(data.collaborators);
+                setIsPublic(data.isPublic);
+                setPublicToken(data.publicToken);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    useEffect(() => {
+        if (isShareModalOpen) {
+            fetchShareData();
+        }
+    }, [isShareModalOpen]);
+
+    const handleInviteUser = async () => {
+        if (!inviteUserId) return;
+        try {
+            const res = await fetch(`/api/dashboards/${dashboardId}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'add_collaborator', userId: inviteUserId })
+            });
+            if (res.ok) {
+                showToast("Usuario invitado correctamente", "success");
+                setInviteUserId("");
+                fetchShareData();
+            } else {
+                showToast("Error al invitar", "error");
+            }
+        } catch (e) {
+            showToast("Error de red", "error");
+        }
+    };
+
+    const handleRemoveCollaborator = async (userId: string) => {
+        if (!confirm("¿Quitar acceso a este usuario?")) return;
+        try {
+            const res = await fetch(`/api/dashboards/${dashboardId}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'remove_collaborator', userId })
+            });
+            if (res.ok) fetchShareData();
+        } catch (e) { console.error(e); }
+    };
+
+    const handleTogglePublic = async () => {
+        try {
+            const res = await fetch(`/api/dashboards/${dashboardId}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'toggle_public', isPublic: !isPublic })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setIsPublic(data.isPublic);
+                setPublicToken(data.token);
+                if (data.isPublic) showToast("Tablero ahora es PÚBLICO", "success");
+                else showToast("Tablero ahora es PRIVADO", "success");
+            }
+        } catch (e) { console.error(e); }
+    };
+
+    const copyPublicLink = () => {
+        const url = `${window.location.origin}/public/board/${publicToken}`;
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        showToast("Enlace copiado", "success");
+    };
 
     // Fetch Current User
     useEffect(() => {
@@ -547,9 +639,20 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
                 {/* ABSOLUTE TOP RIGHT CONTROLS */}
                 <div style={{ position: 'absolute', right: 24, top: 0, height: 70, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <button className="btn-ghost" onClick={openSettings} title="Configuración del Tablero">
-                        ⚙️
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div className="flex -space-x-2">
+                            {availableUsers.slice(0, 3).map((u, i) => (
+                                <div key={i} title={u.name} style={{ width: 28, height: 28, borderRadius: '50%', background: `hsl(${i * 60}, 70%, 50%)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, border: '2px solid white' }}>
+                                    {u.name.substring(0, 2).toUpperCase()}
+                                </div>
+                            ))}
+                        </div>
+                        <button className="btn-primary" onClick={() => setIsShareModalOpen(true)} style={{ padding: '8px 16px', gap: 8 }}>
+                            <Share2 size={16} /> Compartir
+                        </button>
+                        <button className="btn-ghost" onClick={openSettings} title="Configuración">⚙️</button>
+                        <Link href="/" className="btn-ghost" style={{ textDecoration: 'none' }}>Volver</Link>
+                    </div>
                     <button className="btn-ghost" onClick={toggleTheme} title="Cambiar Tema">
                         🌓
                     </button>
@@ -1187,6 +1290,110 @@ function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings:
                 .g-status { font-size: 11px; text-transform: uppercase; }
                  @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } .chart-card { grid-column: span 1 !important; } }
             `}</style>
+            {isShareModalOpen && (
+                <div className="backdrop animate-fade-in" onClick={() => setIsShareModalOpen(false)}>
+                    <div className="glass-panel animate-slide-up" style={{ width: 500, padding: 32 }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                            <h2 style={{ margin: 0, fontSize: 20 }}>Compartir Tablero</h2>
+                            <button onClick={() => setIsShareModalOpen(false)} className="btn-ghost"><X size={20} /></button>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 4, marginBottom: 24, padding: 4, background: 'var(--bg-panel)', borderRadius: 12 }}>
+                            <button
+                                onClick={() => setShareTab('internal')}
+                                style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'internal' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'internal' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'internal' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            >
+                                <Users size={16} /> Equipo
+                            </button>
+                            <button
+                                onClick={() => setShareTab('public')}
+                                style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'public' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'public' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'public' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            >
+                                <Globe size={16} /> Público
+                            </button>
+                        </div>
+
+                        {shareTab === 'internal' ? (
+                            <div className="animate-fade-in">
+                                <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                                    <select
+                                        className="input-glass"
+                                        value={inviteUserId}
+                                        onChange={e => setInviteUserId(e.target.value)}
+                                    >
+                                        <option value="">Seleccionar usuario...</option>
+                                        {availableUsers.filter(u => u.email !== currentUser?.email && !collaborators.some(c => c.email === u.email)).map(u => (
+                                            <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                                        ))}
+                                    </select>
+                                    <button className="btn-primary" disabled={!inviteUserId} onClick={handleInviteUser}>
+                                        <UserPlus size={16} /> Invitar
+                                    </button>
+                                </div>
+
+                                <h3 style={{ fontSize: 14, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Colaboradores</h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
+                                    {collaborators.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-dim)', textAlign: 'center', padding: 20 }}>No hay colaboradores aún.</p>}
+                                    {collaborators.map(c => (
+                                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-dim)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+                                                    {c.name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 14, fontWeight: 500 }}>{c.name}</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{c.email}</div>
+                                                </div>
+                                            </div>
+                                            <button className="btn-ghost" onClick={() => handleRemoveCollaborator(c.id)} title="Quitar acceso">
+                                                <Trash2 size={16} color="var(--text-dim)" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="animate-fade-in">
+                                <div style={{ padding: 20, borderRadius: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)', marginBottom: 20 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <div style={{ width: 40, height: 40, borderRadius: '50%', background: isPublic ? '#10b981' : 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                                <Globe size={20} />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>Enlace Público</div>
+                                                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Cualquiera con el enlace puede ver.</div>
+                                            </div>
+                                        </div>
+                                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: 48, height: 24 }}>
+                                            <input type="checkbox" checked={isPublic} onChange={handleTogglePublic} style={{ opacity: 0, width: 0, height: 0 }} />
+                                            <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: isPublic ? '#10b981' : '#ccc', transition: '.4s', borderRadius: 34 }}></span>
+                                            <span style={{ position: 'absolute', content: '""', height: 16, width: 16, left: 4, bottom: 4, backgroundColor: 'white', transition: '.4s', borderRadius: '50%', transform: isPublic ? 'translateX(24px)' : 'translateX(0)' }}></span>
+                                        </label>
+                                    </div>
+
+                                    {isPublic && (
+                                        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                                            <input
+                                                className="input-glass"
+                                                readOnly
+                                                value={`${window.location.origin}/public/board/${publicToken}`}
+                                                style={{ fontSize: 12, color: 'var(--text-dim)' }}
+                                            />
+                                            <button className="btn-primary" onClick={copyPublicLink} style={{ padding: '0 12px' }}>
+                                                {copied ? <Check size={16} /> : <Copy size={16} />}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center' }}>
+                                    ⚠️ Los usuarios externos solo podrán ver el tablero, no editarlo.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
