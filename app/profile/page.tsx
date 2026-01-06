@@ -68,17 +68,17 @@ export default function ProfilePage() {
                 <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <div>
                         <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase' }}>Email (No editable)</label>
-                        <input className="input-glass" value={user.email} disabled style={{ opacity: 0.6, cursor: 'not-allowed' }} />
+                        <input className="input-glass" value={user.email} disabled style={{ opacity: 0.6, cursor: 'not-allowed', padding: '10px 12px' }} />
                     </div>
 
                     <div>
                         <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase' }}>Nombre Completo</label>
-                        <input className="input-glass" value={user.name || ''} onChange={e => setUser({ ...user, name: e.target.value })} placeholder="Tu nombre..." />
+                        <input className="input-glass" value={user.name || ''} onChange={e => setUser({ ...user, name: e.target.value })} placeholder="Tu nombre..." style={{ padding: '10px 12px' }} />
                     </div>
 
                     <div style={{ padding: 20, background: 'var(--bg-panel)', borderRadius: 12, border: '1px solid var(--border-dim)' }}>
                         <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase' }}>Nueva Contraseña (Opcional)</label>
-                        <input className="input-glass" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Dejar en blanco para no cambiar" />
+                        <input className="input-glass" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Dejar en blanco para no cambiar" style={{ padding: '10px 12px' }} />
                         <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: '8px 0 0 0' }}>Mínimo 6 caracteres recomendado.</p>
                     </div>
 

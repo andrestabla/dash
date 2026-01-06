@@ -5,12 +5,13 @@ import { hash } from 'bcrypt';
 
 export async function GET() {
     const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Valid session IS the payload
+    if (!session || !(session as any).id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
         const client = await pool.connect();
-        // Assuming 'name' column exists now (after manual SQL)
-        const res = await client.query('SELECT email, name, role FROM users WHERE id = $1', [(session.user as any).id]);
+        // session is the payload, so we use session.id directly
+        const res = await client.query('SELECT email, name, role FROM users WHERE id = $1', [(session as any).id]);
         client.release();
 
         if (res.rows.length === 0) return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -24,7 +25,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
     const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session || !(session as any).id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
         const { name, password } = await request.json();
@@ -34,12 +35,12 @@ export async function PUT(request: Request) {
             const hashedPassword = await hash(password, 10);
             await client.query(
                 'UPDATE users SET name = $1, password = $2 WHERE id = $3',
-                [name, hashedPassword, (session.user as any).id]
+                [name, hashedPassword, (session as any).id]
             );
         } else {
             await client.query(
                 'UPDATE users SET name = $1 WHERE id = $2',
-                [name, (session.user as any).id]
+                [name, (session as any).id]
             );
         }
 
