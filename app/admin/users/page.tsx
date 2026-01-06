@@ -18,6 +18,7 @@ export default function AdminUsersPage() {
     const [newEmail, setNewEmail] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [newRole, setNewRole] = useState("user");
+    const [sendCredentials, setSendCredentials] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
 
     const { showToast } = useToast();
@@ -40,7 +41,7 @@ export default function AdminUsersPage() {
         const res = await fetch("/api/admin/users", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: newEmail, password: newPassword, role: newRole }),
+            body: JSON.stringify({ email: newEmail, password: newPassword, role: newRole, sendEmail: sendCredentials }),
         });
 
         if (res.ok) {
@@ -99,9 +100,19 @@ export default function AdminUsersPage() {
                                 <option value="admin">Admin</option>
                             </select>
                         </div>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <button type="button" className="btn-ghost" onClick={() => setIsCreating(false)}>Cancel</button>
-                            <button type="submit" className="btn-primary">Guardar</button>
+                        <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                            <input
+                                type="checkbox"
+                                id="sendCreds"
+                                checked={sendCredentials}
+                                onChange={e => setSendCredentials(e.target.checked)}
+                                style={{ transform: "scale(1.2)" }}
+                            />
+                            <label htmlFor="sendCreds" style={{ fontSize: 13, cursor: "pointer", userSelect: "none" }}>Enviar credenciales de acceso al correo</label>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, gridColumn: "1 / -1", justifyContent: "flex-end" }}>
+                            <button type="button" className="btn-ghost" onClick={() => setIsCreating(false)}>Cancelar</button>
+                            <button type="submit" className="btn-primary">Crear Usuario</button>
                         </div>
                     </form>
                 </div>
