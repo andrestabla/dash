@@ -107,6 +107,7 @@ export default function Workspace() {
     const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
     const [consolidatedTasks, setConsolidatedTasks] = useState<any[]>([]);
     const [isFetchingAnalytics, setIsFetchingAnalytics] = useState(false);
+    const [analyticsFilters, setAnalyticsFilters] = useState({ search: '', status: 'all', owner: 'all', dashboardId: 'all' });
 
     // --- DATA LOADING ---
     const loadData = () => {
@@ -454,6 +455,35 @@ export default function Workspace() {
             setIsFetchingAnalytics(false);
         }
     };
+
+    const filteredAnalyticsTasks = useMemo(() => {
+        return consolidatedTasks.filter(t => {
+            const matchesSearch = t.name.toLowerCase().includes(analyticsFilters.search.toLowerCase()) ||
+                (t.desc && t.desc.toLowerCase().includes(analyticsFilters.search.toLowerCase()));
+            const matchesStatus = analyticsFilters.status === 'all' || t.status === analyticsFilters.status;
+            const matchesOwner = analyticsFilters.owner === 'all' || t.owner === analyticsFilters.owner;
+            // Dashboard ID is a number in task but string in filter sometimes, ensure type safety
+            const matchesDash = analyticsFilters.dashboardId === 'all' || String(t.dashboard_id) === String(analyticsFilters.dashboardId);
+            return matchesSearch && matchesStatus && matchesOwner && matchesDash;
+        });
+    }, [consolidatedTasks, analyticsFilters]);
+
+    // Extract unique values for filters
+    const uniqueOwners = useMemo(() => [...new Set(consolidatedTasks.map(t => t.owner).filter(Boolean))], [consolidatedTasks]);
+    const uniqueDashboards = useMemo(() => {
+        const map = new Map();
+        // We need dashboard names. Since tasks only have dashboard_id, we might need to look up in loaded dashboards.
+        // However, consolidated analytics might bring tasks from dashboards NOT currently loaded in `dashboards` state (recursive).
+        // For now, we can only filter by ID or we rely on what is available. 
+        // A better approach is to have the API return dashboard name with the task or a separate list.
+        // As a fallback, we will map partial available dashboards.
+        consolidatedTasks.forEach(t => {
+            // Try to find name in currently loaded dashboards, otherwise use ID
+            const found = dashboards.find(d => String(d.id) === String(t.dashboard_id));
+            map.set(t.dashboard_id, found ? found.name : `Tablero #${t.dashboard_id}`);
+        });
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    }, [consolidatedTasks, dashboards]);
 
     return (
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
@@ -944,6 +974,59 @@ export default function Workspace() {
                             <button className="btn-ghost" onClick={() => setIsAnalyticsOpen(false)} style={{ padding: 4 }}><X size={24} /></button>
                         </div>
 
+                        {/* FILTER TOOLBAR */}
+                        <div style={{ padding: '0 24px 16px', borderBottom: '1px solid var(--border-dim)', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div className="input-group" style={{ flex: 1, minWidth: 200 }}>
+                                <input
+                                    className="input-glass"
+                                    placeholder="Buscar tarea..."
+                                    value={analyticsFilters.search}
+                                    onChange={e => setAnalyticsFilters(prev => ({ ...prev, search: e.target.value }))}
+                                    style={{ padding: '8px 12px', fontSize: 13 }}
+                                />
+                            </div>
+                            <select
+                                className="input-glass"
+                                value={analyticsFilters.status}
+                                onChange={e => setAnalyticsFilters(prev => ({ ...prev, status: e.target.value }))}
+                                style={{ padding: '8px 12px', fontSize: 13, minWidth: 120 }}
+                            >
+                                <option value="all">Todos los Estados</option>
+                                <option value="todo">Pendiente</option>
+                                <option value="doing">En Proceso</option>
+                                <option value="review">Revisión</option>
+                                <option value="done">Hecho</option>
+                            </select>
+                            <select
+                                className="input-glass"
+                                value={analyticsFilters.owner}
+                                onChange={e => setAnalyticsFilters(prev => ({ ...prev, owner: e.target.value }))}
+                                style={{ padding: '8px 12px', fontSize: 13, minWidth: 140 }}
+                            >
+                                <option value="all">Todos los Responsables</option>
+                                {uniqueOwners.map((o: any) => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                            <select
+                                className="input-glass"
+                                value={analyticsFilters.dashboardId}
+                                onChange={e => setAnalyticsFilters(prev => ({ ...prev, dashboardId: e.target.value }))}
+                                style={{ padding: '8px 12px', fontSize: 13, minWidth: 140 }}
+                            >
+                                <option value="all">Todos los Proyectos</option>
+                                {uniqueDashboards.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            </select>
+                            {/* Reset Filter Button */}
+                            {(analyticsFilters.search || analyticsFilters.status !== 'all' || analyticsFilters.owner !== 'all' || analyticsFilters.dashboardId !== 'all') && (
+                                <button
+                                    className="btn-ghost"
+                                    onClick={() => setAnalyticsFilters({ search: '', status: 'all', owner: 'all', dashboardId: 'all' })}
+                                    style={{ fontSize: 12, color: 'var(--primary)' }}
+                                >
+                                    Limpiar
+                                </button>
+                            )}
+                        </div>
+
                         <div className="modal-body" style={{ background: 'var(--bg-main)' }}>
                             {isFetchingAnalytics ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -959,18 +1042,20 @@ export default function Workspace() {
                                     {/* Summary KPIs */}
                                     <div className="kpi-card">
                                         <div className="kpi-label">Proyectos</div>
-                                        <div className="kpi-value">{currentItems.dashboards.length}</div>
-                                        <div className="kpi-sub">Tableros en esta carpeta</div>
+                                        <div className="kpi-value">{analyticsFilters.dashboardId === 'all' ? currentItems.dashboards.length : 1}</div>
+                                        <div className="kpi-sub">Tableros filtrados</div>
                                     </div>
                                     <div className="kpi-card">
                                         <div className="kpi-label">Total Tareas</div>
-                                        <div className="kpi-value" style={{ color: 'var(--primary)' }}>{consolidatedTasks.length}</div>
-                                        <div className="kpi-sub">Agregadas</div>
+                                        <div className="kpi-value" style={{ color: 'var(--primary)' }}>{filteredAnalyticsTasks.length}</div>
+                                        <div className="kpi-sub">Visibles</div>
                                     </div>
                                     <div className="kpi-card">
                                         <div className="kpi-label">Progreso Global</div>
                                         <div className="kpi-value" style={{ color: '#10b981' }}>
-                                            {Math.round((consolidatedTasks.filter(t => t.status === 'done').length / consolidatedTasks.length) * 100)}%
+                                            {filteredAnalyticsTasks.length > 0
+                                                ? Math.round((filteredAnalyticsTasks.filter(t => t.status === 'done').length / filteredAnalyticsTasks.length) * 100)
+                                                : 0}%
                                         </div>
                                         <div className="kpi-sub">Estatus "Hecho"</div>
                                     </div>
@@ -980,8 +1065,8 @@ export default function Workspace() {
                                         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>ESTADO CONSOLIDADO</h3>
                                         <div className="status-pill-bar" style={{ height: 32, borderRadius: 16, overflow: 'hidden', display: 'flex', marginBottom: 20 }}>
                                             {['done', 'doing', 'review', 'todo'].map(s => {
-                                                const count = consolidatedTasks.filter(t => t.status === s).length;
-                                                const pct = (count / consolidatedTasks.length) * 100;
+                                                const count = filteredAnalyticsTasks.filter(t => t.status === s).length;
+                                                const pct = (count / filteredAnalyticsTasks.length) * 100;
                                                 const colors: any = { done: '#10b981', doing: '#3b82f6', review: '#f59e0b', todo: '#64748b' };
                                                 if (count === 0) return null;
                                                 return <div key={s} style={{ width: `${pct}%`, background: colors[s] }} title={`${s}: ${count}`}></div>
@@ -996,7 +1081,7 @@ export default function Workspace() {
                                             ].map(s => (
                                                 <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
                                                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.color }}></div>
-                                                    <span style={{ fontWeight: 600 }}>{consolidatedTasks.filter(t => t.status === s.key).length}</span>
+                                                    <span style={{ fontWeight: 600 }}>{filteredAnalyticsTasks.filter(t => t.status === s.key).length}</span>
                                                     <span style={{ color: 'var(--text-dim)' }}>{s.label}</span>
                                                 </div>
                                             ))}
@@ -1012,8 +1097,8 @@ export default function Workspace() {
                                                 { label: 'Media', key: 'med', color: '#f59e0b' },
                                                 { label: 'Baja', key: 'low', color: '#10b981' }
                                             ].map(p => {
-                                                const count = consolidatedTasks.filter(t => t.prio === p.key).length;
-                                                const max = Math.max(...['high', 'med', 'low'].map(k => consolidatedTasks.filter(t => t.prio === k).length));
+                                                const count = filteredAnalyticsTasks.filter(t => t.prio === p.key).length;
+                                                const max = Math.max(...['high', 'med', 'low'].map(k => filteredAnalyticsTasks.filter(t => t.prio === k).length));
                                                 return (
                                                     <div key={p.key}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
@@ -1033,8 +1118,8 @@ export default function Workspace() {
                                     <div className="chart-card" style={{ gridColumn: 'span 3' }}>
                                         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>CARGA DE TRABAJO (TOP 10)</h3>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 24 }}>
-                                            {Array.from(new Set(consolidatedTasks.map(t => t.owner))).slice(0, 10).map(o => {
-                                                const ownerTasks = consolidatedTasks.filter(t => t.owner === o);
+                                            {Array.from(new Set(filteredAnalyticsTasks.map(t => t.owner))).slice(0, 10).map(o => {
+                                                const ownerTasks = filteredAnalyticsTasks.filter(t => t.owner === o);
                                                 const done = ownerTasks.filter(t => t.status === 'done').length;
                                                 const total = ownerTasks.length;
                                                 const pct = Math.round((done / total) * 100);
