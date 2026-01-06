@@ -670,28 +670,46 @@ export default function Workspace() {
                             )}
                             {wizardStep === 3 && (
                                 <div className="wiz-step animate-fade-in">
-                                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Equipo (Responsables)</label>
-                                    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                                        <input
-                                            value={newOwner}
-                                            onChange={e => setNewOwner(e.target.value)}
-                                            placeholder="Nombre..."
-                                            style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid var(--border)' }}
-                                            onKeyDown={e => {
-                                                if (e.key === 'Enter') {
-                                                    // Handle comma separated values
-                                                    if (newOwner.includes(',')) {
-                                                        const names = newOwner.split(',').map(n => n.trim()).filter(n => n);
-                                                        names.forEach(n => addItem(wizOwners, setWizOwners, n, () => { }));
-                                                        setNewOwner("");
-                                                    } else {
-                                                        addItem(wizOwners, setWizOwners, newOwner, setNewOwner);
+                                    <label style={{ display: 'block', marginBottom: 12, fontWeight: 600 }}>Equipo (Responsables)</label>
+
+                                    {/* Option 1: Manual Input */}
+                                    <div style={{ marginBottom: 16 }}>
+                                        <label style={{ display: 'block', marginBottom: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>1. Manual (Separado por comas)</label>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <input
+                                                value={newOwner}
+                                                onChange={e => setNewOwner(e.target.value)}
+                                                placeholder="Ej: Juan, Pedro, Maria..."
+                                                style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid var(--border)' }}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') {
+                                                        if (newOwner.includes(',')) {
+                                                            const names = newOwner.split(',').map(n => n.trim()).filter(n => n);
+                                                            names.forEach(n => addItem(wizOwners, setWizOwners, n, () => { }));
+                                                            setNewOwner("");
+                                                        } else {
+                                                            addItem(wizOwners, setWizOwners, newOwner, setNewOwner);
+                                                        }
                                                     }
+                                                }}
+                                            />
+                                            <button className="btn-ghost" onClick={() => {
+                                                if (newOwner.includes(',')) {
+                                                    const names = newOwner.split(',').map(n => n.trim()).filter(n => n);
+                                                    names.forEach(n => addItem(wizOwners, setWizOwners, n, () => { }));
+                                                    setNewOwner("");
+                                                } else {
+                                                    addItem(wizOwners, setWizOwners, newOwner, setNewOwner);
                                                 }
-                                            }}
-                                        />
+                                            }}><Plus size={16} /></button>
+                                        </div>
+                                    </div>
+
+                                    {/* Option 2: System Users */}
+                                    <div style={{ marginBottom: 20 }}>
+                                        <label style={{ display: 'block', marginBottom: 6, fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>2. Usuarios del Sistema</label>
                                         <select
-                                            style={{ padding: 8, borderRadius: 6, border: '1px solid var(--border)', maxWidth: 150 }}
+                                            style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--border)' }}
                                             onChange={(e) => {
                                                 if (e.target.value) {
                                                     addItem(wizOwners, setWizOwners, e.target.value, () => { });
@@ -699,19 +717,18 @@ export default function Workspace() {
                                                 }
                                             }}
                                         >
-                                            <option value="">+ Seleccionar...</option>
+                                            <option value="">+ Agregar usuario existente...</option>
                                             {availableUsers.map(u => (
-                                                <option key={u.id} value={`${u.name} (${u.email})`}>{u.name}</option>
+                                                <option key={u.id} value={`${u.name} (${u.email})`}>{u.name} ({u.email})</option>
                                             ))}
                                         </select>
-                                        <button className="btn-ghost" onClick={() => addItem(wizOwners, setWizOwners, newOwner, setNewOwner)}><Plus size={16} /></button>
                                     </div>
-                                    <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: -6, marginBottom: 12 }}>
-                                        Separa por comas para agregar múltiples nombres manualmente.
-                                    </p>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 150, overflowY: 'auto' }}>
+
+                                    {/* Selected List */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 150, overflowY: 'auto', padding: 8, background: 'rgba(0,0,0,0.05)', borderRadius: 8 }}>
+                                        {wizOwners.length === 0 && <span style={{ fontSize: 12, color: 'var(--text-dim)', fontStyle: 'italic' }}>No hay miembros asignados.</span>}
                                         {wizOwners.map((o, i) => (
-                                            <div key={i} style={{ background: 'var(--panel-hover)', padding: '4px 10px', borderRadius: 20, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <div key={i} style={{ background: 'var(--panel-hover)', padding: '4px 10px', borderRadius: 20, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, border: '1px solid var(--border)' }}>
                                                 {o} <span style={{ cursor: 'pointer', opacity: 0.5 }} onClick={() => removeItem(wizOwners, setWizOwners, i)}>✕</span>
                                             </div>
                                         ))}
