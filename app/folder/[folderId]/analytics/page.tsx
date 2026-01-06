@@ -100,7 +100,8 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
             const matchesDash = filters.dashboardId === 'all' || String(t.dashboard_id) === String(filters.dashboardId);
-            const matchesSearch = t.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+            // Exact match if task selected from dropdown, otherwise partial search
+            const matchesSearch = filters.search === '' || t.name === filters.search ||
                 (t.desc && t.desc.toLowerCase().includes(filters.search.toLowerCase()));
             const matchesStatus = filters.status === 'all' || t.status === filters.status;
             const matchesOwner = filters.owner === 'all' || t.owner === filters.owner;
@@ -118,6 +119,9 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
     const uniqueStatuses = useMemo(() => [...new Set(tasks.map(t => t.status).filter(Boolean))], [tasks]);
     const uniqueOwners = useMemo(() => [...new Set(tasks.map(t => t.owner).filter(Boolean))], [tasks]);
     const uniqueTypes = useMemo(() => [...new Set(tasks.map(t => t.type).filter(Boolean))], [tasks]);
+    const uniqueTasks = useMemo(() => {
+        return tasks.map(t => ({ id: t.id, name: t.name })).filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+    }, [tasks]);
 
     if (loading) {
         return (
@@ -214,22 +218,37 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                         className="input-glass"
                         value={filters.dashboardId}
                         onChange={e => setFilters(prev => ({ ...prev, dashboardId: e.target.value }))}
-                        style={{ padding: '8px 12px', fontSize: 13, minWidth: 140 }}
+                        style={{
+                            padding: '8px 12px',
+                            fontSize: 13,
+                            minWidth: 140,
+                            background: 'var(--bg-panel)',
+                            color: 'var(--text-main)',
+                            border: '1px solid var(--border-dim)'
+                        }}
                     >
                         <option value="all">Todos los Proyectos</option>
                         {uniqueDashboards.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
 
-                    {/* 2. Tarea (Search) */}
-                    <div className="input-group" style={{ flex: 1, minWidth: 200 }}>
-                        <input
-                            className="input-glass"
-                            placeholder="Buscar tarea..."
-                            value={filters.search}
-                            onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                            style={{ padding: '8px 12px', fontSize: 13 }}
-                        />
-                    </div>
+                    {/* 2. Tarea (Intelligent Dropdown) */}
+                    <select
+                        className="input-glass"
+                        value={filters.search}
+                        onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                        style={{
+                            padding: '8px 12px',
+                            fontSize: 13,
+                            flex: 1,
+                            minWidth: 200,
+                            background: 'var(--bg-panel)',
+                            color: 'var(--text-main)',
+                            border: '1px solid var(--border-dim)'
+                        }}
+                    >
+                        <option value="">Todas las Tareas</option>
+                        {uniqueTasks.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                    </select>
 
                     {/* 3. Estado (Dynamic) */}
                     <select

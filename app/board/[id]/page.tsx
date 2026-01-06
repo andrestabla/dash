@@ -662,7 +662,19 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             <span style={{ fontSize: 24 }}>←</span>
                         </Link>
                         <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
-                            <h1 className="app-title">{settings.icon} {dashboardName}</h1>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <h1 className="app-title">{settings.icon} {dashboardName}</h1>
+                                <div style={{
+                                    padding: '4px 12px',
+                                    borderRadius: 20,
+                                    background: 'var(--primary-gradient)',
+                                    color: 'white',
+                                    fontSize: 12,
+                                    fontWeight: 700
+                                }}>
+                                    {tasks.length > 0 ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100) : 0}% Completado
+                                </div>
+                            </div>
                             <p className="app-sub">TABLERO DE TRABAJO</p>
                         </div>
                     </div>
