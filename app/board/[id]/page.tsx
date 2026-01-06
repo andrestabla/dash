@@ -94,7 +94,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     }, [isModalOpen, editingTask.id]);
 
     const handleAddComment = async () => {
-        if (!newComment.trim() || !editingTask.id || !currentUser) return;
+        if (!newComment.trim()) return;
+        if (!editingTask.id) return;
+
+        if (!currentUser) {
+            showToast("Error: No se ha identificado al usuario. Recarga la página.", "error");
+            return;
+        }
 
         try {
             const res = await fetch('/api/comments', {
@@ -862,6 +868,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                             <button className="btn-ghost" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 'auto' }}>
                                                 ✈️
                                             </button>
+                                        </div>
+                                        <div style={{ marginTop: 8, fontSize: 10, color: 'red', textAlign: 'right' }}>
+                                            Debug: {currentUser ? `Logueado como: ${currentUser.email}` : "NO USUARIO DETECTADO (Recarga si acabas de entrar)"}
                                         </div>
                                     </div>
                                 )}
