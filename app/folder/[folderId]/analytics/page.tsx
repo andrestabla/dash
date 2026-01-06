@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, use, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Share2, Copy, Check, X, Search, Filter } from "lucide-react";
 import { useToast } from "@/components/ToastProvider";
 
@@ -130,8 +130,9 @@ const CustomSelect = ({ value, onChange, options, placeholder, icon, minWidth = 
     );
 };
 
-export default function FolderAnalyticsPage({ params }: { params: Promise<{ folderId: string }> }) {
-    const { folderId } = use(params);
+export default function FolderAnalyticsPage() {
+    const params = useParams();
+    const folderId = params.folderId as string;
     const router = useRouter();
     const { showToast } = useToast();
 
