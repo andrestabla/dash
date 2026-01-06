@@ -48,7 +48,7 @@ export default function Workspace() {
     const [dashboards, setDashboards] = useState<Dashboard[]>([]);
     const [folders, setFolders] = useState<Folder[]>([]);
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-    
+
     // UI States
     const [isCreating, setIsCreating] = useState(false); // Dashboard Wizard
     const [isCreatingFolder, setIsCreatingFolder] = useState(false); // Folder Modal
@@ -128,12 +128,12 @@ export default function Workspace() {
     // --- ACTIONS: FOLDERS ---
     const saveFolder = async () => {
         if (!folderName.trim()) return;
-        
+
         try {
             const isEdit = !!editingFolder;
             const url = '/api/folders';
             const method = isEdit ? 'PUT' : 'POST';
-            const body = isEdit 
+            const body = isEdit
                 ? { id: editingFolder.id, name: folderName, parent_id: editingFolder.parent_id }
                 : { name: folderName, parent_id: currentFolderId };
 
@@ -190,7 +190,7 @@ export default function Workspace() {
     const handleSaveDashboard = async () => {
         if (!wizName.trim()) return;
         const isEdit = !!editingDash;
-        
+
         const currentSettings = isEdit ? editingDash.settings : DEFAULT_SETTINGS;
         const finalSettings = {
             weeks: isEdit ? generateWeeks(wizWeeks) : generateWeeks(wizWeeks),
@@ -265,7 +265,7 @@ export default function Workspace() {
     const startMove = (e: React.MouseEvent, id: string) => {
         e.preventDefault(); e.stopPropagation();
         setIsMoving({ type: 'dashboard', id });
-        setTargetFolderId(null); 
+        setTargetFolderId(null);
     };
 
     const executeMove = async () => {
@@ -346,28 +346,28 @@ export default function Workspace() {
             <header style={{ marginBottom: 40, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
-                       {breadcrumbs.map((crumb, i) => (
-                           <div key={crumb.id || 'root'} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                               <span 
-                                   onClick={() => setCurrentFolderId(crumb.id as string)}
-                                   style={{ 
-                                       cursor: 'pointer', 
-                                       fontWeight: i === breadcrumbs.length - 1 ? 700 : 400,
-                                       color: i === breadcrumbs.length - 1 ? 'var(--text-main)' : 'var(--text-dim)',
-                                       textDecoration: i !== breadcrumbs.length - 1 ? 'underline' : 'none'
-                                   }}
-                               >
-                                   {crumb.name}
-                               </span>
-                               {i < breadcrumbs.length - 1 && <ChevronRight size={14} />}
-                           </div>
-                       ))}
+                        {breadcrumbs.map((crumb, i) => (
+                            <div key={crumb.id || 'root'} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span
+                                    onClick={() => setCurrentFolderId(crumb.id as string)}
+                                    style={{
+                                        cursor: 'pointer',
+                                        fontWeight: i === breadcrumbs.length - 1 ? 700 : 400,
+                                        color: i === breadcrumbs.length - 1 ? 'var(--text-main)' : 'var(--text-dim)',
+                                        textDecoration: i !== breadcrumbs.length - 1 ? 'underline' : 'none'
+                                    }}
+                                >
+                                    {crumb.name}
+                                </span>
+                                {i < breadcrumbs.length - 1 && <ChevronRight size={14} />}
+                            </div>
+                        ))}
                     </div>
                     <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }} className="text-gradient">
                         {breadcrumbs[breadcrumbs.length - 1].name}
                     </h1>
                 </div>
-                
+
                 <div style={{ display: 'flex', gap: 12 }}>
                     <button className="btn-ghost" onClick={() => setIsCreatingFolder(true)} title="Nueva Carpeta">
                         <FolderOpen size={20} /> <span style={{ marginLeft: 8, fontSize: 13 }}>Nueva Carpeta</span>
@@ -399,15 +399,15 @@ export default function Workspace() {
                         <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 16 }}>Carpetas</h4>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
                             {currentItems.folders.map(f => (
-                                <div 
-                                    key={f.id} 
+                                <div
+                                    key={f.id}
                                     className="glass-panel hover-lift"
                                     onClick={() => setCurrentFolderId(f.id)}
                                     style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', border: '1px solid var(--border-dim)' }}
                                 >
                                     <div style={{ color: '#fbbf24' }}><Folder size={24} fill="#fbbf24" fillOpacity={0.2} /></div>
                                     <span style={{ fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-                                    
+
                                     <div className="folder-actions" onClick={e => e.stopPropagation()} style={{ display: 'flex' }}>
                                         <button className="btn-ghost" onClick={(e) => editFolder(e, f)} style={{ padding: 4 }}><Edit2 size={12} /></button>
                                         <button className="btn-ghost" onClick={(e) => deleteFolder(e, f.id)} style={{ padding: 4, color: '#f87171' }}><Trash2 size={12} /></button>
@@ -420,7 +420,7 @@ export default function Workspace() {
 
                 {/* 2. Dashboards Section */}
                 {currentItems.dashboards.length > 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
                         {currentItems.dashboards.map(d => (
                             <Link href={"/board/" + d.id} key={d.id} style={{ textDecoration: "none", color: "inherit" }}>
                                 <div className="glass-panel hover-lift" style={{
@@ -466,11 +466,11 @@ export default function Workspace() {
             </div>
 
             {/* --- MODALS --- */}
-            
+
             {/* 1. NEW/EDIT FOLDER */}
             {isCreatingFolder && (
-                 <div className="backdrop">
-                    <div className="glass-panel animate-slide-up" style={{ padding: 24, width: 400 }}>
+                <div className="backdrop">
+                    <div className="glass-panel animate-slide-up" style={{ padding: 24, width: '100%', maxWidth: 400 }}>
                         <h3 style={{ marginTop: 0 }}>{editingFolder ? 'Editar Carpeta' : 'Nueva Carpeta'}</h3>
                         <label style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>Nombre</label>
                         <input className="input-glass" value={folderName} onChange={e => setFolderName(e.target.value)} autoFocus placeholder="Ej: Q1 Marketing" />
@@ -485,22 +485,22 @@ export default function Workspace() {
             {/* 2. MOVE DASHBOARD */}
             {isMoving && (
                 <div className="backdrop">
-                    <div className="glass-panel animate-slide-up" style={{ padding: 24, width: 400 }}>
-                         <h3 style={{ marginTop: 0 }}>Mover Tablero a...</h3>
-                         <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border-dim)', borderRadius: 8, marginBottom: 20 }}>
+                    <div className="glass-panel animate-slide-up" style={{ padding: 24, width: '100%', maxWidth: 400 }}>
+                        <h3 style={{ marginTop: 0 }}>Mover Tablero a...</h3>
+                        <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border-dim)', borderRadius: 8, marginBottom: 20 }}>
                             {/* Root Option */}
-                            <div 
+                            <div
                                 onClick={() => setTargetFolderId(null)}
                                 style={{ padding: '10px 12px', cursor: 'pointer', background: targetFolderId === null ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}
                             >
                                 <CornerUpLeft size={16} /> <span>Espacio Principal (Raíz)</span>
                             </div>
-                            
+
                             {/* Folder List - Hierarchical check? Basic flattened list for simplicity first? 
                                 Let's just list all folders. Ideally we recursive indentation but flat is ok for V1. 
                             */}
                             {folders.map(f => (
-                                <div 
+                                <div
                                     key={f.id}
                                     onClick={() => setTargetFolderId(f.id)}
                                     style={{ padding: '10px 12px', cursor: 'pointer', background: targetFolderId === f.id ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}
@@ -508,8 +508,8 @@ export default function Workspace() {
                                     <Folder size={16} /> <span>{f.name}</span>
                                 </div>
                             ))}
-                         </div>
-                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                             <button className="btn-ghost" onClick={() => setIsMoving(null)}>Cancelar</button>
                             <button className="btn-primary" onClick={executeMove}>Mover Aquí</button>
                         </div>
@@ -520,7 +520,7 @@ export default function Workspace() {
             {/* 3. NEW DASHBOARD WIZARD (Existing logic mostly) */}
             {isCreating && (
                 <div className="backdrop">
-                    <div className="glass-panel animate-slide-up" style={{ padding: 0, width: 700, overflow: 'hidden' }}>
+                    <div className="glass-panel animate-slide-up" style={{ padding: 0, width: '100%', maxWidth: 700, overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ padding: '24px 32px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)' }}>
                             <h2 style={{ margin: 0, fontSize: 20 }}>{editingDash ? "Editar Tablero" : "Nuevo Proyecto (" + wizardStep + " / 4)"}</h2>
                             <button className="btn-ghost" onClick={resetWizard} style={{ padding: 4 }}><X size={20} /></button>
@@ -628,14 +628,14 @@ export default function Workspace() {
                 </div>
             )}
 
-                {dashboards.length === 0 && !isCreating && (
-                    <div className="glass-panel" style={{ gridColumn: '1/-1', textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '2px dashed rgba(255,255,255,0.1)' }}>
-                        <div style={{ marginBottom: 16, opacity: 0.5, display: 'inline-block' }}><FolderOpen size={48} /></div>
-                        <h3 style={{ color: 'var(--text-main)' }}>No hay proyectos activos</h3>
-                        <p>Comienza creando tu primer tablero estratégico.</p>
-                        <button className="btn-primary" onClick={startCreate} style={{ marginTop: 20 }}>+ Crear Proyecto</button>
-                    </div>
-                )}
+            {dashboards.length === 0 && !isCreating && (
+                <div className="glass-panel" style={{ gridColumn: '1/-1', textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '2px dashed rgba(255,255,255,0.1)' }}>
+                    <div style={{ marginBottom: 16, opacity: 0.5, display: 'inline-block' }}><FolderOpen size={48} /></div>
+                    <h3 style={{ color: 'var(--text-main)' }}>No hay proyectos activos</h3>
+                    <p>Comienza creando tu primer tablero estratégico.</p>
+                    <button className="btn-primary" onClick={startCreate} style={{ marginTop: 20 }}>+ Crear Proyecto</button>
+                </div>
+            )}
             {/* CONFIRM MODAL */}
             <ConfirmModal
                 isOpen={confirmOpen}
