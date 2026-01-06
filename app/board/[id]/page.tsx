@@ -1230,69 +1230,114 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 )}
 
                 <style jsx>{`
-                    /* LAYOUT */
-                    header { background: var(--bg-card); border-bottom: 1px solid var(--border-dim); padding: 0 24px; height: 70px; display: flex; align-items: center; position: sticky; top: 0; z-index: 40; }
-                    .top-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; }
-                    .logo-area { display: flex; align-items: center; }
-                    .app-title { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
-                    .app-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin: 0; font-weight: 600; }
+                    /* PREMIUM UI UPGRADE */
+                    /* Global Background to soften the stark white */
+                    main { 
+                        padding: 24px; 
+                        height: calc(100vh - 70px); 
+                        overflow: hidden; 
+                        display: flex; 
+                        flex-direction: column;
+                        background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); 
+                    }
+
+                    /* Header Glass Effect */
+                    header { 
+                        background: rgba(255, 255, 255, 0.7);
+                        backdrop-filter: blur(12px);
+                        -webkit-backdrop-filter: blur(12px);
+                        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+                        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+                        padding: 0 24px; 
+                        height: 70px; 
+                        display: flex; 
+                        align-items: center; 
+                        position: sticky; 
+                        top: 0; 
+                        z-index: 40; 
+                    }
                     
-                    main { padding: 24px; height: calc(100vh - 70px); overflow: hidden; display: flex; flex-direction: column; }
+                    /* Typography Polish */
+                    .app-title { font-size: 18px; font-weight: 800; margin: 0; letter-spacing: -0.5px; background: linear-gradient(45deg, #1e293b, #334155); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                    .app-sub { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; margin: 0; font-weight: 700; opacity: 0.8; }
+
+                    /* Controls & Filters */
                     .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
                     .filters { display: flex; gap: 10px; }
-                    .filters input, .filters select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-dim); background: var(--bg-card); color: var(--text-main); font-size: 13px; outline: none; transition: all 0.2s; }
-                    .filters input:focus, .filters select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
-                    
-                    .tabs { display: flex; background: var(--bg-panel); padding: 4px; border-radius: 10px; }
-                    .tab { padding: 6px 16px; font-size: 13px; font-weight: 500; color: var(--text-dim); cursor: pointer; border-radius: 8px; transition: all 0.2s; }
-                    .tab:hover { color: var(--text-main); }
-                    .tab.active { background: var(--bg-card); color: var(--text-main); font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+                    .filters input, .filters select { 
+                        padding: 8px 16px; 
+                        border-radius: 12px; 
+                        border: 1px solid rgba(0,0,0,0.05); 
+                        background: rgba(255,255,255,0.6); 
+                        color: var(--text-main); 
+                        font-size: 13px; 
+                        outline: none; 
+                        transition: all 0.2s;
+                        backdrop-filter: blur(4px);
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+                    }
+                    .filters input:focus, .filters select:focus { 
+                        background: white;
+                        border-color: #3b82f6; 
+                        box-shadow: 0 4px 12px rgba(59,130,246,0.15); 
+                        transform: translateY(-1px);
+                    }
 
-                    /* KANBAN */
-                    .view-section { flex: 1; overflow: hidden; display: none; animation: fadeIn 0.3s ease-out; }
+                    /* KANBAN LANES - Deep Glass */
+                    .view-section { flex: 1; overflow: hidden; display: none; animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
                     .view-section.active { display: block; }
                     .kanban-container { height: 100%; overflow-x: auto; padding-bottom: 20px; }
                     .lanes { height: 100%; gap: 24px; padding-right: 40px; }
-                    .lane { background: var(--bg-panel); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; border: 1px solid var(--border-dim); transition: background 0.2s; }
-                    .lane-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
                     
-                    /* Hover Effect for Lane Actions */
-                    .lane:hover .lane-actions { opacity: 1 !important; }
+                    .lane { 
+                        background: rgba(255, 255, 255, 0.45);
+                        backdrop-filter: blur(14px);
+                        -webkit-backdrop-filter: blur(14px); 
+                        border-radius: 20px; 
+                        padding: 16px; 
+                        display: flex; 
+                        flex-direction: column; 
+                        border: 1px solid rgba(255, 255, 255, 0.6); 
+                        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+                        transition: all 0.3s ease;
+                    }
+                    .lane:hover {
+                        background: rgba(255, 255, 255, 0.6);
+                        box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.08);
+                        border-color: rgba(255, 255, 255, 0.8);
+                    }
 
-                    .counter { background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 12px; font-size: 11px; }
-                    .dark .counter { background: rgba(255,255,255,0.1); }
+                    .lane-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #475569; padding: 0 4px; }
                     
-                    .drop-zone { flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 12px; min-height: 100px; }
-                    
-                    /* CARDS: Styles moved to globals.css for V11 consistency */
-                    .chip { font-size: 10px; font-weight: 700; background: var(--bg-panel); padding: 3px 8px; border-radius: 6px; color: var(--text-dim); text-transform: uppercase; }
-                    .chip.gate { background: #ecfdf5; color: #059669; }
-                    
-                    /* TIMELINE */
-                    .timeline-view { padding: 0 40px; max-width: 800px; margin: 0 auto; overflow-y: auto; height: 100%; }
-                    .tl-group { margin-bottom: 30px; }
-                    .tl-header { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: var(--text-dim); text-transform: uppercase; border-bottom: 1px solid var(--border-dim); padding-bottom: 8px; }
-                    .tl-item { display: flex; align-items: center; gap: 16px; padding: 12px; background: var(--bg-card); border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border-dim); transition: all 0.2s; }
-                    .tl-item:hover { transform: translateX(5px); border-color: #3b82f6; }
+                    .drop-zone { flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 14px; min-height: 100px; }
 
-
-                    /* DARK MODE ADJUSTMENTS */
+                    /* Dark Mode Overrides for Premium Feel */
                     @media (prefers-color-scheme: dark) {
-                        .chip.gate { background: rgba(5, 150, 105, 0.2); color: #34d399; }
+                       main { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+                       header { background: rgba(15, 23, 42, 0.7); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+                       .app-title { background: linear-gradient(45deg, #f8fafc, #cbd5e1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                       .lane { 
+                           background: rgba(30, 41, 59, 0.4); 
+                           border: 1px solid rgba(255, 255, 255, 0.05); 
+                           box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+                       }
+                       .lane:hover { background: rgba(30, 41, 59, 0.6); }
+                       .filters input, .filters select { background: rgba(30, 41, 59, 0.6); border-color: rgba(255,255,255,0.1); color: white; }
+                       .lane-head { color: #94a3b8; }
                     }
 
                     /* MOBILE HELPERS */
                     @media (max-width: 768px) {
                         .hide-mobile { display: none !important; }
-                        header { height: auto !important; }
+                        header { height: auto !important; padding: 12px 16px; }
                         .top-bar { flex-direction: column; align-items: flex-start !important; gap: 20px !important; }
                         .top-right-controls { width: 100%; justify-content: space-between; }
-                        .controls { flex-direction: column; align-items: stretch !important; }
+                        .controls { flex-direction: column; align-items: stretch !important; margin-bottom: 16px; }
                         .filters { width: 100%; }
                         .filters > * { flex: 1; min-width: 140px; }
-                        main { overflow-y: auto !important; height: auto !important; }
+                        main { overflow-y: auto !important; height: auto !important; padding: 16px; }
                         .kanban-container { height: auto !important; padding-bottom: 40px; }
-                        .lanes { height: auto !important; }
+                        .lanes { height: auto !important; gap: 16px; padding-right: 0; }
                     }
                 `}</style>
             </main>
