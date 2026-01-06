@@ -672,7 +672,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     fontSize: 12,
                                     fontWeight: 700
                                 }}>
-                                    {tasks.length > 0 ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100) : 0}% Completado
+                                    {tasks.length > 0 ? Math.round((tasks.filter(t => {
+                                        const finalStatus = statuses[statuses.length - 1]?.id || 'done';
+                                        return t.status === finalStatus;
+                                    }).length / tasks.length) * 100) : 0}% Completado
                                 </div>
                             </div>
                             <p className="app-sub">TABLERO DE TRABAJO</p>

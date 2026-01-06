@@ -2,8 +2,66 @@
 
 import { useEffect, useState, useMemo, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Share2, Copy, Check, X } from "lucide-react";
+import { ArrowLeft, Share2, Copy, Check, X, Search, Filter } from "lucide-react";
 import { useToast } from "@/components/ToastProvider";
+
+// Helper for loose status matching
+const isTaskDone = (status: string) => {
+    if (!status) return false;
+    const s = status.toLowerCase();
+    return s === 'done' || s.includes('validado') || s.includes('final') || s.includes('complet') || s.includes('entregado') || s.includes('aprobado') || s.includes('closed');
+};
+
+// Custom Select Component for robust rendering
+const CustomSelect = ({ value, onChange, options, placeholder, icon, minWidth = 140, flex = 0 }: any) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedLabel = options.find((o: any) => o.value === value)?.label || placeholder;
+
+    return (
+        <div style={{ position: 'relative', minWidth, flex: flex ? 1 : undefined }}>
+            {isOpen && <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setIsOpen(false)} />}
+            <div
+                className="input-glass"
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    background: 'var(--bg-panel)', color: 'var(--text-main)', padding: '8px 12px', fontSize: 13,
+                    border: '1px solid var(--border-dim)'
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                    {icon && icon}
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedLabel}</span>
+                </div>
+                <span style={{ fontSize: 10, opacity: 0.5 }}>▼</span>
+            </div>
+            {isOpen && (
+                <div className="animate-fade-in" style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
+                    background: 'var(--bg-panel)', border: '1px solid var(--border-dim)',
+                    borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.2)', zIndex: 50,
+                    maxHeight: 300, overflowY: 'auto'
+                }}>
+                    {options.map((o: any) => (
+                        <div
+                            key={o.value}
+                            onClick={() => { onChange(o.value); setIsOpen(false); }}
+                            style={{
+                                padding: '8px 12px', fontSize: 13, cursor: 'pointer',
+                                background: value === o.value ? 'var(--primary-gradient)' : 'transparent',
+                                color: value === o.value ? 'white' : 'var(--text-main)',
+                                fontWeight: value === o.value ? 600 : 400,
+                                borderBottom: '1px dotted var(--border-dim)'
+                            }}
+                        >
+                            {o.label}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 export default function FolderAnalyticsPage({ params }: { params: Promise<{ folderId: string }> }) {
     const { folderId } = use(params);
@@ -213,75 +271,64 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
             {/* Filter Toolbar - REORDERED */}
             <div style={{ maxWidth: 1200, margin: '0 auto', marginBottom: 32, padding: '16px 20px', background: 'var(--bg-panel)', borderRadius: 12, border: '1px solid var(--border-dim)' }}>
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {/* 1. Proyecto */}
-                    <select
-                        className="input-glass"
+                    {/* 1. Proyecto (Custom Select) */}
+                    <CustomSelect
                         value={filters.dashboardId}
-                        onChange={e => setFilters(prev => ({ ...prev, dashboardId: e.target.value }))}
-                        style={{
-                            padding: '8px 12px',
-                            fontSize: 13,
-                            minWidth: 140,
-                            background: 'var(--bg-panel)',
-                            color: 'var(--text-main)',
-                            border: '1px solid var(--border-dim)'
-                        }}
-                    >
-                        <option value="all">Todos los Proyectos</option>
-                        {uniqueDashboards.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
+                        onChange={(v: any) => setFilters(prev => ({ ...prev, dashboardId: v }))}
+                        options={[
+                            { value: 'all', label: 'Todos los Proyectos' },
+                            ...uniqueDashboards.map(d => ({ value: d.id, label: d.name }))
+                        ]}
+                        placeholder="Todos los Proyectos"
+                    // icon={<div style={{ fontSize: 14 }}>📊</div>}
+                    />
 
-                    {/* 2. Tarea (Intelligent Dropdown) */}
-                    <select
-                        className="input-glass"
+                    {/* 2. Tarea (Custom Select for Search) */}
+                    <CustomSelect
                         value={filters.search}
-                        onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                        style={{
-                            padding: '8px 12px',
-                            fontSize: 13,
-                            flex: 1,
-                            minWidth: 200,
-                            background: 'var(--bg-panel)',
-                            color: 'var(--text-main)',
-                            border: '1px solid var(--border-dim)'
-                        }}
-                    >
-                        <option value="">Todas las Tareas</option>
-                        {uniqueTasks.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                    </select>
+                        onChange={(v: any) => setFilters(prev => ({ ...prev, search: v === 'all_tasks_default' ? '' : v }))}
+                        options={[
+                            { value: '', label: 'Todas las Tareas' },
+                            ...uniqueTasks.map(t => ({ value: t.name, label: t.name }))
+                        ]}
+                        placeholder="Todas las Tareas"
+                        flex={1}
+                        minWidth={200}
+                        icon={<Search size={14} />}
+                    />
 
-                    {/* 3. Estado (Dynamic) */}
-                    <select
-                        className="input-glass"
+                    {/* 3. Estado (Custom Select) */}
+                    <CustomSelect
                         value={filters.status}
-                        onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                        style={{ padding: '8px 12px', fontSize: 13, minWidth: 120 }}
-                    >
-                        <option value="all">Todos los Estados</option>
-                        {uniqueStatuses.map((s: any) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                        onChange={(v: any) => setFilters(prev => ({ ...prev, status: v }))}
+                        options={[
+                            { value: 'all', label: 'Todos los Estados' },
+                            ...uniqueStatuses.map(s => ({ value: s, label: s }))
+                        ]}
+                        placeholder="Todos los Estados"
+                    />
 
-                    {/* 4. Responsables */}
-                    <select
-                        className="input-glass"
+                    {/* 4. Responsables (Custom Select) */}
+                    <CustomSelect
                         value={filters.owner}
-                        onChange={e => setFilters(prev => ({ ...prev, owner: e.target.value }))}
-                        style={{ padding: '8px 12px', fontSize: 13, minWidth: 140 }}
-                    >
-                        <option value="all">Todos los Responsables</option>
-                        {uniqueOwners.map((o: any) => <option key={o} value={o}>{o}</option>)}
-                    </select>
+                        onChange={(v: any) => setFilters(prev => ({ ...prev, owner: v }))}
+                        options={[
+                            { value: 'all', label: 'Todos los Responsables' },
+                            ...uniqueOwners.map(o => ({ value: o, label: o }))
+                        ]}
+                        placeholder="Todos los Responsables"
+                    />
 
-                    {/* 5. Tipos */}
-                    <select
-                        className="input-glass"
+                    {/* 5. Tipos (Custom Select) */}
+                    <CustomSelect
                         value={filters.type}
-                        onChange={e => setFilters(prev => ({ ...prev, type: e.target.value }))}
-                        style={{ padding: '8px 12px', fontSize: 13, minWidth: 140 }}
-                    >
-                        <option value="all">Todos los Tipos</option>
-                        {uniqueTypes.map((t: any) => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                        onChange={(v: any) => setFilters(prev => ({ ...prev, type: v }))}
+                        options={[
+                            { value: 'all', label: 'Todos los Tipos' },
+                            ...uniqueTypes.map(t => ({ value: t, label: t }))
+                        ]}
+                        placeholder="Todos los Tipos"
+                    />
 
                     {/* Clear Button */}
                     {(filters.search || filters.status !== 'all' || filters.owner !== 'all' || filters.dashboardId !== 'all' || filters.type !== 'all') && (
@@ -307,7 +354,7 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                     <div className="glass-panel" style={{ padding: 24 }}>
                         <div className="kpi-label">Progreso Global</div>
                         <div className="kpi-value" style={{ color: '#10b981' }}>
-                            {filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => t.status === 'done').length / filteredTasks.length) * 100) : 0}%
+                            {filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => isTaskDone(t.status)).length / filteredTasks.length) * 100) : 0}%
                         </div>
                     </div>
                     <div className="glass-panel" style={{ padding: 24 }}>
@@ -325,9 +372,14 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                             {uniqueStatuses.map((s: any) => {
                                 const count = filteredTasks.filter(t => t.status === s).length;
                                 const pct = (count / filteredTasks.length) * 100;
-                                const colors: any = { done: '#10b981', doing: '#3b82f6', review: '#f59e0b', todo: '#64748b' };
+                                const isDone = isTaskDone(s);
+                                const color = isDone ? '#10b981' : '#64748b';
+                                // Dynamic colors for non-done states
+                                const colors: any = { doing: '#3b82f6', review: '#f59e0b', todo: '#64748b' };
+                                const finalColor = colors[s] || color;
+
                                 if (count === 0) return null;
-                                return <div key={s} style={{ width: `${pct}%`, background: colors[s] || '#64748b' }} title={`${s}: ${count}`}></div>
+                                return <div key={s} style={{ width: `${pct}%`, background: finalColor }} title={`${s}: ${count}`}></div>
                             })}
                         </div>
                         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
