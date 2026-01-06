@@ -68,6 +68,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [newComment, setNewComment] = useState("");
     const [currentUser, setCurrentUser] = useState<{ name: string, email: string } | null>(null);
 
+    // Comment Editing State
+    const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState("");
+
     // Fetch Current User
     useEffect(() => {
         fetch('/api/auth/me').then(res => res.json()).then(data => {
@@ -111,6 +115,36 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             }
         } catch (err) {
             showToast("Error al agregar comentario", "error");
+        }
+    };
+
+    const startEditComment = (comment: any) => {
+        setEditingCommentId(comment.id);
+        setEditContent(comment.content);
+    };
+
+    const handleSaveEditComment = async () => {
+        if (!editingCommentId || !editContent.trim() || !currentUser) return;
+
+        try {
+            const res = await fetch('/api/comments', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editingCommentId,
+                    content: editContent,
+                    userEmail: currentUser.email
+                })
+            });
+
+            if (res.ok) {
+                const updated = await res.json();
+                setComments(prev => prev.map(c => c.id === editingCommentId ? updated : c));
+                setEditingCommentId(null);
+                setEditContent("");
+            }
+        } catch (err) {
+            showToast("Error al editar comentario", "error");
         }
     };
 
@@ -791,10 +825,28 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                             <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{new Date(c.created_at).toLocaleString()}</span>
                                                         </div>
                                                         {currentUser?.email === c.user_email && (
-                                                            <button className="btn-ghost" onClick={() => handleDeleteComment(c.id)} style={{ padding: 2, height: 'auto', opacity: 0.6 }}>🗑️</button>
+                                                            <div style={{ display: 'flex', gap: 4 }}>
+                                                                <button className="btn-ghost" onClick={() => startEditComment(c)} style={{ padding: 2, height: 'auto', opacity: 0.6, fontSize: 12 }}>✏️</button>
+                                                                <button className="btn-ghost" onClick={() => handleDeleteComment(c.id)} style={{ padding: 2, height: 'auto', opacity: 0.6, fontSize: 12 }}>🗑️</button>
+                                                            </div>
                                                         )}
                                                     </div>
-                                                    <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{c.content}</div>
+
+                                                    {editingCommentId === c.id ? (
+                                                        <div style={{ marginTop: 4 }}>
+                                                            <textarea
+                                                                value={editContent}
+                                                                onChange={e => setEditContent(e.target.value)}
+                                                                style={{ width: '100%', padding: 6, fontSize: 13, borderRadius: 4, border: '1px solid var(--border)', minHeight: 60 }}
+                                                            />
+                                                            <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
+                                                                <button className="btn-ghost" onClick={() => setEditingCommentId(null)} style={{ fontSize: 11 }}>Cancelar</button>
+                                                                <button className="btn-primary" onClick={handleSaveEditComment} style={{ padding: '4px 10px', fontSize: 11, height: 'auto' }}>Guardar</button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{c.content}</div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>

@@ -66,3 +66,41 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+export async function PUT(request: Request) {
+    try {
+        const body = await request.json();
+        const { id, content, userEmail } = body;
+
+        if (!id || !content || !userEmail) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        const client = await pool.connect();
+
+        // Verify ownership (optional but good practice, though basic here)
+        // ideally we check session, but relying on client sent email for this MVP context
+        // Real auth check should happen via session in a real app, but matching current pattern:
+
+        const check = await client.query('SELECT user_email FROM task_comments WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
+            client.release();
+            return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+        }
+        if (check.rows[0].user_email !== userEmail) {
+            client.release();
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
+
+        const result = await client.query(
+            'UPDATE task_comments SET content = $1 WHERE id = $2 RETURNING *',
+            [content, id]
+        );
+        client.release();
+
+        return NextResponse.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating comment:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}
