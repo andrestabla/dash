@@ -179,7 +179,7 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                     const relevantFolderIds = getSubFolderIds(folderId);
 
                     // Filter dashboards that belong to this folder subtree
-                    const relevantDashboards = allDashboards.filter((d: any) => relevantFolderIds.includes(d.folder_id));
+                    const relevantDashboards = allDashboards.filter((d: any) => relevantFolderIds.includes(String(d.folder_id)));
                     setAvailableDashboards(relevantDashboards);
 
                     // Build breadcrumbs logic
@@ -249,18 +249,29 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
         });
     }, [tasks, filters]);
 
-    // Extract unique values
+    // CASCADING FILTERS LOGIC
+    // 1. Base pool of tasks specific to the selected dashboard (Project)
+    const tasksInSelectedDashboard = useMemo(() => {
+        if (filters.dashboardId === 'all') return tasks;
+        return tasks.filter(t => String(t.dashboard_id) === String(filters.dashboardId));
+    }, [tasks, filters.dashboardId]);
+
+    // 2. Derive filter options from this pool
     const uniqueDashboards = useMemo(() => {
+        // Kept for reference or if needed, but filter uses availableDashboards state
         const map = new Map();
         tasks.forEach(t => map.set(t.dashboard_id, t.dashboard_name));
         return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
     }, [tasks]);
-    const uniqueStatuses = useMemo(() => [...new Set(tasks.map(t => t.status).filter(Boolean))], [tasks]);
-    const uniqueOwners = useMemo(() => [...new Set(tasks.map(t => t.owner).filter(Boolean))], [tasks]);
-    const uniqueTypes = useMemo(() => [...new Set(tasks.map(t => t.type).filter(Boolean))], [tasks]);
+
+    const uniqueStatuses = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.status).filter(Boolean))], [tasksInSelectedDashboard]);
+    const uniqueOwners = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.owner).filter(Boolean))], [tasksInSelectedDashboard]);
+    const uniqueTypes = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.type).filter(Boolean))], [tasksInSelectedDashboard]);
+
+    // Tasks dropdown options also filtered by project
     const uniqueTasks = useMemo(() => {
-        return tasks.map(t => ({ id: t.id, name: t.name })).filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
-    }, [tasks]);
+        return tasksInSelectedDashboard.map(t => ({ id: t.id, name: t.name })).filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+    }, [tasksInSelectedDashboard]);
 
     if (loading) {
         return (
@@ -355,7 +366,7 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                     {/* 1. Proyecto (Custom Select) */}
                     <CustomSelect
                         value={filters.dashboardId}
-                        onChange={(v: any) => setFilters(prev => ({ ...prev, dashboardId: v }))}
+                        onChange={(v: any) => setFilters(prev => ({ ...prev, dashboardId: v, search: '', status: 'all', owner: 'all', type: 'all' }))}
                         options={[
                             { value: 'all', label: 'Todos los Proyectos' },
                             ...availableDashboards.map(d => ({ value: d.id, label: d.name }))
