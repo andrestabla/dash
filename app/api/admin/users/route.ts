@@ -80,7 +80,7 @@ export async function POST(request: Request) {
                         </ul>
                         <p>Por favor ingresa y cambia tu contraseña lo antes posible.</p>
                         <br/>
-                        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login" style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;">
+                        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://misproyectos.com.co'}/login" style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;">
                             Iniciar Sesión
                         </a>
                     </div>
@@ -148,7 +148,7 @@ export async function PUT(request: Request) {
                         <li><b>Usuario:</b> ${email}</li>
                         <li><b>Contraseña:</b> ${password}</li>
                     </ul>
-                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login">Iniciar Sesión</a>
+                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://misproyectos.com.co'}/login">Iniciar Sesión</a>
                 </div>
             `;
             await sendEmail(email, subject, html);
@@ -170,7 +170,7 @@ export async function PUT(request: Request) {
                             <p>Ya puedes iniciar sesión en la plataforma con tu correo electrónico y la contraseña que elegiste al registrarte.</p>
                             <br/>
                             <div style="text-align: center;">
-                                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login" style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+                                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://misproyectos.com.co'}/login" style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
                                     Ingresar al Portal
                                 </a>
                             </div>

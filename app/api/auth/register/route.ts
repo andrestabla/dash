@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         client.release();
 
         // 5. Send Notification Emails
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://misproyectos.com.co';
 
         // To User
         const userHtml = `
