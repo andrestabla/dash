@@ -501,7 +501,7 @@ export default function Workspace() {
                         ))}
                     </div>
                 ) : (
-                    currentItems.folders.length === 0 && (
+                    !isLoading && currentItems.folders.length === 0 && (
                         <div className="glass-panel" style={{ textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '2px dashed rgba(255,255,255,0.1)' }}>
                             <div style={{ marginBottom: 16, opacity: 0.5, display: 'inline-block' }}><FolderOpen size={48} /></div>
                             <h3 style={{ color: 'var(--text-main)' }}>Carpeta Vacía</h3>
