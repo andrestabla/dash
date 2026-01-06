@@ -258,11 +258,12 @@ export default function AdminSettingsPage() {
                                     <div style={{ marginTop: 20, padding: 16, border: '1px dashed var(--border-dim)', borderRadius: 12 }}>
                                         <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Enviar correo de prueba a:</label>
                                         <div style={{ display: 'flex', gap: 10 }}>
-                                            className="input-glass"
-                                            placeholder="tu@email.com"
-                                            value={info.testEmail || ''}
-                                            style={{ color: 'var(--text-main)', borderColor: 'var(--border-dim)' }}
-                                            onChange={e => setInfo({ ...info, testEmail: e.target.value })}
+                                            <input
+                                                className="input-glass"
+                                                placeholder="tu@email.com"
+                                                value={info.testEmail || ''}
+                                                style={{ color: 'var(--text-main)', borderColor: 'var(--border-dim)' }}
+                                                onChange={e => setInfo({ ...info, testEmail: e.target.value })}
                                             />
                                             <button
                                                 className="btn-primary"
