@@ -245,34 +245,46 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // HELPER: Resolve status name and progress from Dashboard Settings
+    // HELPER: Resolve status name, progress and color from Dashboard Settings
     const getStatusInfo = (task: any) => {
         const dashboard = availableDashboards.find(d => String(d.id) === String(task.dashboard_id));
         if (!dashboard || !dashboard.settings || !dashboard.settings.statuses) {
-            return { name: task.status, progress: isTaskDone(task.status) ? 100 : 0 };
+            return {
+                name: task.status,
+                progress: isTaskDone(task.status) ? 100 : 0,
+                color: isTaskDone(task.status) ? '#10b981' : '#64748b'
+            };
         }
 
         const columns = dashboard.settings.statuses;
         const colIndex = columns.findIndex((c: any) => c.id === task.status);
 
-        if (colIndex === -1) return { name: task.status, progress: isTaskDone(task.status) ? 100 : 0 };
+        if (colIndex === -1) {
+            return {
+                name: task.status,
+                progress: isTaskDone(task.status) ? 100 : 0,
+                color: isTaskDone(task.status) ? '#10b981' : '#64748b'
+            };
+        }
 
         const col = columns[colIndex];
         const name = col.name;
+        // Should we use the specific task color? Yes.
+        const color = col.color || '#64748b';
 
         // PROGRESS CALCULATION
         // Priority 1: Custom Percentage set by user
         if (typeof col.percentage === 'number') {
-            return { name, progress: col.percentage };
+            return { name, progress: col.percentage, color };
         }
 
         // Priority 2: Default Proportional (0% to 100%)
         // If it's the last column, 100%. If first, 0%. Linear in between.
-        if (columns.length <= 1) return { name, progress: 100 };
+        if (columns.length <= 1) return { name, progress: 100, color };
 
         // Linear interpolation: index / (total - 1) * 100
         const proportional = Math.round((colIndex / (columns.length - 1)) * 100);
-        return { name, progress: proportional };
+        return { name, progress: proportional, color };
     };
 
     // Filter logic
@@ -535,29 +547,33 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                 {/* Charts */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24 }}>
                     {/* Status Distribution */}
+                    {/* Status Distribution */}
                     <div className="glass-panel" style={{ padding: 24 }}>
                         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Estado Consolidado</h3>
                         <div style={{ height: 32, borderRadius: 16, overflow: 'hidden', display: 'flex', marginBottom: 20 }}>
                             {uniqueStatuses.map((s: any) => {
+                                // Find representative color for this status name
+                                const sampleTask = filteredTasks.find(t => getStatusInfo(t).name === s);
+                                const { color } = sampleTask ? getStatusInfo(sampleTask) : { color: '#64748b' };
+
                                 const count = filteredTasks.filter(t => getStatusInfo(t).name === s).length;
                                 const pct = (count / filteredTasks.length) * 100;
-                                const isDone = isTaskDone(s);
-                                const color = isDone ? '#10b981' : '#64748b';
-                                // Dynamic colors for non-done states
-                                const colors: any = { doing: '#3b82f6', review: '#f59e0b', todo: '#64748b' };
-                                const finalColor = colors[s] || color;
 
                                 if (count === 0) return null;
-                                return <div key={s} style={{ width: `${pct}%`, background: finalColor }} title={`${s}: ${count}`}></div>
+                                return <div key={s} style={{ width: `${pct}%`, background: color }} title={`${s}: ${count}`}></div>
                             })}
                         </div>
                         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                             {uniqueStatuses.map((s: any) => {
-                                const count = filteredTasks.filter(t => t.status === s).length;
-                                const colors: any = { done: '#10b981', doing: '#3b82f6', review: '#f59e0b', todo: '#64748b' };
+                                // Find representative color for this status name
+                                const sampleTask = filteredTasks.find(t => getStatusInfo(t).name === s);
+                                const { color } = sampleTask ? getStatusInfo(sampleTask) : { color: '#64748b' };
+
+                                const count = filteredTasks.filter(t => getStatusInfo(t).name === s).length;
+
                                 return (
                                     <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: colors[s] || '#64748b' }}></div>
+                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }}></div>
                                         <span style={{ fontSize: 13 }}>{s} ({count})</span>
                                     </div>
                                 )
