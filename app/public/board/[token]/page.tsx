@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from 'next/link';
+import { LayoutGrid, List, BarChart2, Search, ExternalLink } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -50,6 +51,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     const [dashboardName, setDashboardName] = useState("");
     const [statuses, setStatuses] = useState<StatusColumn[]>(DEFAULT_STATUSES);
 
+    const [activeTab, setActiveTab] = useState<"kanban" | "list" | "data">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
 
 
@@ -78,7 +80,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             });
     }, [token]);
 
-    const filteredTasks = tasks.filter((t) => {
+    const filteredTasks = tasks.filter((t: Task) => {
         if (filters.week && t.week !== filters.week) return false;
         if (filters.owner && t.owner !== filters.owner) return false;
         if (filters.search && !((t.name + t.owner).toLowerCase().includes(filters.search.toLowerCase()))) return false;
@@ -98,42 +100,53 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     if (!settings) return null;
 
     return (
-        <div>
-            <header>
-                <div className="top-bar" style={{ padding: '0 24px', height: 70, display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
-                    <div className="logo-area" style={{ display: 'flex', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{ fontSize: 24 }}>{settings.icon}</div>
-                            <div>
-                                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{dashboardName}</h1>
-                                <p style={{ margin: 0, fontSize: 11, color: 'var(--text-dim)', letterSpacing: 0.5 }}>VISTA PÚBLICA</p>
-                            </div>
-                        </div>
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)' }}>
+            <header style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-dim)', height: 70, display: 'flex', alignItems: 'center', padding: '0 24px', position: 'sticky', top: 0, zIndex: 50 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ fontSize: 24 }}>{settings.icon || '🚀'}</div>
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{dashboardName}</h1>
+                        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-dim)', letterSpacing: 0.5, fontWeight: 700 }}>VISTA PÚBLICA</p>
                     </div>
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-                        <Link href="/" className="btn-primary" style={{ textDecoration: 'none', fontSize: 13 }}>
-                            Crear mi propio Roadmap
-                        </Link>
-                    </div>
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
+                    <Link href="/" className="btn-primary" style={{ textDecoration: 'none', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        Crear mi propio Roadmap <ExternalLink size={14} />
+                    </Link>
                 </div>
             </header>
 
-            <main>
-                <div className="controls">
-                    <div className="filters">
-                        <input
-                            placeholder="🔍 Buscar..."
-                            style={{ minWidth: 140 }}
-                            value={filters.search}
-                            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                        />
+            <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div className="toolbar" style={{ padding: '12px 24px', borderBottom: '1px solid var(--border-dim)', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+                    <div className="tabs" style={{ display: 'flex', background: 'var(--bg-panel)', padding: 4, borderRadius: 10 }}>
+                        <button onClick={() => setActiveTab('kanban')} className={`tab ${activeTab === 'kanban' ? 'active' : ''}`}>
+                            <LayoutGrid size={16} /> Tablero
+                        </button>
+                        <button onClick={() => setActiveTab('list')} className={`tab ${activeTab === 'list' ? 'active' : ''}`}>
+                            <List size={16} /> Lista
+                        </button>
+                        <button onClick={() => setActiveTab('data')} className={`tab ${activeTab === 'data' ? 'active' : ''}`}>
+                            <BarChart2 size={16} /> Datos
+                        </button>
+                    </div>
+
+                    <div className="filters" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <div style={{ position: 'relative' }}>
+                            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                            <input
+                                placeholder="Buscar..."
+                                style={{ paddingLeft: 32, minWidth: 200 }}
+                                value={filters.search}
+                                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                            />
+                        </div>
                         <select
                             style={{ minWidth: 140 }}
                             value={filters.week}
                             onChange={(e) => setFilters({ ...filters, week: e.target.value })}
                         >
                             <option value="">📅 Semanas</option>
-                            {settings.weeks.map((w) => (
+                            {settings.weeks.map((w: { id: string; name: string }) => (
                                 <option key={w.id} value={w.id}>{w.name}</option>
                             ))}
                         </select>
@@ -143,90 +156,218 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                             onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
                         >
                             <option value="">👤 Todos</option>
-                            {settings.owners.map((o) => (
+                            {settings.owners.map((o: string) => (
                                 <option key={o} value={o}>{o}</option>
                             ))}
                         </select>
                     </div>
                 </div>
 
-                <div className="view-section active">
-                    <div className="kanban-container">
-                        <div className="lanes" style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}>
-                            {statuses.map((st) => {
-                                const colTasks = filteredTasks.filter((t) => t.status === st.id);
-                                return (
-                                    <div key={st.id} className="lane" style={{ minWidth: 320, display: 'flex', flexDirection: 'column', borderTop: `3px solid ${st.color}` }}>
-                                        <div className="lane-head">
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{st.name}</span>
-                                                <span className="counter-badge">{colTasks.length}</span>
+                <div className="view-container" style={{ flex: 1, overflow: 'hidden', padding: activeTab === 'data' ? '0' : '24px' }}>
+                    {activeTab === 'kanban' && (
+                        <div className="kanban-view" style={{ height: '100%', overflowX: 'auto' }}>
+                            <div style={{ display: 'flex', gap: 24, height: '100%', paddingBottom: 20 }}>
+                                {statuses.map((st: StatusColumn) => {
+                                    const colTasks = filteredTasks.filter((t: Task) => t.status === st.id);
+                                    return (
+                                        <div key={st.id} className="lane" style={{ minWidth: 320, display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', borderRadius: 16, border: '1px solid var(--border-dim)', borderTop: `4px solid ${st.color}`, padding: 16 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)', textTransform: 'uppercase' }}>{st.name}</span>
+                                                    <span className="counter-badge" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-dim)' }}>{colTasks.length}</span>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingRight: 4 }}>
+                                                {colTasks.length === 0 ? (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 100, opacity: 0.4, border: '1px dashed var(--border-dim)', borderRadius: 12 }}>
+                                                        <span style={{ fontSize: 13 }}>Sin tareas</span>
+                                                    </div>
+                                                ) : (
+                                                    colTasks.map((t: Task) => (
+                                                        <div key={t.id} className={`kanban-card p-${t.prio || "med"}`} style={{ cursor: 'default' }}>
+                                                            <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 15, lineHeight: 1.4, color: 'var(--text-main)' }}>
+                                                                {t.name}
+                                                            </div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                                    <span className="chip" style={{ fontSize: 10 }}>{t.week}</span>
+                                                                    {t.gate && <span className="chip gate" style={{ fontSize: 10 }}>⛩️ {t.gate}</span>}
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.8 }}>
+                                                                    <div title={`Responsable: ${t.owner}`} style={{ fontSize: 14, cursor: 'help' }}>👤</div>
+                                                                    {t.prio === 'high' && <span>🔴</span>}
+                                                                    {t.prio === 'med' && <span>🟡</span>}
+                                                                    {t.prio === 'low' && <span>🟢</span>}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
-
-                                        <div className="lane-content" style={{ flex: 1, paddingRight: 6, paddingBottom: 20 }}>
-                                            {colTasks.length === 0 ? (
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 100, opacity: 0.4 }}>
-                                                    <span style={{ fontSize: 13 }}>Sin tareas</span>
-                                                </div>
-                                            ) : (
-                                                colTasks.map((t) => (
-                                                    <div key={t.id} className={`kanban-card p-${t.prio || "med"}`} style={{ marginBottom: 12 }}>
-                                                        <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 15, lineHeight: 1.4, color: 'var(--text-main)' }}>
-                                                            {t.name}
-                                                        </div>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                                                <span className="chip" style={{ fontSize: 10, padding: '2px 8px' }}>{t.week}</span>
-                                                                {t.gate && <span className="chip gate" style={{ fontSize: 10, padding: '2px 8px' }}>⛩️ {t.gate}</span>}
-                                                            </div>
-                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.8 }}>
-                                                                <div title={`Responsable: ${t.owner}`} style={{ fontSize: 14, cursor: 'help' }}>👤</div>
-                                                                {t.prio === 'high' && <span>🔴</span>}
-                                                                {t.prio === 'med' && <span>🟡</span>}
-                                                                {t.prio === 'low' && <span>🟢</span>}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {activeTab === 'list' && (
+                        <div style={{ background: 'var(--bg-card)', borderRadius: 16, border: '1px solid var(--border-dim)', overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <thead style={{ background: 'var(--bg-panel)', borderBottom: '1px solid var(--border-dim)' }}>
+                                    <tr>
+                                        <th style={{ padding: '16px 24px', fontSize: 13, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Tarea</th>
+                                        <th style={{ padding: '16px', fontSize: 13, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Semana</th>
+                                        <th style={{ padding: '16px', fontSize: 13, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Responsable</th>
+                                        <th style={{ padding: '16px', fontSize: 13, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Estado</th>
+                                        <th style={{ padding: '16px', fontSize: 13, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Prioridad</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredTasks.map((t: Task) => (
+                                        <tr key={t.id} style={{ borderBottom: '1px solid var(--border-dim)', transition: 'background 0.2s' }}>
+                                            <td style={{ padding: '16px 24px' }}>
+                                                <div style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</div>
+                                                {t.gate && <span className="chip gate" style={{ fontSize: 10, marginTop: 4, display: 'inline-flex' }}>⛩️ {t.gate}</span>}
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <span className="chip" style={{ fontSize: 11 }}>{t.week}</span>
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                                                    <span style={{ fontSize: 16 }}>👤</span> {t.owner}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <span style={{ padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: statuses.find((s: StatusColumn) => s.id === t.status)?.color + '20', color: statuses.find((s: StatusColumn) => s.id === t.status)?.color }}>
+                                                    {statuses.find((s: StatusColumn) => s.id === t.status)?.name}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                                                    {t.prio === 'high' && <span>🔴 Alta</span>}
+                                                    {t.prio === 'med' && <span>🟡 Media</span>}
+                                                    {t.prio === 'low' && <span>🟢 Baja</span>}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {filteredTasks.length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                                                No se encontraron tareas con los filtros aplicados.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {activeTab === 'data' && (
+                        <div style={{ padding: 32, maxWidth: 1000, margin: '0 auto' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
+                                <div className="glass-panel" style={{ padding: 24 }}>
+                                    <h3 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: 700 }}>Distribución por Estado</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                        {statuses.map((st: StatusColumn) => {
+                                            const count = tasks.filter((t: Task) => t.status === st.id).length;
+                                            const pct = tasks.length ? (count / tasks.length) * 100 : 0;
+                                            return (
+                                                <div key={st.id}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
+                                                        <span>{st.name}</span>
+                                                        <span>{count}</span>
+                                                    </div>
+                                                    <div style={{ height: 8, background: 'var(--bg-panel)', borderRadius: 4, overflow: 'hidden' }}>
+                                                        <div style={{ height: '100%', width: `${pct}%`, background: st.color }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="glass-panel" style={{ padding: 24 }}>
+                                    <h3 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: 700 }}>Prioridades</h3>
+                                    <div style={{ display: 'flex', gap: 20, alignItems: 'center', justifyContent: 'space-around', height: '100%' }}>
+                                        {[
+                                            { label: 'Alta', key: 'high', color: '#ef4444', emoji: '🔴' },
+                                            { label: 'Media', key: 'med', color: '#f59e0b', emoji: '🟡' },
+                                            { label: 'Baja', key: 'low', color: '#10b981', emoji: '🟢' }
+                                        ].map(p => {
+                                            const count = tasks.filter((t: Task) => t.prio === p.key).length;
+                                            return (
+                                                <div key={p.key} style={{ textAlign: 'center' }}>
+                                                    <div style={{ fontSize: 24, marginBottom: 8 }}>{p.emoji}</div>
+                                                    <div style={{ fontSize: 24, fontWeight: 800 }}>{count}</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 600 }}>{p.label}</div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="glass-panel" style={{ marginTop: 24, padding: 24 }}>
+                                <h3 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: 700 }}>Resumen por Responsable</h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                                    {settings.owners.map((owner: string) => {
+                                        const count = tasks.filter((t: Task) => t.owner === owner).length;
+                                        const done = tasks.filter((t: Task) => t.owner === owner && t.status === 'done').length;
+                                        const pct = count ? Math.round((done / count) * 100) : 0;
+                                        return (
+                                            <div key={owner} style={{ padding: 16, background: 'var(--bg-panel)', borderRadius: 12, border: '1px solid var(--border-dim)' }}>
+                                                <div style={{ fontWeight: 700, marginBottom: 4 }}>{owner}</div>
+                                                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>{count} tareas asignadas</div>
+                                                <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>Progreso</span>
+                                                    <span>{pct}%</span>
+                                                </div>
+                                                <div style={{ height: 4, background: 'var(--bg-card)', borderRadius: 2, overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', width: `${pct}%`, background: 'var(--primary)' }} />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </main>
+
             <style jsx>{`
-                header { height: 70px; background: var(--bg-card); border-bottom: 1px solid var(--border-dim); position: fixed; top: 0; left: 0; right: 0; z-index: 50; }
-                main { margin-top: 70px; height: calc(100vh - 70px); display: flex; flexDirection: column; }
-                .controls { padding: 12px 24px; border-bottom: 1px solid var(--border-dim); background: var(--bg-main); display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-                .filters { display: flex; gap: 12px; align-items: center; }
-                .top-bar input, .top-bar select, .controls input, .controls select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-dim); background: var(--bg-panel); color: var(--text-main); font-size: 13px; outline: none; transition: all 0.2s; }
-                .top-bar input:focus, .top-bar select:focus, .controls input:focus, .controls select:focus { border-color: var(--primary); background: var(--bg-card); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
-                .view-section { flex: 1; overflow: hidden; position: relative; display: flex; flexDirection: column; }
-                .kanban-container { flex: 1; overflow-x: auto; padding: 20px 24px; height: 100%; }
-                .lanes { gap: 24px; padding-bottom: 20px; }
-                .lane { background: var(--bg-panel); border-radius: 12px; padding: 12px; height: 100%; max-height: 100%; overflow: hidden; transition: background 0.2s; border: 1px solid var(--border-dim); }
-                .lane:hover { background: var(--panel-hover); }
-                .lane-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 0 4px; min-height: 28px; }
-                .kanban-card { background: var(--bg-card); padding: 16px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); border: 1px solid var(--border-dim); cursor: default; transition: transform 0.2s, box-shadow 0.2s; position: relative; overflow: hidden; }
+                .tab { display: flex; align-items: center; gap: 8px; padding: 6px 16px; font-size: 13px; font-weight: 600; color: var(--text-dim); cursor: pointer; border-radius: 8px; border: none; background: transparent; transition: all 0.2s; }
+                .tab:hover { color: var(--text-main); }
+                .tab.active { background: var(--bg-card); color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+                
+                input, select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-dim); background: var(--bg-panel); color: var(--text-main); font-size: 13px; outline: none; transition: all 0.2s; }
+                input:focus, select:focus { border-color: var(--primary); background: var(--bg-card); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+                
+                .counter-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; color: var(--text-dim); }
+                
+                .chip { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 4px; color: var(--text-dim); font-weight: 700; display: inline-flex; align-items: center; padding: 2px 8px; }
+                .chip.gate { background: rgba(16, 185, 129, 0.1); color: #059669; border-color: rgba(16, 185, 129, 0.2); }
+                
+                .kanban-card { background: var(--bg-card); padding: 16px; border-radius: 12px; border: 1px solid var(--border-dim); box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: relative; overflow: hidden; transition: all 0.2s; }
                 .kanban-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); border-color: var(--primary); }
-                .kanban-card.p-high { border-left: 3px solid #ef4444; }
-                .kanban-card.p-med { border-left: 3px solid #f59e0b; }
-                .kanban-card.p-low { border-left: 3px solid #10b981; }
-                .chip { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 4px; color: var(--text-dim); font-weight: 500; display: inline-flex; align-items: center; }
-                .chip.gate { background: rgba(5, 150, 105, 0.1); color: #059669; border-color: rgba(5, 150, 105, 0.2); }
-                .app-title { font-size: 18px; font-weight: 700; margin: 0; color: var(--text-main); letter-spacing: -0.5px; }
-                .app-sub { font-size: 10px; font-weight: 700; color: var(--text-dim); margin: 0; letter-spacing: 1px; }
-                .counter-badge { background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: var(--text-dim); }
-                .counter-badge.warning { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-                .dark .lane { background: #1e293b; border-color: #334155; }
-                .dark .kanban-card { background: #0f172a; border-color: #334155; }
-                .dark .chip { background: #334155; border-color: #475569; }
-                .dark .chip.gate { background: rgba(5, 150, 105, 0.2); color: #34d399; }
+                .kanban-card.p-high { border-left: 4px solid #ef4444; }
+                .kanban-card.p-med { border-left: 4px solid #f59e0b; }
+                .kanban-card.p-low { border-left: 4px solid #10b981; }
+
+                .lane::-webkit-scrollbar { width: 4px; }
+                .lane::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
+                .dark .lane::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); }
+
+                @media (max-width: 768px) {
+                    .toolbar { flex-direction: column; align-items: stretch; }
+                    .filters { flex-wrap: wrap; }
+                    .filters > div, .filters select { flex: 1; min-width: 120px; }
+                }
             `}</style>
         </div>
     );
 }
+
