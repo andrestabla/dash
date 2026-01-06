@@ -60,7 +60,10 @@ export default function Workspace() {
     // Confirm Modal
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
+    const [confirmTitle, setConfirmTitle] = useState("");
     const [confirmMsg, setConfirmMsg] = useState("");
+    const [confirmActionText, setConfirmActionText] = useState("Confirmar");
+    const [isDestructive, setIsDestructive] = useState(false);
 
     // Wizard State (Dashboard)
     const [wizName, setWizName] = useState("");
@@ -234,12 +237,15 @@ export default function Workspace() {
 
     const deleteDash = (e: React.MouseEvent, id: string) => {
         e.preventDefault(); e.stopPropagation();
+        setConfirmTitle("Eliminar Proyecto");
         setConfirmMsg("¿Estás seguro de que quieres eliminar este tablero y todas sus tareas? Esta acción es irreversible.");
+        setConfirmActionText("Eliminar Definitivamente");
+        setIsDestructive(true);
         setConfirmCallback(() => async () => {
-            await fetch('/api/dashboards?id=' + id, { method: 'DELETE' });
+            await fetch(`/api/dashboards?id=${id}`, { method: 'DELETE' });
             setDashboards(dashboards.filter(d => d.id !== id));
+            showToast("Tablero eliminado", "success");
             setConfirmOpen(false);
-            showToast("Tablero eliminado", "info");
         });
         setConfirmOpen(true);
     };
@@ -340,6 +346,15 @@ export default function Workspace() {
         router.refresh();
     };
 
+    const confirmLogout = () => {
+        setConfirmTitle("Cerrar Sesión");
+        setConfirmMsg("¿Estás seguro de que quieres salir?");
+        setConfirmActionText("Cerrar Sesión");
+        setIsDestructive(false);
+        setConfirmCallback(() => handleLogout);
+        setConfirmOpen(true);
+    };
+
     return (
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
             {/* HEADER & NAV */}
@@ -387,7 +402,7 @@ export default function Workspace() {
                     <Link href="/profile">
                         <button className="btn-ghost" title="Mi Perfil"><User size={20} /></button>
                     </Link>
-                    <button className="btn-ghost" onClick={() => setShowLogout(true)} title="Cerrar Sesión"><LogOut size={20} /></button>
+                    <button className="btn-ghost" onClick={confirmLogout} title="Cerrar Sesión"><LogOut size={20} /></button>
                 </div>
             </header>
 
@@ -470,11 +485,13 @@ export default function Workspace() {
             {/* 1. NEW/EDIT FOLDER */}
             {isCreatingFolder && (
                 <div className="backdrop">
-                    <div className="glass-panel animate-slide-up" style={{ padding: 24, width: '100%', maxWidth: 400 }}>
-                        <h3 style={{ marginTop: 0 }}>{editingFolder ? 'Editar Carpeta' : 'Nueva Carpeta'}</h3>
-                        <label style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>Nombre</label>
-                        <input className="input-glass" value={folderName} onChange={e => setFolderName(e.target.value)} autoFocus placeholder="Ej: Q1 Marketing" />
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+                    <div className="glass-panel animate-slide-up" style={{ padding: 32, width: '100%', maxWidth: 420, textAlign: 'center' }}>
+                        <h3 style={{ marginTop: 0, fontSize: 20 }}>{editingFolder ? 'Editar Carpeta' : 'Nueva Carpeta'}</h3>
+                        <div style={{ textAlign: 'left', marginTop: 24, marginBottom: 24 }}>
+                            <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-dim)', textAlign: 'center' }}>NOMBRE DE LA CARPETA</label>
+                            <input className="input-glass" value={folderName} onChange={e => setFolderName(e.target.value)} autoFocus placeholder="Ej: Q1 Marketing" style={{ textAlign: 'center', fontSize: 16 }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
                             <button className="btn-ghost" onClick={closeFolderModal}>Cancelar</button>
                             <button className="btn-primary" onClick={saveFolder}>Guardar</button>
                         </div>
@@ -639,12 +656,12 @@ export default function Workspace() {
             {/* CONFIRM MODAL */}
             <ConfirmModal
                 isOpen={confirmOpen}
-                title="Eliminar Proyecto"
-                message="¿Estás seguro de que quieres eliminar este tablero y todas sus tareas? Esta acción es irreversible."
+                title={confirmTitle}
+                message={confirmMsg}
                 onConfirm={confirmCallback || (() => { })}
                 onCancel={() => setConfirmOpen(false)}
-                isDestructive={true}
-                confirmText="Eliminar Definitivamente"
+                isDestructive={isDestructive}
+                confirmText={confirmActionText}
             />
         </div>
     );
