@@ -4,11 +4,14 @@ import { useState, useEffect } from "react";
 import Link from 'next/link';
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
-import { Users, UserPlus, Trash2, Shield, ArrowLeft } from "lucide-react";
+import EditUserModal from "@/components/admin/EditUserModal";
+import UserLogsModal from "@/components/admin/UserLogsModal";
+import { Users, UserPlus, Trash2, Shield, ArrowLeft, Edit2, History } from "lucide-react";
 
 interface User {
     id: string;
     email: string;
+    name?: string;
     role: string;
     created_at: string;
 }
@@ -16,6 +19,7 @@ interface User {
 export default function AdminUsersPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [newEmail, setNewEmail] = useState("");
+    const [newName, setNewName] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [newRole, setNewRole] = useState("user");
     const [sendCredentials, setSendCredentials] = useState(true);
@@ -24,6 +28,10 @@ export default function AdminUsersPage() {
     const { showToast } = useToast();
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
+
+    // Modal states
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [viewingLogsUser, setViewingLogsUser] = useState<User | null>(null);
 
     useEffect(() => {
         fetchUsers();
@@ -41,12 +49,13 @@ export default function AdminUsersPage() {
         const res = await fetch("/api/admin/users", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: newEmail, password: newPassword, role: newRole, sendEmail: sendCredentials }),
+            body: JSON.stringify({ email: newEmail, name: newName, password: newPassword, role: newRole, sendEmail: sendCredentials }),
         });
 
         if (res.ok) {
             setIsCreating(false);
             setNewEmail("");
+            setNewName("");
             setNewPassword("");
             fetchUsers();
             showToast("Usuario creado", "success");
@@ -68,7 +77,7 @@ export default function AdminUsersPage() {
     };
 
     return (
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 20px" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 20px" }}>
             <header style={{ marginBottom: 30, paddingBottom: 20, borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -84,7 +93,11 @@ export default function AdminUsersPage() {
             {isCreating && (
                 <div style={{ background: "var(--bg-panel)", padding: 20, borderRadius: 12, marginBottom: 30, border: "1px solid var(--border-dim)" }}>
                     <h3 style={{ marginTop: 0 }}>Crear Usuario</h3>
-                    <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
+                    <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
+                        <div>
+                            <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Nombre</label>
+                            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Opcional" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border-dim)" }} />
+                        </div>
                         <div>
                             <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Email</label>
                             <input value={newEmail} onChange={e => setNewEmail(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border-dim)" }} />
@@ -122,7 +135,8 @@ export default function AdminUsersPage() {
                 <table className="data-table">
                     <thead>
                         <tr>
-                            <th style={{ padding: '16px 24px' }}>Email</th>
+                            <th style={{ padding: '16px 24px' }}>Usuario</th>
+                            <th>Email</th>
                             <th>Rol</th>
                             <th>Creado</th>
                             <th style={{ textAlign: "right", paddingRight: 24 }}>Acciones</th>
@@ -131,7 +145,10 @@ export default function AdminUsersPage() {
                     <tbody>
                         {users.map(u => (
                             <tr key={u.id} style={{ borderBottom: '1px solid var(--border-dim)' }}>
-                                <td style={{ padding: '16px 24px', fontWeight: 500 }}>{u.email}</td>
+                                <td style={{ padding: '16px 24px', fontWeight: 500 }}>
+                                    {u.name || <span style={{ color: "var(--text-dim)", fontStyle: "italic" }}>Sin nombre</span>}
+                                </td>
+                                <td>{u.email}</td>
                                 <td>
                                     <span style={{
                                         padding: "4px 10px",
@@ -147,15 +164,37 @@ export default function AdminUsersPage() {
                                 </td>
                                 <td style={{ fontSize: 13, color: "var(--text-dim)" }}>{new Date(u.created_at).toLocaleDateString()}</td>
                                 <td style={{ textAlign: "right", paddingRight: 24 }}>
-                                    <button className="btn-ghost" style={{ color: "#ef4444", padding: 8 }} onClick={() => requestDelete(u.id)} title="Eliminar Usuario">
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 4 }}>
+                                        <button className="btn-ghost" style={{ padding: 8 }} onClick={() => setViewingLogsUser(u)} title="Ver Logs">
+                                            <History size={16} />
+                                        </button>
+                                        <button className="btn-ghost" style={{ padding: 8 }} onClick={() => setEditingUser(u)} title="Editar Usuario">
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button className="btn-ghost" style={{ color: "#ef4444", padding: 8 }} onClick={() => requestDelete(u.id)} title="Eliminar Usuario">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+
+            <EditUserModal
+                isOpen={!!editingUser}
+                user={editingUser}
+                onClose={() => setEditingUser(null)}
+                onSave={fetchUsers}
+            />
+
+            <UserLogsModal
+                isOpen={!!viewingLogsUser}
+                userId={viewingLogsUser?.id || null}
+                userName={viewingLogsUser?.name || viewingLogsUser?.email || ""}
+                onClose={() => setViewingLogsUser(null)}
+            />
 
             <ConfirmModal
                 isOpen={confirmOpen}
