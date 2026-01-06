@@ -27,6 +27,7 @@ interface StatusColumn {
     id: string;
     name: string;
     color: string;
+    percentage?: number;
 }
 
 interface BoardSettings {
@@ -40,10 +41,10 @@ interface BoardSettings {
 }
 
 const DEFAULT_STATUSES: StatusColumn[] = [
-    { id: "todo", name: "Por hacer", color: "#64748b" },
-    { id: "doing", name: "En proceso", color: "#3b82f6" },
-    { id: "review", name: "Revisión", color: "#f59e0b" },
-    { id: "done", name: "Hecho", color: "#10b981" },
+    { id: "todo", name: "Por hacer", color: "#64748b", percentage: 0 },
+    { id: "doing", name: "En proceso", color: "#3b82f6", percentage: 50 },
+    { id: "review", name: "Revisión", color: "#f59e0b", percentage: 80 },
+    { id: "done", name: "Hecho", color: "#10b981", percentage: 100 },
 ];
 
 export default function BoardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -267,6 +268,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [isColModalOpen, setIsColModalOpen] = useState(false);
     const [newColName, setNewColName] = useState("");
     const [newColColor, setNewColColor] = useState("#64748b");
+    const [newColPercent, setNewColPercent] = useState<number>(0);
 
     // Dashboard Settings
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -280,22 +282,37 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         types: ""
     });
 
+    // Temp statuses for settings modal
+    const [tempStatuses, setTempStatuses] = useState<StatusColumn[]>([]);
+
     const openSettings = () => {
         if (!settings) return;
         setEditSettings({
             name: dashboardName,
-            description: "", // We need to fetch/store description in BoardSettings if we want to edit it properly, currently simpler to keep blank or read from somewhere else
+            description: "",
             icon: settings.icon || "🚀",
             weekCount: settings.weeks.length,
             owners: settings.owners.join(", "),
             gates: settings.gates.join(", "),
             types: settings.types.join(", ")
         });
+        setTempStatuses(settings.statuses || []);
         setIsSettingsOpen(true);
+    };
+
+    const handleTempStatusChange = (id: string, field: 'name' | 'percentage', value: any) => {
+        setTempStatuses(prev => prev.map(s => {
+            if (s.id === id) {
+                return { ...s, [field]: field === 'percentage' ? Number(value) : value };
+            }
+            return s;
+        }));
     };
 
     const saveDashboardSettings = async () => {
         if (!editSettings.name.trim()) return showToast("El nombre es requerido", "error");
+
+        // Validated logic: Weighted progress relies on 0-100% scale per column, not a sum of 100.
 
         // Reconstruct Weeks
         const weeks = Array.from({ length: editSettings.weekCount }, (_, i) => ({
@@ -305,17 +322,18 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
         const newSettingsData: BoardSettings = {
             ...settings!,
-            weeks: weeks, // Note: This resets week names to default "Semana X" if they were custom. For now this is acceptable behavior for "Change Duration".
+            weeks: weeks,
             owners: editSettings.owners.split(",").map(s => s.trim()).filter(Boolean),
             gates: editSettings.gates.split(",").map(s => s.trim()).filter(Boolean),
             types: editSettings.types.split(",").map(s => s.trim()).filter(Boolean),
-            icon: editSettings.icon
+            icon: editSettings.icon,
+            statuses: tempStatuses
         };
 
         const body = {
             id: dashboardId,
             name: editSettings.name,
-            description: editSettings.description, // We will update the top level description
+            description: editSettings.description,
             settings: newSettingsData
         };
 
@@ -379,8 +397,6 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             .catch(err => console.error("Failed to load users", err));
 
     }, [dashboardId]);
-
-
 
     if (accessDenied) {
         return (
@@ -561,6 +577,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         setEditingColId(null);
         setNewColName("");
         setNewColColor("#64748b");
+        setNewColPercent(0);
         setIsColModalOpen(true);
     };
 
@@ -568,6 +585,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         setEditingColId(col.id);
         setNewColName(col.name);
         setNewColColor(col.color);
+        setNewColPercent(col.percentage || 0);
         setIsColModalOpen(true);
     };
 
@@ -580,13 +598,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             // Edit existing
             newStatuses = statuses.map(s =>
                 s.id === editingColId
-                    ? { ...s, name: newColName, color: newColColor }
+                    ? { ...s, name: newColName, color: newColColor, percentage: newColPercent }
                     : s
             );
         } else {
             // Add new
             const newColId = newColName.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now().toString().slice(-4);
-            newStatuses = [...statuses, { id: newColId, name: newColName, color: newColColor }];
+            newStatuses = [...statuses, { id: newColId, name: newColName, color: newColColor, percentage: newColPercent }];
         }
 
         const newSettings = { ...settings, statuses: newStatuses };
@@ -672,10 +690,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     fontSize: 12,
                                     fontWeight: 700
                                 }}>
-                                    {tasks.length > 0 ? Math.round((tasks.filter(t => {
-                                        const finalStatus = statuses[statuses.length - 1]?.id || 'done';
-                                        return t.status === finalStatus;
-                                    }).length / tasks.length) * 100) : 0}% Completado
+                                    {tasks.length > 0 ? Math.round(tasks.reduce((acc, t) => {
+                                        const st = statuses.find(s => s.id === t.status);
+                                        return acc + (st?.percentage || 0);
+                                    }, 0) / tasks.length) : 0}% Completado
                                 </div>
                             </div>
                             <p className="app-sub">TABLERO DE TRABAJO</p>
@@ -1071,6 +1089,26 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                             <div key={c} onClick={() => setNewColColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: newColColor === c ? '0 0 0 2px var(--panel), 0 0 0 4px ' + c : 'none' }}></div>
                                         ))}
                                     </div>
+                                    <div style={{ display: 'flex', gap: 10 }}>
+                                        {["#3b82f6", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6"].map(c => (
+                                            <div key={c} onClick={() => setNewColColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: newColColor === c ? '0 0 0 2px var(--panel), 0 0 0 4px ' + c : 'none' }}></div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Porcentaje de Progreso ({newColPercent}%)</label>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        step="5"
+                                        value={newColPercent}
+                                        onChange={e => setNewColPercent(Number(e.target.value))}
+                                        style={{ width: '100%' }}
+                                    />
+                                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                                        Define cuánto progreso representa una tarea en esta columna.
+                                    </div>
                                 </div>
                             </div>
                             <div className="modal-footer">
@@ -1307,14 +1345,24 @@ function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings:
     // ... (logic reused from previous impl)
     const totalTasks = tasks.length;
     const endStatusId = statuses[statuses.length - 1].id;
-    const completedTasks = tasks.filter(t => t.status === endStatusId).length;
-    const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+    const completedTasks = tasks.filter(t => t.status === endStatusId).length; // Keep for simple count
+    const progress = totalTasks === 0 ? 0 : Math.round(tasks.reduce((acc, t) => {
+        const st = statuses.find(s => s.id === t.status);
+        return acc + (st?.percentage || 0);
+    }, 0) / totalTasks);
 
     const weeklyData = settings.weeks.map(w => {
         const weekTasks = tasks.filter(t => t.week === w.id);
         const done = weekTasks.filter(t => t.status === endStatusId).length;
         const total = weekTasks.length;
-        return { name: w.name.split(' · ')[0], total, done, percent: total === 0 ? 0 : (done / total) * 100 };
+        // Weighted percent for the week
+        const weightedSum = weekTasks.reduce((acc, t) => {
+            const st = statuses.find(s => s.id === t.status);
+            return acc + (st?.percentage || 0);
+        }, 0);
+        const percent = total === 0 ? 0 : Math.round(weightedSum / total);
+
+        return { name: w.name.split(' · ')[0], total, done, percent };
     });
 
     const workloadData = settings.owners.map(o => {

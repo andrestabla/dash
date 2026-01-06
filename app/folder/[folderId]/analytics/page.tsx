@@ -245,19 +245,60 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
         setTimeout(() => setCopied(false), 2000);
     };
 
+    // HELPER: Resolve status name and progress from Dashboard Settings
+    const getStatusInfo = (task: any) => {
+        const dashboard = availableDashboards.find(d => String(d.id) === String(task.dashboard_id));
+        if (!dashboard || !dashboard.settings || !dashboard.settings.statuses) {
+            return { name: task.status, progress: isTaskDone(task.status) ? 100 : 0 };
+        }
+
+        const columns = dashboard.settings.statuses;
+        const colIndex = columns.findIndex((c: any) => c.id === task.status);
+
+        if (colIndex === -1) return { name: task.status, progress: isTaskDone(task.status) ? 100 : 0 };
+
+        const col = columns[colIndex];
+        const name = col.name;
+
+        // PROGRESS CALCULATION
+        // Priority 1: Custom Percentage set by user
+        if (typeof col.percentage === 'number') {
+            return { name, progress: col.percentage };
+        }
+
+        // Priority 2: Default Proportional (0% to 100%)
+        // If it's the last column, 100%. If first, 0%. Linear in between.
+        if (columns.length <= 1) return { name, progress: 100 };
+
+        // Linear interpolation: index / (total - 1) * 100
+        const proportional = Math.round((colIndex / (columns.length - 1)) * 100);
+        return { name, progress: proportional };
+    };
+
     // Filter logic
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
-            const matchesDash = filters.dashboardId === 'all' || String(t.dashboard_id) === String(filters.dashboardId);
-            // Exact match if task selected from dropdown, otherwise partial search
-            const matchesSearch = filters.search === '' || t.name === filters.search ||
-                (t.desc && t.desc.toLowerCase().includes(filters.search.toLowerCase()));
-            const matchesStatus = filters.status === 'all' || t.status === filters.status;
-            const matchesOwner = filters.owner === 'all' || t.owner === filters.owner;
-            const matchesType = filters.type === 'all' || t.type === filters.type;
-            return matchesDash && matchesSearch && matchesStatus && matchesOwner && matchesType;
+            // Dashboard Filter
+            if (filters.dashboardId !== 'all' && String(t.dashboard_id) !== String(filters.dashboardId)) return false;
+
+            // Search (Name)
+            if (filters.search && !t.name.toLowerCase().includes(filters.search.toLowerCase())) return false;
+
+            // Status Filter (By Name)
+            if (filters.status !== 'all') {
+                const { name } = getStatusInfo(t);
+                if (name !== filters.status) return false;
+            }
+
+            // Owner
+            if (filters.owner !== 'all' && t.owner !== filters.owner) return false;
+
+            // Type
+            if (filters.type !== 'all' && t.type !== filters.type) return false;
+
+            return true;
         });
-    }, [tasks, filters]);
+    }, [tasks, filters, availableDashboards]);
 
     // CASCADING FILTERS LOGIC
     // 1. Base pool of tasks specific to the selected dashboard (Project)
@@ -291,7 +332,14 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
         return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
     }, [availableDashboards, uniqueDashboards]);
 
-    const uniqueStatuses = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.status).filter(Boolean))], [tasksInSelectedDashboard]);
+    const uniqueStatuses = useMemo(() => {
+        const s = new Set();
+        tasksInSelectedDashboard.forEach(t => {
+            const { name } = getStatusInfo(t);
+            if (name) s.add(name);
+        });
+        return [...s];
+    }, [tasksInSelectedDashboard, availableDashboards]);
     const uniqueOwners = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.owner).filter(Boolean))], [tasksInSelectedDashboard]);
     const uniqueTypes = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.type).filter(Boolean))], [tasksInSelectedDashboard]);
 
@@ -473,7 +521,9 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                     <div className="glass-panel" style={{ padding: 24 }}>
                         <div className="kpi-label">Progreso Global</div>
                         <div className="kpi-value" style={{ color: '#10b981' }}>
-                            {filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => isTaskDone(t.status)).length / filteredTasks.length) * 100) : 0}%
+                            {filteredTasks.length > 0 ? Math.round(
+                                filteredTasks.reduce((acc, t) => acc + getStatusInfo(t).progress, 0) / filteredTasks.length
+                            ) : 0}%
                         </div>
                     </div>
                     <div className="glass-panel" style={{ padding: 24 }}>
@@ -489,7 +539,7 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Estado Consolidado</h3>
                         <div style={{ height: 32, borderRadius: 16, overflow: 'hidden', display: 'flex', marginBottom: 20 }}>
                             {uniqueStatuses.map((s: any) => {
-                                const count = filteredTasks.filter(t => t.status === s).length;
+                                const count = filteredTasks.filter(t => getStatusInfo(t).name === s).length;
                                 const pct = (count / filteredTasks.length) * 100;
                                 const isDone = isTaskDone(s);
                                 const color = isDone ? '#10b981' : '#64748b';
