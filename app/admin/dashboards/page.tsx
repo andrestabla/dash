@@ -119,40 +119,44 @@ export default function AdminDashboardsPage() {
 
             {/* EDIT MODAL */}
             {isEditOpen && (
-                <div className="backdrop fade-in" onClick={() => setIsEditOpen(false)}>
-                    <div className="modal animate-slide-up" onClick={e => e.stopPropagation()} style={{ width: 500 }}>
-                        <div className="m-head">
-                            <h3>Editar Tablero</h3>
+                <div className="backdrop fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="glass-panel animate-slide-up" onClick={e => e.stopPropagation()} style={{ width: 500, padding: 30, maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                            <h3 style={{ margin: 0, fontSize: 20 }}>Editar Tablero</h3>
                             <button className="btn-ghost" onClick={() => setIsEditOpen(false)}>✕</button>
                         </div>
-                        <form onSubmit={handleSave} className="m-body">
-                            <div className="form-row">
-                                <label>Nombre</label>
-                                <input value={editName} onChange={e => setEditName(e.target.value)} required />
+                        <form onSubmit={handleSave}>
+                            <div style={{ marginBottom: 16 }}>
+                                <label style={{ display: 'block', marginBottom: 6, fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Nombre</label>
+                                <input className="input-glass" value={editName} onChange={e => setEditName(e.target.value)} required style={{ width: '100%' }} />
                             </div>
-                            <div className="form-row">
-                                <label>Descripción</label>
-                                <input value={editDesc} onChange={e => setEditDesc(e.target.value)} />
+                            <div style={{ marginBottom: 16 }}>
+                                <label style={{ display: 'block', marginBottom: 6, fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Descripción</label>
+                                <textarea className="input-glass" value={editDesc} onChange={e => setEditDesc(e.target.value)} style={{ width: '100%', minHeight: 80, resize: 'vertical' }} />
                             </div>
 
-                            <div className="form-row">
-                                <label>Asignar Colaboradores (Usuarios Registrados)</label>
-                                <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid var(--border-dim)', borderRadius: 8, padding: 8 }}>
+                            <div style={{ marginBottom: 20 }}>
+                                <label style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Asignar Colaboradores (Usuarios Registrados)</label>
+                                <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 12, padding: 8, background: 'rgba(0,0,0,0.2)' }}>
+                                    {users.length === 0 && <p style={{ padding: 10, color: 'var(--text-dim)', fontSize: 13, textAlign: 'center' }}>No hay usuarios para asignar.</p>}
                                     {users.map(u => (
-                                        <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                                        <div key={u.id} className="hover-lift" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', transition: 'background 0.2s' }} onClick={() => toggleOwner(u.email)}>
                                             <input
                                                 type="checkbox"
                                                 checked={editOwners.includes(u.email)}
-                                                onChange={() => toggleOwner(u.email)}
-                                                style={{ cursor: 'pointer' }}
+                                                onChange={() => { }} // Handled by parent div
+                                                style={{ cursor: 'pointer', transform: 'scale(1.1)' }}
                                             />
-                                            <span style={{ fontSize: 13 }}>{u.email}</span>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: 14, fontWeight: 500 }}>{u.name || u.email.split('@')[0]}</span>
+                                                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{u.email}</span>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            <div className="form-row" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 15, background: 'rgba(59, 130, 246, 0.1)', padding: 10, borderRadius: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, padding: 12, background: 'rgba(59, 130, 246, 0.1)', borderRadius: 8, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                                 <input
                                     type="checkbox"
                                     id="invite"
@@ -160,10 +164,10 @@ export default function AdminDashboardsPage() {
                                     onChange={e => setSendInvite(e.target.checked)}
                                     style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
                                 />
-                                <label htmlFor="invite" style={{ color: '#3b82f6', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Enviar notificación de invitación por correo</label>
+                                <label htmlFor="invite" style={{ color: '#60a5fa', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Enviar notificación de invitación por correo</label>
                             </div>
 
-                            <div className="m-foot">
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
                                 <button type="button" className="btn-ghost" onClick={() => setIsEditOpen(false)}>Cancelar</button>
                                 <button type="submit" className="btn-primary">Guardar Cambios</button>
                             </div>
