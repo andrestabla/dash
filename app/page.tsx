@@ -21,7 +21,8 @@ import {
   PieChart,
   Layers,
   HelpCircle,
-  MessageSquare
+  MessageSquare,
+  ZapOff
 } from "lucide-react";
 
 export default function LandingPage() {
