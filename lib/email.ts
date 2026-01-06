@@ -30,8 +30,43 @@ export async function sendEmail(to: string, subject: string, html: string) {
     });
 
     try {
+        // SAFE SENDER LOGIC:
+        // Office 365 and others reject emails where 'from' != 'auth.user'.
+        // We allow the user to set a custom "From Name", but we MUST use the auth email.
+
+        let fromAddress = config.smtp_user; // Default
+
+        if (config.smtp_from) {
+            // Check if user entered "Name <email>" or just "Email" or just "Name"
+            // We only care about the NAME part. The email MUST be config.smtp_user.
+
+            let fromName = config.smtp_from;
+
+            // Simple check: if it looks like an email "foo@bar.com", we assume they wanted that name? 
+            // Or if they typed "My App <foo@bar.com>", we extract "My App".
+
+            if (fromName.includes('<')) {
+                // Extract name from "Name <email>"
+                fromName = fromName.split('<')[0].trim();
+                // Remove quotes if present
+                fromName = fromName.replace(/^"|"$/g, '');
+            } else if (fromName.includes('@')) {
+                // If they just put "foo@bar.com", we might want to use that as the name, 
+                // OR ideally, we only want a friendly name. 
+                // Let's assume whatever they put is the "Name" they want shown, 
+                // unless it is literally the auth user email to avoid redundancy.
+                if (fromName === config.smtp_user) {
+                    fromName = ''; // Use default
+                }
+            }
+
+            if (fromName) {
+                fromAddress = `"${fromName}" <${config.smtp_user}>`;
+            }
+        }
+
         await transporter.sendMail({
-            from: config.smtp_from || config.smtp_user,
+            from: fromAddress,
             to,
             subject,
             html,
