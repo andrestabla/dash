@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         );
 
         // 4. Fetch admin emails for notification
-        const admins = await client.query('SELECT email FROM users WHERE role = "admin"');
+        const admins = await client.query("SELECT email FROM users WHERE role = 'admin'");
 
         client.release();
 
