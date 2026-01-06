@@ -467,3 +467,54 @@ select.input-glass option:checked {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 }
+
+/* --- MOBILE & RESPONSIVE --- */
+@media (max-width: 768px) {
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Modals */
+  .modal-container {
+    width: 95% !important;
+    max-height: 90vh !important;
+    margin: 10px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-header,
+  .modal-footer {
+    padding: 16px;
+  }
+
+  /* Inputs */
+  .input-glass {
+    font-size: 16px;
+    /* Prevent iOS zoom */
+    padding: 10px 12px;
+  }
+
+  /* Buttons */
+  .btn-primary,
+  .btn-ghost {
+    padding: 10px 16px;
+    font-size: 14px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Data Tables */
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 12px;
+  }
+}

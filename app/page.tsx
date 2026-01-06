@@ -956,6 +956,43 @@ export default function Workspace() {
             />
 
             <style jsx>{`
+                /* DASHBOARD GRID ADAPTIVE */
+                .dashboard-grid { 
+                    display: grid; 
+                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+                    gap: 20px; 
+                    padding: 10px 0;
+                }
+                
+                .dash-card { 
+                    background: var(--bg-panel); 
+                    border-radius: 12px; 
+                    padding: 20px; 
+                    border: 1px solid var(--border-dim); 
+                    transition: all 0.2s; 
+                    cursor: pointer; 
+                    display: flex; 
+                    flex-direction: column; 
+                    justify-content: space-between; 
+                    height: 180px; 
+                    position: relative;
+                }
+
+                @media (max-width: 768px) {
+                    header { height: auto !important; padding: 16px !important; }
+                    .top-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
+                    .user-area { width: 100%; justify-content: space-between; }
+                    .filters { overflow-x: auto; padding-bottom: 4px; width: 100%; }
+                    .view-toggle { display: none; } /* Hide view toggle on mobile if complex */
+                    
+                    /* Adjust Grid for Mobile */
+                    .dashboard-grid { grid-template-columns: 1fr; }
+                    
+                    /* Controls Stack */
+                    .folder-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+                    .folder-actions { width: 100%; justify-content: space-between; }
+                    .folder-actions button { flex: 1; }
+                }
                 .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px; }
                 .kpi-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim); text-align: center; }
                 .kpi-value { font-size: 32px; font-weight: 800; margin: 8px 0; }

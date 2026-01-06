@@ -942,8 +942,6 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                         <span style={{
                                                             background: statuses.find(s => s.id === t.status)?.color || '#64748b',
                                                             color: 'white',
-                                                            padding: '2px 8px',
-                                                            borderRadius: 4,
                                                             fontSize: 10,
                                                             fontWeight: 600,
                                                             marginRight: 8
