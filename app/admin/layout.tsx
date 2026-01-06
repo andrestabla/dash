@@ -40,7 +40,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* SIDEBAR */}
             <aside className={`glass-panel admin-sidebar ${isMobileOpen ? 'open' : ''}`}>
                 <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-main)' }}>
+                    <Link href="/workspace" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-main)' }}>
                         <ArrowLeft size={20} />
                         <div>
                             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-dim)' }}>Regresar a</div>

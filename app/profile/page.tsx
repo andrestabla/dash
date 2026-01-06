@@ -53,7 +53,7 @@ export default function ProfilePage() {
 
     return (
         <div style={{ maxWidth: 600, margin: '60px auto', padding: '0 20px' }}>
-            <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'var(--text-dim)', marginBottom: 20, fontWeight: 500 }}>
+            <Link href="/workspace" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'var(--text-dim)', marginBottom: 20, fontWeight: 500 }}>
                 <span>← Volver al Workspace</span>
             </Link>
 

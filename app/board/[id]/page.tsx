@@ -425,7 +425,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 <div style={{ fontSize: 64, marginBottom: 20 }}>🚫</div>
                 <h1 style={{ marginBottom: 10 }}>Acceso Denegado</h1>
                 <p style={{ color: 'var(--text-dim)', marginBottom: 20 }}>No tienes permisos para ver este tablero.</p>
-                <Link href="/" className="btn-primary">Volver al Inicio</Link>
+                <Link href="/workspace" className="btn-primary">Volver al Inicio</Link>
             </div>
         );
     }
@@ -705,7 +705,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             <header>
                 <div className="top-bar">
                     <div className="logo-area">
-                        <Link href="/" className="btn-ghost" title="Volver al Workspace">
+                        <Link href="/workspace" className="btn-ghost" title="Volver al Workspace">
                             <span style={{ fontSize: 24 }}>←</span>
                         </Link>
                         <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
@@ -744,12 +744,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             <Share2 size={16} /> Compartir
                         </button>
                         <button className="btn-ghost" onClick={openSettings} title="Configuración">⚙️</button>
-                        <Link href="/" className="btn-ghost" style={{ textDecoration: 'none' }}>Volver</Link>
+                        <Link href="/workspace" className="btn-ghost" style={{ textDecoration: 'none' }}>Volver</Link>
                     </div>
                     <button className="btn-ghost" onClick={toggleTheme} title="Cambiar Tema">
                         🌓
                     </button>
-                    <Link href="/" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Link href="/workspace" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>✕</span> <span>Cerrar</span>
                     </Link>
                 </div>

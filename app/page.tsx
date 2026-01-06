@@ -1,1005 +1,495 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useToast } from "@/components/ToastProvider";
-import ConfirmModal from "@/components/ConfirmModal";
-import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check } from "lucide-react";
+import {
+    ArrowRight,
+    Layout,
+    Clock,
+    BarChart3,
+    Shield,
+    Users,
+    Target,
+    Zap,
+    Globe,
+    Briefcase,
+    CheckCircle2,
+    ChevronRight
+} from "lucide-react";
 
-interface Dashboard {
-    id: string;
-    name: string;
-    description: string;
-    created_at: string;
-    folder_id: string | null;
-    start_date?: string;
-    end_date?: string;
-    settings: any;
-}
-
-interface Folder {
-    id: string;
-    name: string;
-    parent_id: string | null;
-    icon?: string;
-    color?: string;
-}
-
-const DEFAULT_SETTINGS = {
-    weeks: [
-        { id: "W1", name: "W1 · Inicio" },
-        { id: "W2", name: "W2 · Extracción" },
-        { id: "W3", name: "W3 · Gate A" },
-        { id: "W4", name: "W4 · Gate B" },
-        { id: "W5", name: "W5 · Activación" },
-        { id: "W6", name: "W6 · Producción" },
-        { id: "W7", name: "W7 · Gate C" },
-        { id: "W8", name: "W8 · Gate D" },
-        { id: "W9", name: "W9 · Cierre" },
-    ],
-    owners: ["Andrés Tabla", "Carmenza Alarcón"],
-    types: ["Gestión", "Inventario", "Metodología", "Evaluación", "Producción", "Comité", "IP-Ready"],
-    gates: ["A", "B", "C", "D"],
-    icon: "🗺️",
-    color: "#3b82f6"
-};
-
-const ICONS = ["🗺️", "🚀", "💻", "🎨", "📈", "📅", "🔥", "⚙️", "📱", "🌐"];
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#64748b"];
-
-export default function Workspace() {
-    const [dashboards, setDashboards] = useState<Dashboard[]>([]);
-    const [folders, setFolders] = useState<Folder[]>([]);
-    const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-
-    // UI States
-    const [isCreating, setIsCreating] = useState(false); // Dashboard Wizard
-    const [isCreatingFolder, setIsCreatingFolder] = useState(false); // Folder Modal
-    const [isMoving, setIsMoving] = useState<{ type: 'dashboard', id: string } | null>(null);
-    const [wizardStep, setWizardStep] = useState(1);
-    const router = useRouter();
-    const { showToast } = useToast();
-
-    // Confirm Modal
-    const [confirmOpen, setConfirmOpen] = useState(false);
-    const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
-    const [confirmTitle, setConfirmTitle] = useState("");
-    const [confirmMsg, setConfirmMsg] = useState("");
-    const [confirmActionText, setConfirmActionText] = useState("Confirmar");
-    const [isDestructive, setIsDestructive] = useState(false);
-
-    // Wizard State (Dashboard)
-    const [wizName, setWizName] = useState("");
-    const [wizDesc, setWizDesc] = useState("");
-    const [wizWeeks, setWizWeeks] = useState(9);
-    const [wizOwners, setWizOwners] = useState<string[]>(["Andrés Tabla"]);
-    const [newOwner, setNewOwner] = useState("");
-    const [wizTypes, setWizTypes] = useState<string[]>(DEFAULT_SETTINGS.types);
-    const [newType, setNewType] = useState("");
-    const [wizGates, setWizGates] = useState<string[]>(DEFAULT_SETTINGS.gates);
-    const [newGate, setNewGate] = useState("");
-    const [wizIcon, setWizIcon] = useState("🗺️");
-    const [wizColor, setWizColor] = useState("#3b82f6");
-    const [wizFolderId, setWizFolderId] = useState<string | null>(null);
-    const [wizStartDate, setWizStartDate] = useState(new Date().toISOString().split('T')[0]);
-
-    const wizEndDate = useMemo(() => {
-        if (!wizStartDate) return "";
-        const d = new Date(wizStartDate);
-        d.setDate(d.getDate() + (wizWeeks * 7));
-        return d.toISOString().split('T')[0];
-    }, [wizStartDate, wizWeeks]);
-
-    // Import State
-    const [isImporting, setIsImporting] = useState(false);
-    const [importFile, setImportFile] = useState<File | null>(null);
-    const [parsedTasks, setParsedTasks] = useState<any[]>([]);
-
-    // Folder Wizard State
-    // Folder Wizard State
-    const [folderName, setFolderName] = useState("");
-    const [folderIcon, setFolderIcon] = useState("📁");
-    const [folderColor, setFolderColor] = useState("#fbbf24");
-
-    // Move State
-    const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
-
-    // Editing State
-    const [editingDash, setEditingDash] = useState<Dashboard | null>(null);
-    const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
-
-    const [showLogout, setShowLogout] = useState(false);
-    const [user, setUser] = useState<any>(null);
-    const [availableUsers, setAvailableUsers] = useState<any[]>([]);
-
-    const [isLoading, setIsLoading] = useState(true);
-
-    // --- DATA LOADING ---
-    const loadData = () => {
-        setIsLoading(true);
-        Promise.all([
-            fetch('/api/dashboards').then(res => res.json()),
-            fetch('/api/folders').then(res => res.json()),
-            fetch('/api/users/list').then(res => res.json())
-        ]).then(([dData, fData, uData]) => {
-            if (Array.isArray(dData)) setDashboards(dData);
-            if (Array.isArray(fData)) setFolders(fData);
-            if (Array.isArray(uData)) setAvailableUsers(uData);
-        }).catch(err => console.error(err))
-            .finally(() => setIsLoading(false));
-    };
-
-    useEffect(() => {
-        loadData();
-        fetch('/api/auth/me').then(res => res.json()).then(data => setUser(data.user));
-    }, []);
-
-    // --- COMPUTED ---
-    const currentItems = useMemo(() => {
-        const d = dashboards.filter(item => item.folder_id === currentFolderId);
-        const f = folders.filter(item => item.parent_id === currentFolderId);
-        return { dashboards: d, folders: f };
-    }, [dashboards, folders, currentFolderId]);
-
-    const breadcrumbs = useMemo(() => {
-        const path = [{ id: null, name: 'Espacio de Trabajo' }];
-        if (!currentFolderId) return path;
-
-        // Build path backwards
-        let curr = folders.find(f => f.id === currentFolderId);
-        const stack = [];
-        while (curr) {
-            stack.unshift({ id: curr.id, name: curr.name });
-            curr = folders.find(f => f.id === curr?.parent_id);
-        }
-        return [...path, ...stack];
-    }, [folders, currentFolderId]);
-
-    // --- ACTIONS: FOLDERS ---
-    const saveFolder = async () => {
-        if (!folderName.trim()) return;
-
-        try {
-            const isEdit = !!editingFolder;
-            const url = '/api/folders';
-            const method = isEdit ? 'PUT' : 'POST';
-            const body = isEdit
-                ? { id: editingFolder.id, name: folderName, parent_id: editingFolder.parent_id, icon: folderIcon, color: folderColor }
-                : { name: folderName, parent_id: currentFolderId, icon: folderIcon, color: folderColor };
-
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            if (res.ok) {
-                const folder = await res.json();
-                if (isEdit) {
-                    setFolders(folders.map(f => f.id === folder.id ? folder : f));
-                    showToast("Carpeta actualizada", "success");
-                } else {
-                    setFolders([...folders, folder]);
-                    showToast("Carpeta creada", "success");
-                }
-                closeFolderModal();
-            }
-        } catch (error) {
-            showToast("Error al guardar carpeta", "error");
-        }
-    };
-
-    const deleteFolder = (e: React.MouseEvent, id: string) => {
-        e.preventDefault(); e.stopPropagation();
-        setConfirmMsg("⚠️ ¿Eliminar carpeta? El contenido se moverá al Espacio Principal.");
-        setConfirmCallback(() => async () => {
-            await fetch('/api/folders?id=' + id, { method: 'DELETE' });
-            // Optimistic update: Move children to root (null)
-            setFolders(prev => prev.filter(f => f.id !== id).map(f => f.parent_id === id ? { ...f, parent_id: null } : f));
-            setDashboards(prev => prev.map(d => d.folder_id === id ? { ...d, folder_id: null } : d));
-            setConfirmOpen(false);
-            showToast("Carpeta eliminada", "info");
-        });
-        setConfirmOpen(true);
-    };
-
-    const editFolder = (e: React.MouseEvent, f: Folder) => {
-        e.preventDefault(); e.stopPropagation();
-        setEditingFolder(f);
-        setFolderName(f.name);
-        setFolderIcon(f.icon || "📁");
-        setFolderColor(f.color || "#fbbf24");
-        setIsCreatingFolder(true);
-    };
-
-    const closeFolderModal = () => {
-        setIsCreatingFolder(false);
-        setEditingFolder(null);
-        setFolderName("");
-        setFolderIcon("📁");
-        setFolderColor("#fbbf24");
-    };
-
-    // --- ACTIONS: DASHBOARD ---
-    const handleSaveDashboard = async () => {
-        if (!wizName.trim()) return;
-        const isEdit = !!editingDash;
-
-        const currentSettings = isEdit ? editingDash.settings : DEFAULT_SETTINGS;
-        const finalSettings = {
-            weeks: isEdit ? generateWeeks(wizWeeks) : generateWeeks(wizWeeks),
-            owners: wizOwners.length > 0 ? wizOwners : ["Sin Asignar"],
-            types: wizTypes.length > 0 ? wizTypes : ["General"],
-            gates: wizGates,
-            icon: wizIcon,
-            color: wizColor
-        };
-
-        const payload = {
-            name: wizName,
-            description: wizDesc,
-            settings: finalSettings,
-            folder_id: wizFolderId, // Use selected folder from wizard
-            start_date: wizStartDate,
-            end_date: wizEndDate,
-            initialTasks: parsedTasks // Send parsed tasks if any
-        };
-
-        const method = isEdit ? 'PUT' : 'POST';
-
-        try {
-            const res = await fetch('/api/dashboards', {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-                const dash = await res.json();
-                if (isEdit) {
-                    setDashboards(dashboards.map(d => d.id === dash.id ? dash : d));
-                } else {
-                    setDashboards([dash, ...dashboards]);
-                }
-                resetWizard();
-                if (!isEdit) router.push('/board/' + dash.id);
-            }
-        } catch (err) {
-            alert("Error guardando tablero");
-        }
-    };
-
-    const deleteDash = (e: React.MouseEvent, id: string) => {
-        e.preventDefault(); e.stopPropagation();
-        setConfirmTitle("Eliminar Proyecto");
-        setConfirmMsg("¿Estás seguro de que quieres eliminar este tablero y todas sus tareas? Esta acción es irreversible.");
-        setConfirmActionText("Eliminar Definitivamente");
-        setIsDestructive(true);
-        setConfirmCallback(() => async () => {
-            await fetch(`/api/dashboards?id=${id}`, { method: 'DELETE' });
-            setDashboards(dashboards.filter(d => d.id !== id));
-            showToast("Tablero eliminado", "success");
-            setConfirmOpen(false);
-        });
-        setConfirmOpen(true);
-    };
-
-    const duplicateDash = async (e: React.MouseEvent, id: string) => {
-        e.preventDefault(); e.stopPropagation();
-        try {
-            const res = await fetch('/api/dashboards/duplicate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dashboardId: id })
-            });
-            if (res.ok) {
-                const newDash = await res.json();
-                setDashboards([newDash, ...dashboards]);
-                showToast("Tablero duplicado", "success");
-            }
-        } catch (error) {
-            showToast("Error al duplicar", "error");
-        }
-    };
-
-    const startMove = (e: React.MouseEvent, id: string) => {
-        e.preventDefault(); e.stopPropagation();
-        setIsMoving({ type: 'dashboard', id });
-        setTargetFolderId(null);
-    };
-
-    const executeMove = async () => {
-        if (!isMoving) return;
-        try {
-            await fetch('/api/dashboards/move', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dashboardId: isMoving.id, folderId: targetFolderId })
-            });
-            // Update local state
-            setDashboards(dashboards.map(d => d.id === isMoving.id ? { ...d, folder_id: targetFolderId } : d));
-            setIsMoving(null);
-            showToast("Tablero movido exitosamente", "success");
-            loadData(); // Reload to be safe
-        } catch (error) {
-            showToast("Error al mover", "error");
-        }
-    };
-
-    const handleExport = (e: React.MouseEvent, id: string, type: 'dashboard' | 'folder') => {
-        e.preventDefault(); e.stopPropagation();
-        const url = `/api/export?id=${id}&type=${type}`;
-        // Trigger download via hidden link or window.open
-        window.open(url, '_blank');
-    };
-
-    // --- HELPERS ---
-    const generateWeeks = (count: number) => {
-        return Array.from({ length: count }, (_, i) => ({
-            id: "W" + (i + 1),
-            name: "W" + (i + 1) + " · Semana " + (i + 1)
-        }));
-    };
-
-    const startCreate = () => {
-        resetWizard();
-        setIsCreating(true);
-    };
-
-    const startEdit = (e: React.MouseEvent, d: Dashboard) => {
-        e.preventDefault(); e.stopPropagation();
-        setEditingDash(d);
-        setWizName(d.name);
-        setWizDesc(d.description);
-        setWizFolderId(d.folder_id);
-        setWizIcon(d.settings?.icon || "🗺️");
-        setWizColor(d.settings?.color || "#3b82f6");
-        setWizWeeks(d.settings?.weeks?.length || 9);
-        setWizStartDate(d.start_date ? d.start_date.split('T')[0] : new Date().toISOString().split('T')[0]);
-        setWizOwners(d.settings?.owners || []);
-        setWizTypes(d.settings?.types || []);
-        setWizGates(d.settings?.gates || []);
-        setIsCreating(true);
-    };
-
-    const resetWizard = () => {
-        setIsCreating(false);
-        setEditingDash(null);
-        setWizardStep(1);
-        setWizName("");
-        setWizDesc("");
-        setWizFolderId(currentFolderId); // Default to current folder
-        setWizWeeks(9);
-        setWizStartDate(new Date().toISOString().split('T')[0]);
-        setWizOwners(["Andrés Tabla"]);
-        setWizTypes(DEFAULT_SETTINGS.types);
-        setWizGates(DEFAULT_SETTINGS.gates);
-        setWizIcon("🗺️");
-        setWizColor("#3b82f6");
-        setWizIcon("🗺️");
-        setWizColor("#3b82f6");
-        setIsImporting(false);
-        setImportFile(null);
-        setParsedTasks([]);
-    };
-
-    // --- CSV IMPORT ---
-    const handleDownloadTemplate = () => {
-        const headers = "Name,Status,Owner,Week,Type,Priority";
-        const rows = [
-            "Lanzamiento Web,Hecho,Juan,W1,Gestión,high",
-            "Revisión de Diseño,En proceso,Maria,W2,Diseño,med",
-            "Pruebas QA,Por hacer,Pedro,W3,Calidad,low"
-        ];
-        const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + rows.join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "plantilla_importacion.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const handleFileRead = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setImportFile(file);
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            const text = evt.target?.result as string;
-            const lines = text.split('\n');
-            const data = lines.slice(1).map(line => {
-                const [name, status, owner, week, type, prio] = line.split(',');
-                if (!name || !name.trim()) return null;
-                return {
-                    name: name.trim(),
-                    status: status?.trim(),
-                    owner: owner?.trim(),
-                    week: week?.trim(),
-                    type: type?.trim(),
-                    prio: prio?.trim()
-                };
-            }).filter(Boolean);
-            setParsedTasks(data);
-            showToast(`✅ ${data.length} tareas detectadas`, "success");
-        };
-        reader.readAsText(file);
-    };
-
-    const addItem = (list: string[], setList: any, item: string, setItem: any) => {
-        if (item.trim()) { setList([...list, item.trim()]); setItem(""); }
-    };
-    const removeItem = (list: string[], setList: any, idx: number) => {
-        setList(list.filter((_, i) => i !== idx));
-    };
-
-    const handleLogout = async () => {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        router.push('/login');
-        router.refresh();
-    };
-
-    const confirmLogout = () => {
-        setConfirmTitle("Cerrar Sesión");
-        setConfirmMsg("¿Estás seguro de que quieres salir?");
-        setConfirmActionText("Cerrar Sesión");
-        setIsDestructive(false);
-        setConfirmCallback(() => handleLogout);
-        setConfirmOpen(true);
-    };
-
+export default function LandingPage() {
     return (
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
-            {/* HEADER & NAV */}
-            <header style={{ marginBottom: 40, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
-                <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
-                        {breadcrumbs.map((crumb, i) => (
-                            <div key={crumb.id || 'root'} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span
-                                    onClick={() => setCurrentFolderId(crumb.id as string)}
-                                    style={{
-                                        cursor: 'pointer',
-                                        fontWeight: i === breadcrumbs.length - 1 ? 700 : 400,
-                                        color: i === breadcrumbs.length - 1 ? 'var(--text-main)' : 'var(--text-dim)',
-                                        textDecoration: i !== breadcrumbs.length - 1 ? 'underline' : 'none'
-                                    }}
-                                >
-                                    {crumb.name}
-                                </span>
-                                {i < breadcrumbs.length - 1 && <ChevronRight size={14} />}
-                            </div>
-                        ))}
+        <div className="landing-root">
+            {/* NAVIGATION */}
+            <nav className="landing-nav animate-fade-in">
+                <div className="container">
+                    <div className="nav-content">
+                        <div className="logo">
+                            <span className="logo-icon">🚀</span>
+                            <span className="logo-text">Mis <strong>Proyectos</strong></span>
+                        </div>
+                        <div className="nav-links">
+                            <Link href="/login" className="btn-nav">Iniciar Sesión</Link>
+                        </div>
                     </div>
-                    <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }} className="text-gradient">
-                        {breadcrumbs[breadcrumbs.length - 1].name}
-                    </h1>
                 </div>
+            </nav>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
-                    {/* Top utility row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {user?.role === 'admin' && (
-                            <Link href="/admin/users" style={{ textDecoration: 'none' }}>
-                                <button className="btn-ghost" title="Panel de Admin" style={{ padding: 6 }}><Shield size={18} /></button>
+            {/* HERO SECTION */}
+            <section className="hero-section">
+                <div className="container hero-container">
+                    <div className="hero-content animate-slide-up">
+                        <div className="badge animate-bounce-subtle">✨ Nueva Versión V11</div>
+                        <h1 className="hero-title">
+                            Controla tus proyectos con <span className="text-gradient">Precisión Absoluta</span>
+                        </h1>
+                        <p className="hero-subtitle">
+                            La plataforma definitiva para visualizar flujos de trabajo, gestionar tiempos y alcanzar hitos estratégicos en un solo lugar.
+                        </p>
+                        <div className="hero-actions">
+                            <Link href="/login" className="btn-hero-primary">
+                                Descúbrela Ahora <ArrowRight size={20} />
                             </Link>
-                        )}
-                        <Link href="/profile">
-                            <button className="btn-ghost" title="Mi Perfil" style={{ padding: 6 }}><User size={18} /></button>
-                        </Link>
-                        <button className="btn-ghost" onClick={confirmLogout} title="Cerrar Sesión" style={{ padding: 6 }}><LogOut size={18} /></button>
-                    </div>
-
-                    {/* Main action row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {(currentItems.dashboards.length > 0 || currentItems.folders.length > 0) && (
-                            <button
-                                className="btn-ghost"
-                                onClick={() => router.push(`/folder/${currentFolderId}/analytics`)}
-                                title="Analítica Consolidada"
-                                style={{ display: 'flex', alignItems: 'center', gap: 8, borderColor: 'var(--primary)', color: 'var(--text-main)' }}
-                            >
-                                <Shield size={18} /> <span style={{ fontSize: 13 }}>Analítica Consolidada</span>
-                            </button>
-                        )}
-
-                        <button className="btn-ghost" onClick={() => setIsCreatingFolder(true)} title="Nueva Carpeta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <FolderOpen size={18} /> <span style={{ fontSize: 13 }}>Nueva Carpeta</span>
-                        </button>
-
-                        <button className="btn-primary" onClick={startCreate} style={{ padding: '8px 16px' }}>
-                            <Plus size={18} /> Nuevo Proyecto
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            {/* CONTENT GRID */}
-            <div>
-                {/* LOADING STATE */}
-                {isLoading && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
-                        <img src="/loading.gif" alt="Cargando..." style={{ width: 64, height: 64, marginBottom: 16 }} />
-                        <span style={{ color: 'var(--text-dim)', fontSize: 14 }}>Cargando espacio de trabajo...</span>
-                    </div>
-                )}
-
-                {/* 1. Folders Section (if any) */}
-                {!isLoading && currentItems.folders.length > 0 && (
-                    <div style={{ marginBottom: 32 }}>
-                        <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 16 }}>Carpetas</h4>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-                            {currentItems.folders.map(f => (
-                                <div
-                                    key={f.id}
-                                    className="glass-panel hover-lift"
-                                    onClick={() => setCurrentFolderId(f.id)}
-                                    style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', border: '1px solid var(--border-dim)', borderLeft: `4px solid ${f.color || '#fbbf24'}` }}
-                                >
-                                    <div style={{ color: f.color || '#fbbf24' }}>{f.icon || <Folder size={24} fill={f.color || "#fbbf24"} fillOpacity={0.2} />}</div>
-                                    <span style={{ fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-
-                                    <div className="folder-actions" onClick={e => e.stopPropagation()} style={{ display: 'flex' }}>
-                                        <button className="btn-ghost" onClick={(e) => handleExport(e, f.id, 'folder')} style={{ padding: 4 }} title="Descargar Reporte"><Download size={14} /></button>
-                                        <button className="btn-ghost" onClick={(e) => editFolder(e, f)} style={{ padding: 4 }}><Edit2 size={12} /></button>
-                                        <button className="btn-ghost" onClick={(e) => deleteFolder(e, f.id)} style={{ padding: 4, color: '#f87171' }}><Trash2 size={12} /></button>
-                                    </div>
-                                </div>
-                            ))}
+                            <a href="#features" className="btn-hero-secondary">Ver Características</a>
                         </div>
                     </div>
-                )}
-
-                {/* 2. Dashboards Section */}
-                {!isLoading && currentItems.dashboards.length > 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
-                        {currentItems.dashboards.map(d => (
-                            <div
-                                key={d.id}
-                                className="glass-panel hover-lift"
-                                onClick={() => router.push("/board/" + d.id)}
-                                style={{
-                                    textDecoration: "none", color: "inherit", cursor: "pointer",
-                                    padding: 24, height: "100%", display: "flex", flexDirection: "column", position: "relative",
-                                    borderTop: "4px solid " + (d.settings?.color || "#3b82f6")
-                                }}
-                            >
-                                {/* Action Menus */}
-                                <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 4 }}>
-                                    <button className="btn-ghost" onClick={(e) => handleExport(e, d.id, 'dashboard')} style={{ padding: 6 }} title="Descargar Reporte"><Download size={14} /></button>
-                                    <button className="btn-ghost" onClick={(e) => startMove(e, d.id)} style={{ padding: 6 }} title="Mover"><Move size={14} /></button>
-                                    <button className="btn-ghost" onClick={(e) => duplicateDash(e, d.id)} style={{ padding: 6 }} title="Duplicar"><Copy size={14} /></button>
-                                    <button className="btn-ghost" onClick={(e) => startEdit(e, d)} style={{ padding: 6 }} title="Editar"><Edit2 size={14} /></button>
-                                    <button className="btn-ghost" onClick={(e) => deleteDash(e, d.id)} style={{ padding: 6, color: '#f87171' }} title="Eliminar"><Trash2 size={14} /></button>
+                    <div className="hero-visual animate-fade-in delay-200">
+                        <div className="visual-card">
+                            <div className="visual-header">
+                                <div className="dots"><span></span><span></span><span></span></div>
+                            </div>
+                            <div className="visual-body">
+                                <div className="skeleton-line full"></div>
+                                <div className="skeleton-grid">
+                                    <div className="skeleton-box"></div>
+                                    <div className="skeleton-box"></div>
+                                    <div className="skeleton-box"></div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="hero-bg-glow"></div>
+            </section>
 
-                                <div style={{ fontSize: 48, marginBottom: 16 }}>{d.settings?.icon || "🗺️"}</div>
-                                <h3 style={{ margin: '0 0 8px 0', fontSize: 20 }}>{d.name}</h3>
-                                <p style={{ margin: 0, fontSize: 14, color: 'var(--text-dim)', flex: 1, lineHeight: 1.5 }}>
-                                    {d.description || "Sin descripción"}
-                                </p>
+            {/* WHAT IS IT? */}
+            <section className="section-padding" id="about">
+                <div className="container">
+                    <div className="section-header center">
+                        <h2 className="section-title">¿Qué es Mis Proyectos?</h2>
+                        <p className="section-desc">
+                            Es un ecosistema digital diseñado para líderes que demandan visibilidad total. Olvídate de las hojas de cálculo dispersas; centraliza tu estrategia.
+                        </p>
+                    </div>
+                    <div className="features-grid">
+                        <div className="feat-card glass-panel hover-lift">
+                            <div className="feat-icon"><Layout /></div>
+                            <h3>Visualización Kanban</h3>
+                            <p>Gestiona tareas por estados, prioridades y semanas con un arrastrar y soltar fluido.</p>
+                        </div>
+                        <div className="feat-card glass-panel hover-lift">
+                            <div className="feat-icon"><Clock /></div>
+                            <h3>Línea de Tiempo</h3>
+                            <p>Visualiza el progreso cronológico y asegúrate de cumplir con los Gates de cada etapa.</p>
+                        </div>
+                        <div className="feat-card glass-panel hover-lift">
+                            <div className="feat-icon"><BarChart3 /></div>
+                            <h3>Analytics Avanzado</h3>
+                            <p>Toma decisiones basadas en datos reales con gráficos de rendimiento y KPIs automáticos.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-                                <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>Actualizado: {new Date(d.created_at).toLocaleDateString()}</span>
-                                    <span style={{ fontWeight: 600, color: d.settings?.color || 'white', display: 'flex', alignItems: 'center', gap: 4 }}>Abrir <ArrowRight size={14} /></span>
+            {/* BENEFITS */}
+            <section className="section-padding bg-alt">
+                <div className="container">
+                    <div className="split-layout">
+                        <div className="split-content">
+                            <h2 className="section-title">Beneficios que impulsan tu <span className="text-gradient">Productividad</span></h2>
+                            <ul className="benefits-list">
+                                <li><CheckCircle2 size={24} className="icon-success" /> <strong>Transparencia:</strong> Todos saben quién hace qué y para cuándo.</li>
+                                <li><CheckCircle2 size={24} className="icon-success" /> <strong>Reducción de Riesgos:</strong> Identifica cuellos de botella antes de que ocurran.</li>
+                                <li><CheckCircle2 size={24} className="icon-success" /> <strong>Agilidad:</strong> Adapta el tablero a tu metodología en segundos.</li>
+                                <li><CheckCircle2 size={24} className="icon-success" /> <strong>Acceso Público/Privado:</strong> Comparte avances con clientes de forma segura.</li>
+                            </ul>
+                        </div>
+                        <div className="split-visual">
+                            <div className="benefits-stats glass-panel">
+                                <div className="stat-item">
+                                    <span className="stat-val">+40%</span>
+                                    <span className="stat-lab">Eficiencia Operativa</span>
                                 </div>
+                                <div className="stat-divider"></div>
+                                <div className="stat-item">
+                                    <span className="stat-val">100%</span>
+                                    <span className="stat-lab">Visibilidad de Hitos</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* USE CASES */}
+            <section className="section-padding" id="use-cases">
+                <div className="container">
+                    <div className="section-header center">
+                        <h2 className="section-title">Diseñado para cada Escenario</h2>
+                    </div>
+                    <div className="use-cases-grid">
+                        {[
+                            { title: "Desarrollo de Software", icon: <Zap />, desc: "Sprints, deploys y control de bugs." },
+                            { title: "Campañas de Marketing", icon: <Target />, desc: "Lanzamientos, activos y seguimiento de KPI." },
+                            { title: "Gestión Administrativa", icon: <Briefcase />, desc: "Procesos internos y cumplimiento normativo." },
+                            { title: "Proyectos Globales", icon: <Globe />, desc: "Equipos remotos sincronizados en tiempo real." }
+                        ].map((uc, i) => (
+                            <div key={i} className="uc-item hover-lift">
+                                <div className="uc-icon">{uc.icon}</div>
+                                <h4>{uc.title}</h4>
+                                <p>{uc.desc}</p>
                             </div>
                         ))}
                     </div>
-                ) : (
-                    !isLoading && currentItems.folders.length === 0 && (
-                        <div className="glass-panel" style={{ textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '2px dashed rgba(255,255,255,0.1)' }}>
-                            <div style={{ marginBottom: 16, opacity: 0.5, display: 'inline-block' }}><FolderOpen size={48} /></div>
-                            <h3 style={{ color: 'var(--text-main)' }}>Carpeta Vacía</h3>
-                            <p>Crea un proyecto o una subcarpeta aquí.</p>
-                            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 20 }}>
-                                <button className="btn-ghost" onClick={() => setIsCreatingFolder(true)}>+ Carpeta</button>
-                                <button className="btn-primary" onClick={startCreate}>+ Proyecto</button>
-                            </div>
-                        </div>
-                    )
-                )}
-            </div>
+                </div>
+            </section>
 
-            {/* --- MODALS --- */}
-
-            {/* 1. NEW/EDIT FOLDER */}
-            {isCreatingFolder && (
-                <div className="backdrop">
-                    <div className="modal-container animate-slide-up" style={{ maxWidth: 450 }}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">{editingFolder ? 'Editar Carpeta' : 'Nueva Carpeta'}</h3>
-                            <button className="btn-ghost" onClick={closeFolderModal} style={{ padding: 4 }}><X size={20} /></button>
-                        </div>
-
-                        <div className="modal-body">
-                            <div className="form-group" style={{ textAlign: 'center' }}>
-                                <label className="form-label" style={{ textAlign: 'center' }}>NOMBRE DE LA CARPETA</label>
-                                <input
-                                    className="input-glass"
-                                    value={folderName}
-                                    onChange={e => setFolderName(e.target.value)}
-                                    autoFocus
-                                    placeholder="Ej: Q1 Marketing"
-                                    style={{ textAlign: 'center', fontSize: 16, padding: '16px' }}
-                                />
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                                <div>
-                                    <label className="form-label">Ícono</label>
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                        {["📁", "📂", "💼", "📊", "🚀", "💡", "🎯"].map(ic => (
-                                            <div key={ic} onClick={() => setFolderIcon(ic)} style={{ cursor: 'pointer', padding: 8, borderRadius: 8, background: folderIcon === ic ? 'var(--bg-panel)' : 'transparent', border: folderIcon === ic ? '1px solid var(--primary)' : '1px solid transparent', transition: 'all 0.2s', fontSize: 20 }}>{ic}</div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="form-label">Color</label>
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                        {COLORS.map(c => (
-                                            <div key={c} onClick={() => setFolderColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: folderColor === c ? '0 0 0 2px var(--bg-card), 0 0 0 4px ' + c : 'none', transition: 'all 0.2s' }}></div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="modal-footer">
-                            <button className="btn-ghost" onClick={closeFolderModal}>Cancelar</button>
-                            <button className="btn-primary" onClick={saveFolder}>Guardar</button>
-                        </div>
+            {/* FINAL CTA */}
+            <section className="cta-section">
+                <div className="container">
+                    <div className="cta-card glass-panel animate-slide-up">
+                        <h2>¿Listo para transformar tu gestión?</h2>
+                        <p>Únete a los equipos que ya están optimizando sus resultados con Mis Proyectos.</p>
+                        <Link href="/login" className="btn-hero-primary large">
+                            Descubre la Plataforma <ChevronRight />
+                        </Link>
                     </div>
                 </div>
-            )}
+            </section>
 
-            {/* 2. MOVE DASHBOARD */}
-            {isMoving && (
-                <div className="backdrop">
-                    <div className="modal-container animate-slide-up" style={{ maxWidth: 400 }}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">Mover Tablero a...</h3>
-                        </div>
-                        <div className="modal-body">
-                            <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border-dim)', borderRadius: 8, marginBottom: 20 }}>
-                                {/* Root Option */}
-                                <div
-                                    onClick={() => setTargetFolderId(null)}
-                                    style={{ padding: '10px 12px', cursor: 'pointer', background: targetFolderId === null ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}
-                                >
-                                    <CornerUpLeft size={16} /> <span>Espacio Principal (Raíz)</span>
-                                </div>
-
-                                {/* Folder List */}
-                                {folders.map(f => (
-                                    <div
-                                        key={f.id}
-                                        onClick={() => setTargetFolderId(f.id)}
-                                        style={{ padding: '10px 12px', cursor: 'pointer', background: targetFolderId === f.id ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}
-                                    >
-                                        <Folder size={16} /> <span>{f.name}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn-ghost" onClick={() => setIsMoving(null)}>Cancelar</button>
-                            <button className="btn-primary" onClick={executeMove}>Mover Aquí</button>
-                        </div>
+            {/* FOOTER */}
+            <footer className="landing-footer">
+                <div className="container">
+                    <div className="footer-content">
+                        <div className="logo-small">🚀 Mis Proyectos</div>
+                        <div className="footer-copyright">© 2026 Algoritmo T. Todos los derechos reservados.</div>
                     </div>
                 </div>
-            )}
-
-            {/* 3. NEW DASHBOARD WIZARD */}
-            {isCreating && (
-                <div className="backdrop">
-                    <div className="modal-container animate-slide-up" style={{ maxWidth: 700 }}>
-                        <div className="modal-header">
-                            <h2 className="modal-title">{editingDash ? "Editar Tablero" : "Nuevo Proyecto (" + wizardStep + " / 4)"}</h2>
-                            <button className="btn-ghost" onClick={resetWizard} style={{ padding: 4 }}><X size={20} /></button>
-                        </div>
-
-                        <div className="modal-body">
-                            {wizardStep === 1 && (
-                                <div className="animate-fade-in">
-                                    <div className="form-group">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                            <label className="form-label" style={{ marginBottom: 0 }}>Método de Creación</label>
-                                            {isImporting && (
-                                                <button className="btn-ghost" onClick={handleDownloadTemplate} style={{ fontSize: 11, padding: '4px 8px', height: 'auto', color: 'var(--primary)' }}>
-                                                    <Download size={12} style={{ marginRight: 4 }} /> Descargar Plantilla
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        <div className="toggle-group">
-                                            <div
-                                                className={`toggle-option ${!isImporting ? 'active' : ''}`}
-                                                onClick={() => setIsImporting(false)}
-                                            >
-                                                <div className="toggle-option-title">En Blanco</div>
-                                                <div className="toggle-option-desc">Iniciar desde cero</div>
-                                            </div>
-                                            <div
-                                                className={`toggle-option ${isImporting ? 'active' : ''}`}
-                                                onClick={() => setIsImporting(true)}
-                                            >
-                                                <div className="toggle-option-title">Importar CSV</div>
-                                                <div className="toggle-option-desc">Desde archivo plano</div>
-                                            </div>
-                                        </div>
-
-                                        {isImporting && (
-                                            <div className="animate-fade-in" style={{ marginTop: 16, padding: 16, background: 'var(--bg-panel)', borderRadius: 8, border: '1px dashed var(--border-dim)' }}>
-                                                <input type="file" accept=".csv" onChange={handleFileRead} style={{ fontSize: 13, width: '100%' }} />
-                                                {parsedTasks.length > 0 && (
-                                                    <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-code)' }}>
-                                                        📋 {parsedTasks.length} tareas listas para importar.
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">Nombre del Proyecto</label>
-                                        <input className="input-glass" value={wizName} onChange={e => setWizName(e.target.value)} autoFocus placeholder="Ej: Lanzamiento 2026" />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Ubicación</label>
-                                        <select
-                                            className="input-glass"
-                                            value={wizFolderId || ""}
-                                            onChange={e => setWizFolderId(e.target.value || null)}
-                                            style={{ width: '100%' }}
-                                        >
-                                            <option value="">Espacio Principal (Raíz)</option>
-                                            {folders.map(f => (
-                                                <option key={f.id} value={f.id}>📁 {f.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Descripción</label>
-                                        <input className="input-glass" value={wizDesc} onChange={e => setWizDesc(e.target.value)} placeholder="Breve resumen..." />
-                                    </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                                        <div>
-                                            <label className="form-label">Ícono</label>
-                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                                {ICONS.map(ic => (
-                                                    <div key={ic} onClick={() => setWizIcon(ic)} style={{ cursor: 'pointer', padding: 10, borderRadius: 8, background: wizIcon === ic ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.05)', transition: 'all 0.2s' }}>{ic}</div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="form-label">Color Principal</label>
-                                            <div style={{ display: 'flex', gap: 12 }}>
-                                                {COLORS.map(c => (
-                                                    <div key={c} onClick={() => setWizColor(c)} style={{ width: 32, height: 32, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: wizColor === c ? '0 0 0 3px var(--bg-card), 0 0 0 5px ' + c : 'none', transition: 'all 0.2s' }}></div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {wizardStep === 2 && (
-                                <div className="wiz-step animate-fade-in">
-                                    <label className="form-label" style={{ fontSize: 14 }}>Duración (Semanas)</label>
-                                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                        <input type="range" min="4" max="52" value={wizWeeks} onChange={e => setWizWeeks(Number(e.target.value))} style={{ flex: 1 }} />
-                                        <span style={{ fontWeight: 700, fontSize: 18, width: 40, textAlign: 'center' }}>{wizWeeks}</span>
-                                    </div>
-                                    <p style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 4 }}>
-                                        {editingDash
-                                            ? "⚠️ Editar la duración regenerará la lista de semanas. (No afecta tareas existentes si los IDs coinciden)."
-                                            : "Se generarán " + wizWeeks + " semanas (W1 - W" + wizWeeks + ")."
-                                        }
-                                    </p>
-
-                                    <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                                        <div>
-                                            <label className="form-label" style={{ fontSize: 14 }}>Fecha de Inicio</label>
-                                            <input
-                                                type="date"
-                                                className="input-glass"
-                                                value={wizStartDate}
-                                                onChange={e => setWizStartDate(e.target.value)}
-                                                style={{ width: '100%', colorScheme: 'dark' }}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="form-label" style={{ fontSize: 14 }}>Fecha Final (Estimada)</label>
-                                            <div className="input-glass" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', cursor: 'not-allowed' }}>
-                                                {wizEndDate}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {wizardStep === 3 && (
-                                <div className="wiz-step animate-fade-in">
-                                    <label className="form-label" style={{ fontSize: 14 }}>Equipo (Responsables)</label>
-
-                                    {/* Option 1: Manual Input */}
-                                    <div className="form-group">
-                                        <label className="form-label">1. Manual (Separado por comas)</label>
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <input
-                                                className="input-glass"
-                                                value={newOwner}
-                                                onChange={e => setNewOwner(e.target.value)}
-                                                placeholder="Ej: Juan, Pedro, Maria..."
-                                                style={{ flex: 1 }}
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter') {
-                                                        if (newOwner.includes(',')) {
-                                                            const names = newOwner.split(',').map(n => n.trim()).filter(n => n);
-                                                            names.forEach(n => addItem(wizOwners, setWizOwners, n, () => { }));
-                                                            setNewOwner("");
-                                                        } else {
-                                                            addItem(wizOwners, setWizOwners, newOwner, setNewOwner);
-                                                        }
-                                                    }
-                                                }}
-                                            />
-                                            <button className="btn-ghost" onClick={() => {
-                                                if (newOwner.includes(',')) {
-                                                    const names = newOwner.split(',').map(n => n.trim()).filter(n => n);
-                                                    names.forEach(n => addItem(wizOwners, setWizOwners, n, () => { }));
-                                                    setNewOwner("");
-                                                } else {
-                                                    addItem(wizOwners, setWizOwners, newOwner, setNewOwner);
-                                                }
-                                            }}><Plus size={16} /></button>
-                                        </div>
-                                    </div>
-
-                                    {/* Option 2: System Users */}
-                                    <div className="form-group">
-                                        <label className="form-label">2. Usuarios del Sistema</label>
-                                        <select
-                                            className="input-glass"
-                                            onChange={(e) => {
-                                                if (e.target.value) {
-                                                    addItem(wizOwners, setWizOwners, e.target.value, () => { });
-                                                    e.target.value = ""; // Reset select
-                                                }
-                                            }}
-                                        >
-                                            <option value="">+ Agregar usuario existente...</option>
-                                            {availableUsers.map(u => (
-                                                <option key={u.id} value={`${u.name} (${u.email})`}>{u.name} ({u.email})</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* Selected List */}
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 150, overflowY: 'auto', padding: 8, background: 'rgba(0,0,0,0.05)', borderRadius: 8 }}>
-                                        {wizOwners.length === 0 && <span style={{ fontSize: 12, color: 'var(--text-dim)', fontStyle: 'italic' }}>No hay miembros asignados.</span>}
-                                        {wizOwners.map((o, i) => (
-                                            <div key={i} style={{ background: 'var(--panel-hover)', padding: '4px 10px', borderRadius: 20, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, border: '1px solid var(--border)' }}>
-                                                {o} <span style={{ cursor: 'pointer', opacity: 0.5 }} onClick={() => removeItem(wizOwners, setWizOwners, i)}>✕</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            {wizardStep === 4 && (
-                                <div className="wiz-step animate-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                                    <div>
-                                        <label className="form-label">Tipos</label>
-                                        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                                            <input className="input-glass" value={newType} onChange={e => setNewType(e.target.value)} placeholder="Tipo..." style={{ flex: 1, padding: 6 }} onKeyDown={e => e.key === 'Enter' && addItem(wizTypes, setWizTypes, newType, setNewType)} />
-                                            <button className="btn-ghost" onClick={() => addItem(wizTypes, setWizTypes, newType, setNewType)}><Plus size={16} /></button>
-                                        </div>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                            {wizTypes.map((t, i) => (
-                                                <div key={i} style={{ background: 'var(--panel-hover)', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
-                                                    {t} <span style={{ cursor: 'pointer', marginLeft: 4 }} onClick={() => removeItem(wizTypes, setWizTypes, i)}>x</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="form-label">Gates</label>
-                                        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                                            <input className="input-glass" value={newGate} onChange={e => setNewGate(e.target.value)} placeholder="Gate..." style={{ flex: 1, padding: 6 }} onKeyDown={e => e.key === 'Enter' && addItem(wizGates, setWizGates, newGate, setNewGate)} />
-                                            <button className="btn-ghost" onClick={() => addItem(wizGates, setWizGates, newGate, setNewGate)}><Plus size={16} /></button>
-                                        </div>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                            {wizGates.map((g, i) => (
-                                                <div key={i} style={{ background: '#ecfdf5', color: '#000', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>
-                                                    {g} <span style={{ cursor: 'pointer', marginLeft: 4 }} onClick={() => removeItem(wizGates, setWizGates, i)}>x</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="modal-footer">
-                            {wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
-                            {wizardStep < 4 ? (
-                                <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>
-                            ) : (
-                                <button className="btn-primary" onClick={handleSaveDashboard}>
-                                    {isImporting && parsedTasks.length > 0 ? `Crear e Importar (${parsedTasks.length})` : "Crear Proyecto"}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {dashboards.length === 0 && !isCreating && (
-                <div className="glass-panel" style={{ gridColumn: '1/-1', textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '2px dashed rgba(255,255,255,0.1)' }}>
-                    <div style={{ marginBottom: 16, opacity: 0.5, display: 'inline-block' }}><FolderOpen size={48} /></div>
-                    <h3 style={{ color: 'var(--text-main)' }}>No hay proyectos activos</h3>
-                    <p>Comienza creando tu primer tablero estratégico.</p>
-                    <button className="btn-primary" onClick={startCreate} style={{ marginTop: 20 }}>+ Crear Proyecto</button>
-                </div>
-            )}
-            {/* CONFIRM MODAL */}
-
-            <ConfirmModal
-                isOpen={confirmOpen}
-                title={confirmTitle}
-                message={confirmMsg}
-                onConfirm={confirmCallback || (() => { })}
-                onCancel={() => setConfirmOpen(false)}
-                isDestructive={isDestructive}
-                confirmText={confirmActionText}
-            />
+            </footer>
 
             <style jsx>{`
-                /* DASHBOARD GRID ADAPTIVE */
-                .dashboard-grid { 
-                    display: grid; 
-                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-                    gap: 20px; 
-                    padding: 10px 0;
-                }
-                
-                .dash-card { 
-                    background: var(--bg-panel); 
-                    border-radius: 12px; 
-                    padding: 20px; 
-                    border: 1px solid var(--border-dim); 
-                    transition: all 0.2s; 
-                    cursor: pointer; 
-                    display: flex; 
-                    flex-direction: column; 
-                    justify-content: space-between; 
-                    height: 180px; 
-                    position: relative;
-                }
+        .landing-root {
+          background: #0f172a;
+          color: white;
+          font-family: 'Outfit', sans-serif;
+          overflow-x: hidden;
+        }
 
-                @media (max-width: 768px) {
-                    header { height: auto !important; padding: 16px !important; }
-                    .top-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
-                    .user-area { width: 100%; justify-content: space-between; }
-                    .filters { overflow-x: auto; padding-bottom: 4px; width: 100%; }
-                    .view-toggle { display: none; } /* Hide view toggle on mobile if complex */
-                    
-                    /* Adjust Grid for Mobile */
-                    .dashboard-grid { grid-template-columns: 1fr; }
-                    
-                    /* Controls Stack */
-                    .folder-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-                    .folder-actions { width: 100%; justify-content: space-between; }
-                    .folder-actions button { flex: 1; }
-                }
-                .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px; }
-                .kpi-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim); text-align: center; }
-                .kpi-value { font-size: 32px; font-weight: 800; margin: 8px 0; }
-                .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
-                .kpi-sub { font-size: 11px; color: var(--text-dim); }
-                .chart-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim); }
-            `}</style>
-        </div >
+        .container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 24px;
+        }
+
+        /* Nav */
+        .landing-nav {
+          height: 80px;
+          display: flex;
+          align-items: center;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 100;
+          background: rgba(15, 23, 42, 0.8);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .nav-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .logo {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 20px;
+        }
+
+        .logo-text strong {
+          color: #3b82f6;
+        }
+
+        .btn-nav {
+          background: rgba(255,255,255,0.05);
+          padding: 8px 20px;
+          border-radius: 30px;
+          text-decoration: none;
+          color: white;
+          font-size: 14px;
+          font-weight: 600;
+          transition: all 0.2s;
+          border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn-nav:hover {
+          background: white;
+          color: #0f172a;
+        }
+
+        /* Hero */
+        .hero-section {
+          padding: 160px 0 100px;
+          position: relative;
+        }
+
+        .hero-container {
+          display: grid;
+          grid-template-columns: 1.2fr 0.8fr;
+          gap: 60px;
+          align-items: center;
+        }
+
+        .hero-title {
+          font-size: 64px;
+          font-weight: 800;
+          line-height: 1.1;
+          margin-bottom: 24px;
+          letter-spacing: -2px;
+        }
+
+        .hero-subtitle {
+          font-size: 20px;
+          color: #94a3b8;
+          max-width: 600px;
+          margin-bottom: 40px;
+          line-height: 1.6;
+        }
+
+        .badge {
+          display: inline-block;
+          background: rgba(59, 130, 246, 0.1);
+          color: #3b82f6;
+          padding: 6px 16px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          margin-bottom: 20px;
+          border: 1px solid rgba(59,130,246,0.2);
+        }
+
+        .hero-actions {
+          display: flex;
+          gap: 16px;
+        }
+
+        .btn-hero-primary {
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+          color: white;
+          padding: 16px 32px;
+          border-radius: 12px;
+          text-decoration: none;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: all 0.3s;
+          box-shadow: 0 10px 30px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-hero-primary:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 20px 40px rgba(37, 99, 235, 0.5);
+        }
+
+        .btn-hero-secondary {
+          padding: 16px 32px;
+          color: #94a3b8;
+          text-decoration: none;
+          font-weight: 600;
+          transition: color 0.2s;
+        }
+
+        .btn-hero-secondary:hover {
+          color: white;
+        }
+
+        /* Visual Card */
+        .visual-card {
+          background: #1e293b;
+          border-radius: 24px;
+          border: 1px solid rgba(255,255,255,0.1);
+          overflow: hidden;
+          box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+          position: relative;
+          z-index: 2;
+        }
+
+        .visual-header {
+          background: #334155;
+          padding: 12px 20px;
+          display: flex;
+        }
+
+        .dots { display: flex; gap: 6px; }
+        .dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); }
+
+        .visual-body { padding: 30px; }
+        .skeleton-line { height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; margin-bottom: 20px; }
+        .skeleton-line.full { width: 100%; }
+        .skeleton-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .skeleton-box { height: 100px; background: rgba(255,255,255,0.05); border-radius: 12px; }
+
+        .hero-bg-glow {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 800px;
+          height: 800px;
+          background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%);
+          z-index: 1;
+        }
+
+        /* Sections */
+        .section-padding { padding: 120px 0; }
+        .bg-alt { background: #0c1222; }
+
+        .section-header.center { text-align: center; margin-bottom: 70px; }
+        .section-title { font-size: 48px; font-weight: 800; margin-bottom: 20px; }
+        .section-desc { font-size: 18px; color: #94a3b8; max-width: 700px; margin: 0 auto; }
+
+        .features-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 30px;
+        }
+
+        .feat-card {
+          padding: 40px;
+          text-align: center;
+        }
+
+        .feat-icon {
+          width: 60px;
+          height: 60px;
+          background: rgba(59, 130, 246, 0.1);
+          color: #3b82f6;
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 24px;
+        }
+
+        .feat-card h3 { font-size: 24px; margin-bottom: 16px; font-weight: 700; }
+        .feat-card p { color: #94a3b8; line-height: 1.6; }
+
+        /* Split */
+        .split-layout {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 100px;
+          align-items: center;
+        }
+
+        .benefits-list { list-style: none; padding: 0; margin-top: 40px; }
+        .benefits-list li {
+          display: flex;
+          gap: 16px;
+          margin-bottom: 24px;
+          font-size: 18px;
+        }
+
+        .icon-success { color: #10b981; flex-shrink: 0; }
+
+        .benefits-stats {
+          padding: 50px;
+          display: flex;
+          flex-direction: column;
+          gap: 30px;
+          text-align: center;
+        }
+
+        .stat-val { font-size: 48px; font-weight: 800; color: #3b82f6; display: block; }
+        .stat-lab { font-size: 14px; text-transform: uppercase; color: #94a3b8; letter-spacing: 2px; }
+        .stat-divider { height: 1px; background: rgba(255,255,255,0.05); }
+
+        /* Use Cases */
+        .use-cases-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 24px;
+        }
+
+        .uc-item {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.05);
+          padding: 30px;
+          border-radius: 20px;
+          transition: all 0.3s;
+        }
+
+        .uc-item:hover { background: rgba(255,255,255,0.06); border-color: #3b82f6; }
+        .uc-icon { color: #3b82f6; margin-bottom: 20px; }
+        .uc-item h4 { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+        .uc-item p { font-size: 14px; color: #94a3b8; line-height: 1.5; }
+
+        /* CTA */
+        .cta-section { padding-bottom: 120px; }
+        .cta-card {
+          background: linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(139,92,246,0.1) 100%);
+          padding: 80px;
+          text-align: center;
+          border-radius: 32px;
+        }
+
+        .cta-card h2 { font-size: 42px; font-weight: 800; margin-bottom: 16px; }
+        .cta-card p { font-size: 20px; color: #94a3b8; margin-bottom: 40px; }
+
+        /* Footer */
+        .landing-footer {
+          padding: 60px 0;
+          border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .footer-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .logo-small { font-weight: 700; color: #94a3b8; }
+        .footer-copyright { font-size: 14px; color: #64748b; }
+
+        /* Utilities */
+        .text-gradient {
+          background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        @media (max-width: 1024px) {
+           .hero-container { grid-template-columns: 1fr; text-align: center; }
+           .hero-visual { display: none; }
+           .hero-subtitle { margin: 0 auto 40px; }
+           .hero-actions { justify-content: center; }
+           .features-grid { grid-template-columns: 1fr 1fr; }
+           .split-layout { grid-template-columns: 1fr; gap: 60px; }
+           .use-cases-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 640px) {
+           .hero-title { font-size: 42px; }
+           .features-grid { grid-template-columns: 1fr; }
+           .use-cases-grid { grid-template-columns: 1fr; }
+           .cta-card { padding: 40px 24px; }
+           .cta-card h2 { font-size: 32px; }
+           .footer-content { flex-direction: column; gap: 20px; }
+        }
+      `}</style>
+        </div>
     );
 }
