@@ -46,7 +46,7 @@ export default function LandingPage() {
               <a href="#capabilities">Capacidades</a>
               <a href="#contact">Contacto</a>
             </div>
-            <div className="nav-links">
+            <div className="nav-links" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
               <Link href="/login" className="btn-nav secondary">Entrar</Link>
               <Link href="/register" className="btn-nav primary">Regístrate</Link>
             </div>
@@ -261,7 +261,7 @@ export default function LandingPage() {
             <h2>Transforma la gestión de tu organización</h2>
             <p>Hablemos sobre cómo MisProyectos puede adaptarse a tu estructura y desafíos actuales.</p>
             <div className="cta-actions">
-              <a href="mailto:social@algoritmot.com" className="btn-hero-primary large shadow-glow">
+              <a href="https://wa.me/573044544525" target="_blank" className="btn-hero-primary large shadow-glow">
                 Hablar con un asesor <MessageSquare size={20} />
               </a>
               <Link href="/register" className="btn-hero-ghost large">
@@ -585,6 +585,48 @@ export default function LandingPage() {
            .capability-grid { grid-template-columns: 1fr; }
            .cta-card h2 { font-size: 32px; }
         }
+        /* Footer */
+        .landing-footer { 
+          padding: 80px 0 40px; 
+          background: #0c1222; 
+          border-top: 1px solid rgba(255,255,255,0.05); 
+        }
+        .footer-top { 
+          display: flex; 
+          justify-content: space-between; 
+          gap: 60px; 
+          margin-bottom: 60px; 
+        }
+        .footer-brand { max-width: 320px; }
+        .brand-desc { color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+        .corporate-badge { 
+          display: flex; 
+          flex-direction: column; 
+          gap: 4px; 
+          font-size: 12px; 
+          color: #64748b; 
+        }
+        .corporate-badge a { color: #3b82f6; text-decoration: none; font-weight: 700; }
+        
+        .footer-nav { display: flex; gap: 80px; }
+        .footer-col { display: flex; flex-direction: column; gap: 12px; min-width: 140px; }
+        .footer-col h5 { color: white; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .footer-col a { color: #94a3b8; text-decoration: none; font-size: 14px; transition: color 0.2s; display: flex; align-items: center; gap: 8px; }
+        .footer-col a:hover { color: #3b82f6; }
+        
+        .footer-bottom { 
+          padding-top: 40px; 
+          border-top: 1px solid rgba(255,255,255,0.05); 
+          text-align: center; 
+          color: #64748b; 
+          font-size: 12px; 
+        }
+
+        @media (max-width: 1024px) {
+           .footer-top { flex-direction: column; text-align: center; align-items: center; }
+           .footer-brand { margin-bottom: 40px; }
+           .footer-nav { flex-direction: column; gap: 40px; }
+           .nav-links { display: none !important; }
       `}</style>
     </div>
   );
