@@ -94,7 +94,7 @@ export default function RegisterPage() {
                             <input
                                 className="input-glass"
                                 style={{ paddingLeft: 44 }}
-                                placeholder="Andrés Tabla"
+                                placeholder="Pedro Pérez"
                                 value={name}
                                 onChange={e => setName(e.target.value)}
                                 required

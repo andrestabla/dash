@@ -6,16 +6,18 @@ import { sendEmail } from '@/lib/email';
 
 // Ensure only admins access this
 interface Session {
-    user: { id: string; email: string };
+    id: string;
+    email: string;
     role: string;
+    name?: string;
 }
 
 const verifyAdmin = async (): Promise<Session | null> => {
-    const session = await getSession() as any; // Cast to any effectively since getSession return type is seemingly loose here
+    const session = await getSession() as any;
     if (!session || session.role !== 'admin') {
-        return null; // Return null if not admin
+        return null;
     }
-    return session as Session; // Return session if admin
+    return session as Session;
 };
 
 // Helper to log actions
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
                 [email, hashed, role || 'user', name || null, 'active']
             );
 
-            await logAction(client, result.rows[0].id, 'CREATE_USER', `User created with role ${role}`, session.user.id);
+            await logAction(client, result.rows[0].id, 'CREATE_USER', `User created with role ${role}`, session.id);
 
             // Send Welcome Email
             if (body.sendEmail) {
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
             client.release();
         }
     } catch (error) {
+        console.error("POST /api/admin/users error:", error);
         return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
     }
 }
@@ -131,7 +134,7 @@ export async function PUT(request: Request) {
             if (status) logDetails.push(`Status: ${status}`);
             if (password) logDetails.push(`Password manually reset`);
 
-            await logAction(client, id, 'UPDATE_USER', logDetails.join(', '), session.user.id);
+            await logAction(client, id, 'UPDATE_USER', logDetails.join(', '), session.id);
         }
 
         // Send credentials if requested
@@ -149,7 +152,7 @@ export async function PUT(request: Request) {
                 </div>
             `;
             await sendEmail(email, subject, html);
-            await logAction(client, id, 'RESEND_CREDS', `Credentials resent to ${email}`, session.user.id);
+            await logAction(client, id, 'RESEND_CREDS', `Credentials resent to ${email}`, session.id);
         }
 
         // Send approval/denial emails if status changed
@@ -213,24 +216,11 @@ export async function DELETE(request: Request) {
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
         const client = await pool.connect();
-
-        // Log before delete (or we won't be able to link to user easily if we enforced FKs strictly without cascade, 
-        // but our schema.prisma said cascade? Actually our raw SQL said ON DELETE CASCADE for audit_logs user_id.
-        // Wait, if we delete the user, the logs might disappear if we did ON DELETE CASCADE.
-        // Let's check the migration script I wrote.
-        // "user_id UUID REFERENCES users(id) ON DELETE CASCADE" -> Logs disappear if user is deleted.
-        // This might be undesirable for audit purposes, but for now we'll stick to it or maybe we should have set NULL.
-        // Use Set Null for performed_by, but Cascade for user_id means "logs OF the user".
-        // If we want to keep logs OF a deleted user, we shouldn't cascade.
-        // But for this sprint, let's just log the deletion event itself. 
-        // Note: The log entry itself will simply be deleted immediately if I insert it and then delete the user.
-        // So logging "DELETE_USER" is futile if it cascades.
-        // -> I will proceed as is, but maybe I should have made it SET NULL.
-        // -> actually for compliance you usually keep logs. 
-        // Let's assume for now we just delete.
-
-        await client.query('DELETE FROM users WHERE id = $1', [id]);
-        client.release();
+        try {
+            await client.query('DELETE FROM users WHERE id = $1', [id]);
+        } finally {
+            client.release();
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {
