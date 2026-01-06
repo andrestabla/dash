@@ -107,7 +107,7 @@ export default function Workspace() {
     const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
     const [consolidatedTasks, setConsolidatedTasks] = useState<any[]>([]);
     const [isFetchingAnalytics, setIsFetchingAnalytics] = useState(false);
-    const [analyticsFilters, setAnalyticsFilters] = useState({ search: '', status: 'all', owner: 'all', dashboardId: 'all' });
+    const [analyticsFilters, setAnalyticsFilters] = useState({ search: '', status: 'all', owner: 'all', dashboardId: 'all', type: 'all' });
     const [publicLinkState, setPublicLinkState] = useState<{ isPublic: boolean, token: string | null }>({ isPublic: false, token: null });
     const [sharingLoading, setSharingLoading] = useState(false);
 
@@ -501,13 +501,15 @@ export default function Workspace() {
                 (t.desc && t.desc.toLowerCase().includes(analyticsFilters.search.toLowerCase()));
             const matchesStatus = analyticsFilters.status === 'all' || t.status === analyticsFilters.status;
             const matchesOwner = analyticsFilters.owner === 'all' || t.owner === analyticsFilters.owner;
-            // Dashboard ID is a number in task but string in filter sometimes, ensure type safety
             const matchesDash = analyticsFilters.dashboardId === 'all' || String(t.dashboard_id) === String(analyticsFilters.dashboardId);
-            return matchesSearch && matchesStatus && matchesOwner && matchesDash;
+            const matchesType = analyticsFilters.type === 'all' || t.type === analyticsFilters.type;
+            return matchesSearch && matchesStatus && matchesOwner && matchesDash && matchesType;
         });
     }, [consolidatedTasks, analyticsFilters]);
 
     // Extract unique values for filters
+    const uniqueStatuses = useMemo(() => [...new Set(consolidatedTasks.map(t => t.status).filter(Boolean))], [consolidatedTasks]);
+    const uniqueTypes = useMemo(() => [...new Set(consolidatedTasks.map(t => t.type).filter(Boolean))], [consolidatedTasks]);
     const uniqueOwners = useMemo(() => [...new Set(consolidatedTasks.map(t => t.owner).filter(Boolean))], [consolidatedTasks]);
     const uniqueDashboards = useMemo(() => {
         const map = new Map();
@@ -1072,10 +1074,7 @@ export default function Workspace() {
                                 style={{ padding: '8px 12px', fontSize: 13, minWidth: 120 }}
                             >
                                 <option value="all">Todos los Estados</option>
-                                <option value="todo">Pendiente</option>
-                                <option value="doing">En Proceso</option>
-                                <option value="review">Revisión</option>
-                                <option value="done">Hecho</option>
+                                {uniqueStatuses.map((s: any) => <option key={s} value={s}>{s}</option>)}
                             </select>
                             <select
                                 className="input-glass"
@@ -1095,11 +1094,20 @@ export default function Workspace() {
                                 <option value="all">Todos los Proyectos</option>
                                 {uniqueDashboards.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
+                            <select
+                                className="input-glass"
+                                value={analyticsFilters.type}
+                                onChange={e => setAnalyticsFilters(prev => ({ ...prev, type: e.target.value }))}
+                                style={{ padding: '8px 12px', fontSize: 13, minWidth: 140 }}
+                            >
+                                <option value="all">Todos los Tipos</option>
+                                {uniqueTypes.map((t: any) => <option key={t} value={t}>{t}</option>)}
+                            </select>
                             {/* Reset Filter Button */}
-                            {(analyticsFilters.search || analyticsFilters.status !== 'all' || analyticsFilters.owner !== 'all' || analyticsFilters.dashboardId !== 'all') && (
+                            {(analyticsFilters.search || analyticsFilters.status !== 'all' || analyticsFilters.owner !== 'all' || analyticsFilters.dashboardId !== 'all' || analyticsFilters.type !== 'all') && (
                                 <button
                                     className="btn-ghost"
-                                    onClick={() => setAnalyticsFilters({ search: '', status: 'all', owner: 'all', dashboardId: 'all' })}
+                                    onClick={() => setAnalyticsFilters({ search: '', status: 'all', owner: 'all', dashboardId: 'all', type: 'all' })}
                                     style={{ fontSize: 12, color: 'var(--primary)' }}
                                 >
                                     Limpiar

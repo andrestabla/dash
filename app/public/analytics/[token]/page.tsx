@@ -14,7 +14,7 @@ export default function PublicAnalyticsPage() {
     const [data, setData] = useState<{ folderName: string, tasks: any[] } | null>(null);
 
     // Filters State (Client-side)
-    const [filters, setFilters] = useState({ search: '', status: 'all', owner: 'all', dashboardId: 'all' });
+    const [filters, setFilters] = useState({ search: '', status: 'all', owner: 'all', dashboardId: 'all', type: 'all' });
 
     useEffect(() => {
         if (!token) return;
@@ -40,13 +40,16 @@ export default function PublicAnalyticsPage() {
         return tasks.filter(t => {
             const matchesSearch = t.name.toLowerCase().includes(filters.search.toLowerCase());
             const matchesStatus = filters.status === 'all' || t.status === filters.status;
-            const matchesOwner = filters.owner === 'all' || t.owner === filters.owner; // t.owner is name string in API response
+            const matchesOwner = filters.owner === 'all' || t.owner === filters.owner;
             const matchesDash = filters.dashboardId === 'all' || String(t.dashboard_id) === String(filters.dashboardId);
-            return matchesSearch && matchesStatus && matchesOwner && matchesDash;
+            const matchesType = filters.type === 'all' || t.type === filters.type;
+            return matchesSearch && matchesStatus && matchesOwner && matchesDash && matchesType;
         });
     }, [tasks, filters]);
 
     // Unique values
+    const uniqueStatuses = useMemo(() => [...new Set(tasks.map(t => t.status).filter(Boolean))], [tasks]);
+    const uniqueTypes = useMemo(() => [...new Set(tasks.map(t => t.type).filter(Boolean))], [tasks]);
     const uniqueOwners = useMemo(() => [...new Set(tasks.map(t => t.owner).filter(Boolean))], [tasks]);
     const uniqueDashboards = useMemo(() => {
         const map = new Map();
@@ -104,10 +107,7 @@ export default function PublicAnalyticsPage() {
                         style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '8px 12px', borderRadius: 8 }}
                     >
                         <option value="all">Todos los Estados</option>
-                        <option value="todo">Pendiente</option>
-                        <option value="doing">En Proceso</option>
-                        <option value="review">Revisión</option>
-                        <option value="done">Hecho</option>
+                        {uniqueStatuses.map((s: any) => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <select
                         value={filters.owner}
@@ -124,6 +124,14 @@ export default function PublicAnalyticsPage() {
                     >
                         <option value="all">Todos los Proyectos</option>
                         {uniqueDashboards.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    <select
+                        value={filters.type}
+                        onChange={e => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '8px 12px', borderRadius: 8 }}
+                    >
+                        <option value="all">Todos los Tipos</option>
+                        {uniqueTypes.map((t: any) => <option key={t} value={t}>{t}</option>)}
                     </select>
                 </div>
             </div>
