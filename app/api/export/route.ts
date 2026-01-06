@@ -15,7 +15,7 @@ async function getDashboardData(client: any, dashboardId: string) {
     if (dashRes.rows.length === 0) return null;
 
     const dashboard = dashRes.rows[0];
-    const tasksRes = await client.query('SELECT * FROM tasks WHERE dashboard_id = $1 ORDER BY week_id, status', [dashboardId]);
+    const tasksRes = await client.query('SELECT * FROM tasks WHERE dashboard_id = $1 ORDER BY week, status', [dashboardId]);
     const tasks = tasksRes.rows;
 
     return { dashboard, tasks };
@@ -25,28 +25,31 @@ async function getDashboardData(client: any, dashboardId: string) {
 function createDashboardSheet(dashboard: any, tasks: any[]) {
     // 1. Prepare data rows
     const rows = tasks.map(t => ({
-        "Semana": t.week_id,
-        "Tarea / Hito": t.title,
+        "Semana": t.week,
+        "Tarea / Hito": t.name,
         "Estado": t.status,
         "Responsable": t.owner || "Sin asignar",
         "Tipo": t.type || "General",
-        "Notas": t.notes || ""
+        "Prioridad": t.prio || "",
+        "Gate": t.gate || "",
+        "Fecha Límite": t.due || "",
+        "Descripción / Notas": t.description || ""
     }));
 
     // 2. Create sheet
     const worksheet = XLSX.utils.json_to_sheet(rows);
 
-    // 3. Add Title (Optional, trickier with simple json_to_sheet but good enough for now)
-    // We can just rely on the sheet name being the project name
-
     // Auto-width columns
     const wscols = [
         { wch: 10 }, // Week
-        { wch: 40 }, // Title
+        { wch: 40 }, // Name
         { wch: 15 }, // Status
         { wch: 20 }, // Owner
         { wch: 15 }, // Type
-        { wch: 30 }  // Notes
+        { wch: 10 }, // Prio
+        { wch: 10 }, // Gate
+        { wch: 15 }, // Due
+        { wch: 30 }  // Description
     ];
     worksheet['!cols'] = wscols;
 
