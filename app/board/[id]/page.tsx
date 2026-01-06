@@ -58,6 +58,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [availableUsers, setAvailableUsers] = useState<{ id: string, name: string, email: string }[]>([]);
     const [projectEndDate, setProjectEndDate] = useState<string | null>(null);
+    const [dashboardMeta, setDashboardMeta] = useState<{ description?: string, start_date?: string, end_date?: string }>({});
 
     // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -278,9 +279,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         description: "",
         icon: "🚀",
         weekCount: 8,
+
         owners: "",
         gates: "",
-        types: ""
+        types: "",
+        start_date: ""
     });
 
     // Temp statuses for settings modal
@@ -290,12 +293,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         if (!settings) return;
         setEditSettings({
             name: dashboardName,
-            description: "",
+            description: dashboardMeta.description || "",
             icon: settings.icon || "🚀",
             weekCount: settings.weeks.length,
             owners: settings.owners.join(", "),
             gates: settings.gates.join(", "),
-            types: settings.types.join(", ")
+            types: settings.types.join(", "),
+            start_date: dashboardMeta.start_date ? dashboardMeta.start_date.split('T')[0] : ""
         });
         setTempStatuses(settings.statuses || []);
         setIsSettingsOpen(true);
@@ -331,11 +335,21 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             statuses: tempStatuses
         };
 
+        // Calculate End Date
+        let end_date = null;
+        if (editSettings.start_date) {
+            const d = new Date(editSettings.start_date);
+            d.setDate(d.getDate() + (editSettings.weekCount * 7));
+            end_date = d.toISOString().split('T')[0];
+        }
+
         const body = {
             id: dashboardId,
             name: editSettings.name,
             description: editSettings.description,
-            settings: newSettingsData
+            settings: newSettingsData,
+            start_date: editSettings.start_date || null,
+            end_date: end_date
         };
 
         try {
@@ -377,6 +391,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 if (data && data.settings) {
                     setSettings(data.settings);
                     setDashboardName(data.name);
+                    setDashboardMeta({
+                        description: data.description,
+                        start_date: data.start_date,
+                        end_date: data.end_date
+                    });
                     if (data.end_date) setProjectEndDate(data.end_date.split('T')[0]);
                 }
             })
@@ -1174,6 +1193,25 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 </div>
 
                                 <div className="form-group">
+                                    <label className="form-label">Fecha de Inicio</label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                        <input
+                                            className="input-glass"
+                                            type="date"
+                                            value={editSettings.start_date}
+                                            onChange={e => setEditSettings({ ...editSettings, start_date: e.target.value })}
+                                        />
+                                        <div className="input-glass" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}>
+                                            {editSettings.start_date ? (() => {
+                                                const d = new Date(editSettings.start_date);
+                                                d.setDate(d.getDate() + (editSettings.weekCount * 7));
+                                                return "Fin: " + d.toISOString().split('T')[0];
+                                            })() : "Sin fecha fin"}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
                                     <label className="form-label">Gates / Hitos (Separados por comas)</label>
                                     <input className="input-glass" value={editSettings.gates} onChange={e => setEditSettings({ ...editSettings, gates: e.target.value })} placeholder="Gate 1, Gate 2, Gate 3..." />
                                 </div>
@@ -1243,113 +1281,115 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     }
                 `}</style>
             </main>
-            {isShareModalOpen && (
-                <div className="backdrop animate-fade-in" onClick={() => setIsShareModalOpen(false)}>
-                    <div className="modal-container animate-slide-up" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2 className="modal-title">Compartir Tablero</h2>
-                            <button onClick={() => setIsShareModalOpen(false)} className="btn-ghost"><X size={20} /></button>
-                        </div>
-
-                        <div className="modal-body">
-                            <div style={{ display: 'flex', gap: 4, marginBottom: 24, padding: 4, background: 'var(--bg-panel)', borderRadius: 12 }}>
-                                <button
-                                    onClick={() => setShareTab('internal')}
-                                    style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'internal' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'internal' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'internal' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                                >
-                                    <Users size={16} /> Equipo
-                                </button>
-                                <button
-                                    onClick={() => setShareTab('public')}
-                                    style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'public' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'public' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'public' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                                >
-                                    <Globe size={16} /> Público
-                                </button>
+            {
+                isShareModalOpen && (
+                    <div className="backdrop animate-fade-in" onClick={() => setIsShareModalOpen(false)}>
+                        <div className="modal-container animate-slide-up" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h2 className="modal-title">Compartir Tablero</h2>
+                                <button onClick={() => setIsShareModalOpen(false)} className="btn-ghost"><X size={20} /></button>
                             </div>
 
-                            {shareTab === 'internal' ? (
-                                <div className="animate-fade-in">
-                                    <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-                                        <select
-                                            className="input-glass"
-                                            value={inviteUserId}
-                                            onChange={e => setInviteUserId(e.target.value)}
-                                        >
-                                            <option value="">Seleccionar usuario...</option>
-                                            {availableUsers.filter(u => u.email !== currentUser?.email && !collaborators.some(c => c.email === u.email)).map(u => (
-                                                <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                                            ))}
-                                        </select>
-                                        <button className="btn-primary" disabled={!inviteUserId} onClick={handleInviteUser}>
-                                            <UserPlus size={16} /> Invitar
-                                        </button>
-                                    </div>
-
-                                    <h3 style={{ fontSize: 14, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Colaboradores</h3>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
-                                        {collaborators.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-dim)', textAlign: 'center', padding: 20 }}>No hay colaboradores aún.</p>}
-                                        {collaborators.map(c => (
-                                            <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-dim)' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
-                                                        {c.name.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <div style={{ fontSize: 14, fontWeight: 500 }}>{c.name}</div>
-                                                        <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{c.email}</div>
-                                                    </div>
-                                                </div>
-                                                <button className="btn-ghost" onClick={() => handleRemoveCollaborator(c.id)} title="Quitar acceso">
-                                                    <Trash2 size={16} color="var(--text-dim)" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
+                            <div className="modal-body">
+                                <div style={{ display: 'flex', gap: 4, marginBottom: 24, padding: 4, background: 'var(--bg-panel)', borderRadius: 12 }}>
+                                    <button
+                                        onClick={() => setShareTab('internal')}
+                                        style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'internal' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'internal' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'internal' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                    >
+                                        <Users size={16} /> Equipo
+                                    </button>
+                                    <button
+                                        onClick={() => setShareTab('public')}
+                                        style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: shareTab === 'public' ? 'var(--bg-card)' : 'transparent', color: shareTab === 'public' ? 'var(--text-main)' : 'var(--text-dim)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: shareTab === 'public' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                    >
+                                        <Globe size={16} /> Público
+                                    </button>
                                 </div>
-                            ) : (
-                                <div className="animate-fade-in">
-                                    <div style={{ padding: 20, borderRadius: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)', marginBottom: 20 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                <div style={{ width: 40, height: 40, borderRadius: '50%', background: isPublic ? '#10b981' : 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                                                    <Globe size={20} />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: 600 }}>Enlace Público</div>
-                                                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Cualquiera con el enlace puede ver.</div>
-                                                </div>
-                                            </div>
-                                            <label className="switch" style={{ position: 'relative', display: 'inline-block', width: 48, height: 24 }}>
-                                                <input type="checkbox" checked={isPublic} onChange={handleTogglePublic} style={{ opacity: 0, width: 0, height: 0 }} />
-                                                <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: isPublic ? '#10b981' : '#ccc', transition: '.4s', borderRadius: 34 }}></span>
-                                                <span style={{ position: 'absolute', content: '""', height: 16, width: 16, left: 4, bottom: 4, backgroundColor: 'white', transition: '.4s', borderRadius: '50%', transform: isPublic ? 'translateX(24px)' : 'translateX(0)' }}></span>
-                                            </label>
+
+                                {shareTab === 'internal' ? (
+                                    <div className="animate-fade-in">
+                                        <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                                            <select
+                                                className="input-glass"
+                                                value={inviteUserId}
+                                                onChange={e => setInviteUserId(e.target.value)}
+                                            >
+                                                <option value="">Seleccionar usuario...</option>
+                                                {availableUsers.filter(u => u.email !== currentUser?.email && !collaborators.some(c => c.email === u.email)).map(u => (
+                                                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                                                ))}
+                                            </select>
+                                            <button className="btn-primary" disabled={!inviteUserId} onClick={handleInviteUser}>
+                                                <UserPlus size={16} /> Invitar
+                                            </button>
                                         </div>
 
-                                        {isPublic && (
-                                            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                                                <input
-                                                    className="input-glass"
-                                                    readOnly
-                                                    value={`${window.location.origin}/public/board/${publicToken}`}
-                                                    style={{ fontSize: 12, color: 'var(--text-dim)' }}
-                                                />
-                                                <button className="btn-primary" onClick={copyPublicLink} style={{ padding: '0 12px' }}>
-                                                    {copied ? <Check size={16} /> : <Copy size={16} />}
-                                                </button>
-                                            </div>
-                                        )}
+                                        <h3 style={{ fontSize: 14, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Colaboradores</h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
+                                            {collaborators.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-dim)', textAlign: 'center', padding: 20 }}>No hay colaboradores aún.</p>}
+                                            {collaborators.map(c => (
+                                                <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-dim)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+                                                            {c.name.substring(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontSize: 14, fontWeight: 500 }}>{c.name}</div>
+                                                            <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{c.email}</div>
+                                                        </div>
+                                                    </div>
+                                                    <button className="btn-ghost" onClick={() => handleRemoveCollaborator(c.id)} title="Quitar acceso">
+                                                        <Trash2 size={16} color="var(--text-dim)" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center' }}>
-                                        ⚠️ Los usuarios externos solo podrán ver el tablero, no editarlo.
-                                    </p>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="animate-fade-in">
+                                        <div style={{ padding: 20, borderRadius: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)', marginBottom: 20 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: isPublic ? '#10b981' : 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                                        <Globe size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600 }}>Enlace Público</div>
+                                                        <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Cualquiera con el enlace puede ver.</div>
+                                                    </div>
+                                                </div>
+                                                <label className="switch" style={{ position: 'relative', display: 'inline-block', width: 48, height: 24 }}>
+                                                    <input type="checkbox" checked={isPublic} onChange={handleTogglePublic} style={{ opacity: 0, width: 0, height: 0 }} />
+                                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: isPublic ? '#10b981' : '#ccc', transition: '.4s', borderRadius: 34 }}></span>
+                                                    <span style={{ position: 'absolute', content: '""', height: 16, width: 16, left: 4, bottom: 4, backgroundColor: 'white', transition: '.4s', borderRadius: '50%', transform: isPublic ? 'translateX(24px)' : 'translateX(0)' }}></span>
+                                                </label>
+                                            </div>
+
+                                            {isPublic && (
+                                                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                                                    <input
+                                                        className="input-glass"
+                                                        readOnly
+                                                        value={`${window.location.origin}/public/board/${publicToken}`}
+                                                        style={{ fontSize: 12, color: 'var(--text-dim)' }}
+                                                    />
+                                                    <button className="btn-primary" onClick={copyPublicLink} style={{ padding: '0 12px' }}>
+                                                        {copied ? <Check size={16} /> : <Copy size={16} />}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center' }}>
+                                            ⚠️ Los usuarios externos solo podrán ver el tablero, no editarlo.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </DragDropContext>
+                )
+            }
+        </DragDropContext >
     );
 }
 
