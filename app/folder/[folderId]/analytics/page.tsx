@@ -201,6 +201,12 @@ export default function FolderAnalyticsPage({ params }: { params: Promise<{ fold
                         current = folders.find((f: any) => f.id === current.parent_id);
                     }
                     setBreadcrumbs([...crumbs, ...path]);
+
+                    // Initialize Public Link State
+                    setPublicLinkState({
+                        isPublic: !!folder.is_public,
+                        token: folder.public_token || null
+                    });
                 }
             }
 
