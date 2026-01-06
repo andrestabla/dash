@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/components/ToastProvider";
 
 export default function AdminDashboardsPage() {
+    const [boards, setBoards] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingBoard, setEditingBoard] = useState<any>(null);
