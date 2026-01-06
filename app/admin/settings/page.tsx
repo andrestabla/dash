@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ToastProvider";
-import { Mail, Shield, Server, User, Key, CheckCircle, ArrowRight, ArrowLeft, LayoutTemplate } from "lucide-react";
+import { Mail, Shield, Server, User, Key, CheckCircle, ArrowRight, ArrowLeft, LayoutTemplate, Palette } from "lucide-react";
 
 export default function AdminSettingsPage() {
     const [settings, setSettings] = useState<any>({});
@@ -137,8 +137,84 @@ export default function AdminSettingsPage() {
                     )}
                 </div>
 
-                <div style={{ textAlign: 'right' }}>
-                    <button className="btn-primary" onClick={() => saveSettings(settings)}>Guardar Cambios Generales</button>
+                {/* Branding Section */}
+                <div style={{ background: 'var(--bg-panel)', padding: 24, borderRadius: 16, border: '1px solid var(--border-dim)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                        <div style={{ padding: 8, borderRadius: 8, background: 'rgba(236,72,153,0.1)', color: '#ec4899' }}><Palette size={20} /></div>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Personalización & Marca</h3>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: 24 }}>
+                        {/* Primary Color */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Color Primario</label>
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    <input
+                                        type="color"
+                                        value={settings.brand_primary_color || '#3b82f6'}
+                                        onChange={(e) => handleChange('brand_primary_color', e.target.value)}
+                                        style={{ height: 42, width: 60, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                    />
+                                    <input
+                                        className="input-glass"
+                                        value={settings.brand_primary_color || ''}
+                                        placeholder="#3b82f6"
+                                        onChange={(e) => handleChange('brand_primary_color', e.target.value)}
+                                        style={{ flex: 1 }}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Logo URL</label>
+                                <input
+                                    className="input-glass"
+                                    value={settings.brand_logo_url || ''}
+                                    placeholder="https://..."
+                                    onChange={(e) => handleChange('brand_logo_url', e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Login Background */}
+                        <div>
+                            <label style={{ display: 'block', marginBottom: 12, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Fondo de Login</label>
+
+                            {/* Presets */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
+                                {[
+                                    'radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%)', // Default
+                                    'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)',
+                                    'linear-gradient(120deg, #d4fc79 0%, #96e6a1 100%)',
+                                    'linear-gradient(to top, #30cfd0 0%, #330867 100%)',
+                                    'linear-gradient(to right, #b92b27, #1565c0)',
+                                    'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1600&q=80'
+                                ].map((bg, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => handleChange('brand_login_bg', bg)}
+                                        style={{
+                                            height: 50,
+                                            borderRadius: 8,
+                                            background: bg.startsWith('http') ? `url(${bg}) center/cover` : bg,
+                                            border: settings.brand_login_bg === bg ? '2px solid white' : '1px solid var(--border-dim)',
+                                            boxShadow: settings.brand_login_bg === bg ? '0 0 0 2px var(--primary)' : 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                        title={bg.startsWith('http') ? 'Imagen' : `Preset ${i + 1}`}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* Custom Input */}
+                            <input
+                                className="input-glass"
+                                value={settings.brand_login_bg || ''}
+                                placeholder="URL de imagen o gradiente CSS (linear-gradient...)"
+                                onChange={(e) => handleChange('brand_login_bg', e.target.value)}
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 

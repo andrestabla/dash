@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from '@/components/ThemeProvider';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const { branding } = useTheme();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -32,17 +34,31 @@ export default function LoginPage() {
         }
     };
 
+    // Determine Background Style
+    const bgStyle = branding.brand_login_bg?.startsWith('http')
+        ? { backgroundImage: `url(${branding.brand_login_bg})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+        : { background: branding.brand_login_bg || 'radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%)' };
+
     return (
         <div style={{
             minHeight: '100vh',
             display: 'flex',
-            background: 'radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%)',
+            ...bgStyle,
             position: 'relative',
             overflow: 'hidden'
         }}>
-            {/* Abstract Background Shapes */}
-            <div style={{ position: 'absolute', top: -100, right: -100, width: 600, height: 600, background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(80px)' }} />
-            <div style={{ position: 'absolute', bottom: -100, left: -100, width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(80px)' }} />
+            {/* Overlay if image */}
+            {branding.brand_login_bg?.startsWith('http') && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+            )}
+
+            {/* Abstract Background Shapes (Only if gradient/default) */}
+            {!branding.brand_login_bg?.startsWith('http') && (
+                <>
+                    <div style={{ position: 'absolute', top: -100, right: -100, width: 600, height: 600, background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(80px)' }} />
+                    <div style={{ position: 'absolute', bottom: -100, left: -100, width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(80px)' }} />
+                </>
+            )}
 
             {/* Main Content */}
             <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
@@ -50,7 +66,11 @@ export default function LoginPage() {
                 <div className="glass-panel animate-slide-up" style={{ width: 420, padding: 40, border: '1px solid rgba(255,255,255,0.08)' }}>
 
                     <div style={{ textAlign: 'center', marginBottom: 40 }}>
-                        <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }} className="text-gradient">Bienvenido</h1>
+                        {branding.brand_logo_url ? (
+                            <img src={branding.brand_logo_url} alt="Logo" style={{ height: 60, marginBottom: 16, objectFit: 'contain' }} />
+                        ) : (
+                            <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }} className="text-gradient">Bienvenido</h1>
+                        )}
                         <p style={{ color: 'var(--text-dim)' }}>Inicia sesión para continuar</p>
                     </div>
 
