@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from 'next/link';
-import { LayoutGrid, List, BarChart2, Search, ExternalLink } from 'lucide-react';
+import { LayoutGrid, List, BarChart2, Search, ExternalLink, X, Calendar, User, Flag, Tag, Info } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -53,6 +53,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
 
     const [activeTab, setActiveTab] = useState<"kanban" | "list" | "data">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
 
     useEffect(() => {
@@ -185,7 +186,12 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                                     </div>
                                                 ) : (
                                                     colTasks.map((t: Task) => (
-                                                        <div key={t.id} className={`kanban-card p-${t.prio || "med"}`} style={{ cursor: 'default' }}>
+                                                        <div
+                                                            key={t.id}
+                                                            className={`kanban-card p-${t.prio || "med"}`}
+                                                            style={{ cursor: 'pointer' }}
+                                                            onClick={() => setSelectedTask(t)}
+                                                        >
                                                             <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 15, lineHeight: 1.4, color: 'var(--text-main)' }}>
                                                                 {t.name}
                                                             </div>
@@ -195,7 +201,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                                                     {t.gate && <span className="chip gate" style={{ fontSize: 10 }}>⛩️ {t.gate}</span>}
                                                                 </div>
                                                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', opacity: 0.8 }}>
-                                                                    <div title={`Responsable: ${t.owner}`} style={{ fontSize: 14, cursor: 'help' }}>👤</div>
+                                                                    <div title={`Responsable: ${t.owner}`} style={{ fontSize: 14 }}>👤</div>
                                                                     {t.prio === 'high' && <span>🔴</span>}
                                                                     {t.prio === 'med' && <span>🟡</span>}
                                                                     {t.prio === 'low' && <span>🟢</span>}
@@ -226,7 +232,12 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                 </thead>
                                 <tbody>
                                     {filteredTasks.map((t: Task) => (
-                                        <tr key={t.id} style={{ borderBottom: '1px solid var(--border-dim)', transition: 'background 0.2s' }}>
+                                        <tr
+                                            key={t.id}
+                                            style={{ borderBottom: '1px solid var(--border-dim)', transition: 'background 0.2s', cursor: 'pointer' }}
+                                            onClick={() => setSelectedTask(t)}
+                                            className="row-hover"
+                                        >
                                             <td style={{ padding: '16px 24px' }}>
                                                 <div style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</div>
                                                 {t.gate && <span className="chip gate" style={{ fontSize: 10, marginTop: 4, display: 'inline-flex' }}>⛩️ {t.gate}</span>}
@@ -338,6 +349,101 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                 </div>
             </main>
 
+            {selectedTask && (
+                <div className="backdrop" onClick={() => setSelectedTask(null)} style={{ display: 'flex', zIndex: 100 }}>
+                    <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                        <div className="modal-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: 12,
+                                    background: statuses.find(s => s.id === selectedTask.status)?.color + '20',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: 20
+                                }}>
+                                    {selectedTask.prio === 'high' ? '🔴' : selectedTask.prio === 'low' ? '🟢' : '🟡'}
+                                </div>
+                                <div>
+                                    <h2 className="modal-title">{selectedTask.name}</h2>
+                                    <p style={{ margin: 0, fontSize: 12, color: 'var(--text-dim)', fontWeight: 600 }}>Toda la información de la tarea</p>
+                                </div>
+                            </div>
+                            <button className="btn-icon" onClick={() => setSelectedTask(null)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="modal-body" style={{ padding: '24px 32px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 24, marginBottom: 32 }}>
+                                <div className="info-block" style={{ background: 'var(--bg-panel)', padding: 16, borderRadius: 16, border: '1px solid var(--border-dim)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>
+                                        <Info size={14} /> Estado & Prioridad
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 10 }}>
+                                        <span style={{ padding: '4px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: statuses.find(s => s.id === selectedTask.status)?.color, color: 'white' }}>
+                                            {statuses.find(s => s.id === selectedTask.status)?.name}
+                                        </span>
+                                        <span className={`chip p-${selectedTask.prio || "med"}`} style={{ fontSize: 12, fontWeight: 700 }}>
+                                            Prio: {selectedTask.prio === 'high' ? 'Alta' : selectedTask.prio === 'low' ? 'Baja' : 'Media'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="info-block" style={{ background: 'var(--bg-panel)', padding: 16, borderRadius: 16, border: '1px solid var(--border-dim)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>
+                                        <User size={14} /> Responsable
+                                    </div>
+                                    <div style={{ fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+                                            {selectedTask.owner.charAt(0)}
+                                        </div>
+                                        {selectedTask.owner}
+                                    </div>
+                                </div>
+
+                                <div className="info-block" style={{ background: 'var(--bg-panel)', padding: 16, borderRadius: 16, border: '1px solid var(--border-dim)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>
+                                        <Calendar size={14} /> Programación
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 600 }}>{selectedTask.week}</div>
+                                        {selectedTask.due && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Límite: {new Date(selectedTask.due).toLocaleDateString()}</div>}
+                                    </div>
+                                </div>
+
+                                <div className="info-block" style={{ background: 'var(--bg-panel)', padding: 16, borderRadius: 16, border: '1px solid var(--border-dim)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>
+                                        <Tag size={14} /> Clasificación
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                        <span className="chip" style={{ fontSize: 12 }}>{selectedTask.type}</span>
+                                        {selectedTask.gate && <span className="chip gate" style={{ fontSize: 12 }}>⛩️ {selectedTask.gate}</span>}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ background: 'var(--bg-panel)', padding: 24, borderRadius: 20, border: '1px solid var(--border-dim)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 16 }}>
+                                    <Flag size={14} /> Descripción de la tarea
+                                </div>
+                                <div style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>
+                                    {selectedTask.desc || "Esta tarea no tiene una descripción detallada."}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="modal-footer" style={{ justifyContent: 'center', padding: 24 }}>
+                            <button className="btn-secondary" onClick={() => setSelectedTask(null)} style={{ minWidth: 200 }}>
+                                Cerrar Detalle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style jsx>{`
                 .tab { display: flex; align-items: center; gap: 8px; padding: 6px 16px; font-size: 13px; font-weight: 600; color: var(--text-dim); cursor: pointer; border-radius: 8px; border: none; background: transparent; transition: all 0.2s; }
                 .tab:hover { color: var(--text-main); }
@@ -356,6 +462,8 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                 .kanban-card.p-high { border-left: 4px solid #ef4444; }
                 .kanban-card.p-med { border-left: 4px solid #f59e0b; }
                 .kanban-card.p-low { border-left: 4px solid #10b981; }
+
+                .row-hover:hover { background: var(--bg-panel); }
 
                 .lane::-webkit-scrollbar { width: 4px; }
                 .lane::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
