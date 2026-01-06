@@ -499,7 +499,7 @@ export default function Workspace() {
 
                     {/* Main action row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {currentItems.dashboards.length > 0 && (
+                        {(currentItems.dashboards.length > 0 || currentItems.folders.length > 0) && (
                             <button
                                 className="btn-ghost"
                                 onClick={fetchConsolidatedAnalytics}
@@ -938,7 +938,7 @@ export default function Workspace() {
                             <div>
                                 <h2 className="modal-title">Analítica Consolidada</h2>
                                 <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>
-                                    Vista agregada de {currentItems.dashboards.length} tableros en {breadcrumbs[breadcrumbs.length - 1].name}
+                                    Vista agregada de tableros en {breadcrumbs[breadcrumbs.length - 1].name} (Incluyendo subcarpetas)
                                 </p>
                             </div>
                             <button className="btn-ghost" onClick={() => setIsAnalyticsOpen(false)} style={{ padding: 4 }}><X size={24} /></button>

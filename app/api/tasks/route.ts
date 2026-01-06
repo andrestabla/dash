@@ -36,13 +36,24 @@ export async function GET(request: Request) {
             query += ' WHERE dashboard_id = $1';
             params.push(dashboardId);
         } else if (folderId !== null && folderId !== undefined && folderId !== 'null') {
-            // Consolidated for a specific folder
-            // 1. Get all accessible dashboards in this folder
+            // RECURSIVE Consolidated for a specific folder
             const dashQuery = session.role === 'admin'
-                ? 'SELECT id FROM dashboards WHERE folder_id = $1'
-                : `SELECT d.id FROM dashboards d 
-                   LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
-                   WHERE d.folder_id = $1 AND (d.owner_id = $2 OR dc.user_id = $2)`;
+                ? `WITH RECURSIVE subfolders AS (
+                        SELECT id FROM folders WHERE id = $1
+                        UNION ALL
+                        SELECT f.id FROM folders f JOIN subfolders sf ON f.parent_id = sf.id
+                    )
+                    SELECT id FROM dashboards WHERE folder_id IN (SELECT id FROM subfolders)`
+                : `WITH RECURSIVE subfolders AS (
+                        SELECT id FROM folders WHERE id = $1
+                        UNION ALL
+                        SELECT f.id FROM folders f JOIN subfolders sf ON f.parent_id = sf.id
+                    )
+                    SELECT d.id FROM dashboards d 
+                    LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+                    WHERE d.folder_id IN (SELECT id FROM subfolders) 
+                    AND (d.owner_id = $2 OR dc.user_id = $2)
+                    GROUP BY d.id`;
 
             const dashParams = session.role === 'admin' ? [folderId] : [folderId, session.id];
             const dashResult = await client.query(dashQuery, dashParams);
@@ -57,12 +68,13 @@ export async function GET(request: Request) {
             query += ` WHERE dashboard_id IN (${placeholders})`;
             params.push(...dashIds);
         } else {
-            // Root consolidated or all accessible
+            // GLOBAL Consolidated (Everything accessible to the user across ALL folders)
             const dashQuery = session.role === 'admin'
-                ? 'SELECT id FROM dashboards WHERE folder_id IS NULL'
+                ? 'SELECT id FROM dashboards'
                 : `SELECT d.id FROM dashboards d 
                    LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
-                   WHERE d.folder_id IS NULL AND (d.owner_id = $1 OR dc.user_id = $1)`;
+                   WHERE d.owner_id = $1 OR dc.user_id = $1
+                   GROUP BY d.id`;
 
             const dashParams = session.role === 'admin' ? [] : [session.id];
             const dashResult = await client.query(dashQuery, dashParams);
