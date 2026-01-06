@@ -702,14 +702,14 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
     return (
         <DragDropContext onDragEnd={onDragEnd}>
-            <header>
-                <div className="top-bar">
+            <header style={{ height: 'auto', minHeight: 70, padding: '12px 24px' }}>
+                <div className="top-bar" style={{ flexWrap: 'wrap', gap: 16 }}>
                     <div className="logo-area">
                         <Link href="/workspace" className="btn-ghost" title="Volver al Workspace">
                             <span style={{ fontSize: 24 }}>←</span>
                         </Link>
                         <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                                 <h1 className="app-title">{settings.icon} {dashboardName}</h1>
                                 <div style={{
                                     padding: '4px 12px',
@@ -717,7 +717,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     background: 'var(--primary-gradient)',
                                     color: 'white',
                                     fontSize: 12,
-                                    fontWeight: 700
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
                                 }}>
                                     {tasks.length > 0 ? Math.round(tasks.reduce((acc, t) => {
                                         const st = statuses.find(s => s.id === t.status);
@@ -728,36 +729,36 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             <p className="app-sub">TABLERO DE TRABAJO</p>
                         </div>
                     </div>
-                </div>
 
-                {/* ABSOLUTE TOP RIGHT CONTROLS */}
-                <div style={{ position: 'absolute', right: 24, top: 0, height: 70, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div className="flex -space-x-2">
-                            {availableUsers.slice(0, 3).map((u, i) => (
-                                <div key={i} title={u.name} style={{ width: 28, height: 28, borderRadius: '50%', background: `hsl(${i * 60}, 70%, 50%)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, border: '2px solid white' }}>
-                                    {u.name.substring(0, 2).toUpperCase()}
-                                </div>
-                            ))}
+                    {/* TOP RIGHT CONTROLS - Now integrated into flex flow */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <div className="flex -space-x-2">
+                                {availableUsers.slice(0, 3).map((u, i) => (
+                                    <div key={i} title={u.name} style={{ width: 28, height: 28, borderRadius: '50%', background: `hsl(${i * 60}, 70%, 50%)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, border: '2px solid white' }}>
+                                        {u.name.substring(0, 2).toUpperCase()}
+                                    </div>
+                                ))}
+                            </div>
+                            <button className="btn-primary" onClick={() => setIsShareModalOpen(true)} style={{ padding: '8px 16px', gap: 8 }}>
+                                <Share2 size={16} /> Compartir
+                            </button>
+                            <button className="btn-ghost" onClick={openSettings} title="Configuración">⚙️</button>
+                            <Link href="/workspace" className="btn-ghost" style={{ textDecoration: 'none' }}>Volver</Link>
                         </div>
-                        <button className="btn-primary" onClick={() => setIsShareModalOpen(true)} style={{ padding: '8px 16px', gap: 8 }}>
-                            <Share2 size={16} /> Compartir
+                        <button className="btn-ghost" onClick={toggleTheme} title="Cambiar Tema">
+                            🌓
                         </button>
-                        <button className="btn-ghost" onClick={openSettings} title="Configuración">⚙️</button>
-                        <Link href="/workspace" className="btn-ghost" style={{ textDecoration: 'none' }}>Volver</Link>
+                        <Link href="/workspace" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>✕</span> <span className="hide-mobile">Cerrar</span>
+                        </Link>
                     </div>
-                    <button className="btn-ghost" onClick={toggleTheme} title="Cambiar Tema">
-                        🌓
-                    </button>
-                    <Link href="/workspace" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>✕</span> <span>Cerrar</span>
-                    </Link>
                 </div>
             </header>
 
             <main>
-                <div className="controls">
-                    <div className="filters">
+                <div className="controls" style={{ flexWrap: 'wrap', gap: 16 }}>
+                    <div className="filters" style={{ flexWrap: 'wrap', gap: 12 }}>
                         <button className="btn-primary" onClick={() => {
                             setEditingTask({ id: undefined, name: "", status: settings.statuses?.[0]?.id || "todo", week: settings.weeks[0]?.id || "", owner: settings.owners[0] || "", type: "Feature" });
                             setIsModalOpen(true);
@@ -1276,6 +1277,19 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     /* DARK MODE ADJUSTMENTS */
                     @media (prefers-color-scheme: dark) {
                         .chip.gate { background: rgba(5, 150, 105, 0.2); color: #34d399; }
+                    }
+
+                    /* MOBILE HELPERS */
+                    @media (max-width: 768px) {
+                        .hide-mobile { display: none !important; }
+                        header { height: auto !important; }
+                        .top-bar { flex-direction: column; align-items: flex-start !important; }
+                        .controls { flex-direction: column; align-items: stretch !important; }
+                        .filters { width: 100%; }
+                        .filters > * { flex: 1; min-width: 140px; }
+                        main { overflow-y: auto !important; height: auto !important; }
+                        .kanban-container { height: auto !important; padding-bottom: 40px; }
+                        .lanes { height: auto !important; }
                     }
                 `}</style>
             </main>

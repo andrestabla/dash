@@ -460,7 +460,7 @@ export default function Workspace() {
     return (
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
             {/* HEADER & NAV */}
-            <header style={{ marginBottom: 40, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
+            <header className="workspace-header">
                 <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
                         {breadcrumbs.map((crumb, i) => (
@@ -485,7 +485,7 @@ export default function Workspace() {
                     </h1>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
+                <div className="workspace-header-right">
                     {/* Top utility row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {user?.role === 'admin' && (
@@ -500,7 +500,7 @@ export default function Workspace() {
                     </div>
 
                     {/* Main action row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="workspace-actions">
                         {(currentItems.dashboards.length > 0 || currentItems.folders.length > 0) && (
                             <button
                                 className="btn-ghost"
@@ -996,7 +996,37 @@ export default function Workspace() {
                     /* Adjust Grid for Mobile */
                     .dashboard-grid { grid-template-columns: 1fr; }
                     
-                    /* Controls Stack */
+                /* Workspace Header Fix */
+                .workspace-header { 
+                    margin-bottom: 40px; 
+                    border-bottom: 1px solid rgba(255,255,255,0.1); 
+                    padding-bottom: 24px; 
+                    display: flex; 
+                    justify-content: space-between; 
+                    align-items: flex-start; 
+                    position: relative; 
+                    flex-wrap: wrap; 
+                    gap: 20px; 
+                }
+                .workspace-header-right { 
+                    display: flex; 
+                    flex-direction: column; 
+                    align-items: flex-end; 
+                    gap: 12px; 
+                }
+                .workspace-actions { 
+                    display: flex; 
+                    align-items: center; 
+                    gap: 12px; 
+                    flex-wrap: wrap; 
+                    justify-content: flex-end; 
+                }
+
+                @media (max-width: 768px) {
+                    .workspace-header { flex-direction: column; align-items: stretch; gap: 24px; }
+                    .workspace-header-right { align-items: stretch; }
+                    .workspace-actions { justify-content: stretch; }
+                    .workspace-actions button { flex: 1; }
                     .folder-header { flex-direction: column; align-items: flex-start; gap: 12px; }
                     .folder-actions { width: 100%; justify-content: space-between; }
                     .folder-actions button { flex: 1; }
