@@ -499,12 +499,40 @@ export default function Workspace() {
             {/* 1. NEW/EDIT FOLDER */}
             {isCreatingFolder && (
                 <div className="backdrop">
-                    <div className="glass-panel animate-slide-up" style={{ padding: 32, width: '100%', maxWidth: 420, textAlign: 'center' }}>
+                    <div className="glass-panel animate-slide-up" style={{ padding: 32, width: '100%', maxWidth: 450, textAlign: 'center' }}>
                         <h3 style={{ marginTop: 0, fontSize: 20 }}>{editingFolder ? 'Editar Carpeta' : 'Nueva Carpeta'}</h3>
+
                         <div style={{ textAlign: 'left', marginTop: 24, marginBottom: 24 }}>
-                            <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-dim)', textAlign: 'center' }}>NOMBRE DE LA CARPETA</label>
-                            <input className="input-glass" value={folderName} onChange={e => setFolderName(e.target.value)} autoFocus placeholder="Ej: Q1 Marketing" style={{ textAlign: 'center', fontSize: 16 }} />
+                            <label style={{ display: 'block', marginBottom: 12, fontSize: 13, fontWeight: 600, color: 'var(--text-dim)', textAlign: 'center' }}>NOMBRE DE LA CARPETA</label>
+                            <input
+                                className="input-glass"
+                                value={folderName}
+                                onChange={e => setFolderName(e.target.value)}
+                                autoFocus
+                                placeholder="Ej: Q1 Marketing"
+                                style={{ textAlign: 'center', fontSize: 16, padding: '16px' }}
+                            />
                         </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 32 }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 12, fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Ícono</label>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                    {["📁", "📂", "💼", "📊", "🚀", "💡", "🎯"].map(ic => (
+                                        <div key={ic} onClick={() => setFolderIcon(ic)} style={{ cursor: 'pointer', padding: 8, borderRadius: 8, background: folderIcon === ic ? 'var(--bg-panel)' : 'transparent', border: folderIcon === ic ? '1px solid var(--primary)' : '1px solid transparent', transition: 'all 0.2s', fontSize: 20 }}>{ic}</div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 12, fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Color</label>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                    {COLORS.map(c => (
+                                        <div key={c} onClick={() => setFolderColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: folderColor === c ? '0 0 0 2px var(--bg-card), 0 0 0 4px ' + c : 'none', transition: 'all 0.2s' }}></div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
                             <button className="btn-ghost" onClick={closeFolderModal}>Cancelar</button>
                             <button className="btn-primary" onClick={saveFolder}>Guardar</button>
