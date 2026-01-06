@@ -37,24 +37,43 @@ export async function POST(request: Request) {
         // Verify connection configuration
         await transporter.verify();
 
-        // Send test email
+        // SAFE SENDER LOGIC (Replicated from lib/email.ts)
+        let fromAddress = user;
+
+        if (from) {
+            let fromName = from;
+            if (fromName.includes('<')) {
+                fromName = fromName.split('<')[0].trim();
+                fromName = fromName.replace(/^"|"$/g, '');
+            } else if (fromName.includes('@')) {
+                if (fromName === user) {
+                    fromName = '';
+                }
+            }
+
+            if (fromName) {
+                fromAddress = `"${fromName}" <${user}>`;
+            }
+        }
+
         await transporter.sendMail({
-            from: from || `"Test System" <${user}>`,
-            to: to,
-            subject: "Prueba de conexión SMTP - Roadmap 4Shine",
-            text: "Si estás leyendo esto, la configuración SMTP funciona correctamente.",
+            from: fromAddress,
+            to: user, // Send to self for testing
+            subject: 'Test de Configuración SMTP',
             html: `
                 <div style="font-family: sans-serif; padding: 20px; color: #333;">
-                    <h2 style="color: #3b82f6;">¡Conexión Exitosa! 🚀</h2>
-                    <p>Este es un correo de prueba enviado desde tu aplicación <strong>Roadmap 4Shine</strong>.</p>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-                    <p style="font-size: 12px; color: #666;">
-                        <strong>Configuración probada:</strong><br/>
-                        Host: ${host}:${port}<br/>
-                        Usuario: ${user}
-                    </p>
+                    <h2 style="color: #2563eb;">¡Configuración Exitosa!</h2>
+                    <p>Este es un correo de prueba enviado desde tu plataforma.</p>
+                    <p><strong>Configuración utilizada:</strong></p>
+                    <ul>
+                        <li>Host: ${host}</li>
+                        <li>Port: ${port}</li>
+                        <li>User: ${user}</li>
+                        <li>From (Configurado): ${from || '(Igual al usuario)'}</li>
+                        <li>From (Real): ${fromAddress.replace('<', '&lt;').replace('>', '&gt;')}</li>
+                    </ul>
                 </div>
-            `
+            `,
         });
 
         return NextResponse.json({ success: true });
