@@ -26,14 +26,14 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { name, parent_id } = body;
+        const { name, parent_id, icon, color } = body;
 
         if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
 
         const client = await pool.connect();
         const res = await client.query(
-            'INSERT INTO folders (name, parent_id) VALUES ($1, $2) RETURNING *',
-            [name, parent_id || null]
+            'INSERT INTO folders (name, parent_id, icon, color) VALUES ($1, $2, $3, $4) RETURNING *',
+            [name, parent_id || null, icon || '📁', color || '#3b82f6']
         );
         client.release();
 
@@ -48,7 +48,7 @@ export async function PUT(request: Request) {
 
     try {
         const body = await request.json();
-        const { id, name, parent_id } = body;
+        const { id, name, parent_id, icon, color } = body;
 
         if (!id || !name) return NextResponse.json({ error: 'ID and Name are required' }, { status: 400 });
 
@@ -57,8 +57,8 @@ export async function PUT(request: Request) {
 
         const client = await pool.connect();
         const res = await client.query(
-            'UPDATE folders SET name = $1, parent_id = $2 WHERE id = $3 RETURNING *',
-            [name, parent_id || null, id]
+            'UPDATE folders SET name = $1, parent_id = $2, icon = $3, color = $4 WHERE id = $5 RETURNING *',
+            [name, parent_id || null, icon || '📁', color || '#3b82f6', id]
         );
         client.release();
 

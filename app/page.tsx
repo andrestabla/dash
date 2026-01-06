@@ -20,6 +20,8 @@ interface Folder {
     id: string;
     name: string;
     parent_id: string | null;
+    icon?: string;
+    color?: string;
 }
 
 const DEFAULT_SETTINGS = {
@@ -79,7 +81,10 @@ export default function Workspace() {
     const [wizColor, setWizColor] = useState("#3b82f6");
 
     // Folder Wizard State
+    // Folder Wizard State
     const [folderName, setFolderName] = useState("");
+    const [folderIcon, setFolderIcon] = useState("📁");
+    const [folderColor, setFolderColor] = useState("#fbbf24");
 
     // Move State
     const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
@@ -137,8 +142,8 @@ export default function Workspace() {
             const url = '/api/folders';
             const method = isEdit ? 'PUT' : 'POST';
             const body = isEdit
-                ? { id: editingFolder.id, name: folderName, parent_id: editingFolder.parent_id }
-                : { name: folderName, parent_id: currentFolderId };
+                ? { id: editingFolder.id, name: folderName, parent_id: editingFolder.parent_id, icon: folderIcon, color: folderColor }
+                : { name: folderName, parent_id: currentFolderId, icon: folderIcon, color: folderColor };
 
             const res = await fetch(url, {
                 method,
@@ -180,6 +185,8 @@ export default function Workspace() {
         e.preventDefault(); e.stopPropagation();
         setEditingFolder(f);
         setFolderName(f.name);
+        setFolderIcon(f.icon || "📁");
+        setFolderColor(f.color || "#fbbf24");
         setIsCreatingFolder(true);
     };
 
@@ -187,6 +194,8 @@ export default function Workspace() {
         setIsCreatingFolder(false);
         setEditingFolder(null);
         setFolderName("");
+        setFolderIcon("📁");
+        setFolderColor("#fbbf24");
     };
 
     // --- ACTIONS: DASHBOARD ---
@@ -418,9 +427,9 @@ export default function Workspace() {
                                     key={f.id}
                                     className="glass-panel hover-lift"
                                     onClick={() => setCurrentFolderId(f.id)}
-                                    style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', border: '1px solid var(--border-dim)' }}
+                                    style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', border: '1px solid var(--border-dim)', borderLeft: `4px solid ${f.color || '#fbbf24'}` }}
                                 >
-                                    <div style={{ color: '#fbbf24' }}><Folder size={24} fill="#fbbf24" fillOpacity={0.2} /></div>
+                                    <div style={{ color: f.color || '#fbbf24' }}>{f.icon || <Folder size={24} fill={f.color || "#fbbf24"} fillOpacity={0.2} />}</div>
                                     <span style={{ fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
 
                                     <div className="folder-actions" onClick={e => e.stopPropagation()} style={{ display: 'flex' }}>
