@@ -20,7 +20,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, icon, minWidth = 
 
     // Sync input with external value
     useEffect(() => {
-        const selected = options.find((o: any) => o.value === value);
+        const selected = options.find((o: any) => String(o.value) === String(value));
         if (selected) {
             setSearchTerm(selected.label || "");
         } else if (value === '' || value === 'all') {
