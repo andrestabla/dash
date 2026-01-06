@@ -4,7 +4,9 @@ import { useState, useEffect, useMemo, use } from "react";
 import Link from 'next/link';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useToast } from "@/components/ToastProvider";
+
 import ConfirmModal from "@/components/ConfirmModal";
+import { Send, Edit2, Trash2, X } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -835,8 +837,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                         </div>
                                                         {currentUser?.email === c.user_email && (
                                                             <div style={{ display: 'flex', gap: 4 }}>
-                                                                <button className="btn-ghost" onClick={() => startEditComment(c)} style={{ padding: 2, height: 'auto', opacity: 0.6, fontSize: 12 }}>✏️</button>
-                                                                <button className="btn-ghost" onClick={() => handleDeleteComment(c.id)} style={{ padding: 2, height: 'auto', opacity: 0.6, fontSize: 12 }}>🗑️</button>
+                                                                <button className="btn-ghost" onClick={() => startEditComment(c)} style={{ padding: 2, height: 'auto', opacity: 0.6 }}><Edit2 size={12} /></button>
+                                                                <button className="btn-ghost" onClick={() => handleDeleteComment(c.id)} style={{ padding: 2, height: 'auto', opacity: 0.6 }}><Trash2 size={12} /></button>
                                                             </div>
                                                         )}
                                                     </div>
@@ -869,11 +871,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                 style={{ flex: 1, minHeight: 40, padding: 8, fontSize: 13, borderRadius: 6, border: '1px solid var(--border)' }}
                                             />
                                             <button className="btn-ghost" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 'auto' }}>
-                                                ✈️
+                                                <Send size={16} />
                                             </button>
-                                        </div>
-                                        <div style={{ marginTop: 8, fontSize: 10, color: 'red', textAlign: 'right' }}>
-                                            Debug: {currentUser ? `Logueado como: ${currentUser.email}` : "NO USUARIO DETECTADO (Recarga si acabas de entrar)"}
                                         </div>
                                     </div>
                                 )}
