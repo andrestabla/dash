@@ -113,14 +113,37 @@ export async function PUT(request: Request) {
 
         const client = await pool.connect();
 
-        // Check permission: Admin or Owner
-        const check = await client.query('SELECT owner_id FROM dashboards WHERE id = $1', [id]);
+        // Check permission: Admin, Owner, or Collaborator
+        const check = await client.query('SELECT owner_id, folder_id FROM dashboards WHERE id = $1', [id]);
         if (check.rows.length === 0) {
             client.release();
             return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
         }
 
-        if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
+        const dashboard = check.rows[0];
+        const isOwner = dashboard.owner_id === session.id;
+        const isAdmin = session.role === 'admin';
+
+        let isCollaborator = false;
+        if (!isOwner && !isAdmin) {
+            // Check direct dashboard collaboration
+            const collRes = await client.query(
+                'SELECT id FROM dashboard_collaborators WHERE dashboard_id = $1 AND user_id = $2',
+                [id, session.id]
+            );
+            isCollaborator = collRes.rows.length > 0;
+
+            // If not directly shared, check if parent folder is shared
+            if (!isCollaborator && dashboard.folder_id) {
+                const folderCollRes = await client.query(
+                    'SELECT id FROM folder_collaborators WHERE folder_id = $1 AND user_id = $2',
+                    [dashboard.folder_id, session.id]
+                );
+                isCollaborator = folderCollRes.rows.length > 0;
+            }
+        }
+
+        if (!isAdmin && !isOwner && !isCollaborator) {
             client.release();
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }

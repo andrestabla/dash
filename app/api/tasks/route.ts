@@ -23,7 +23,8 @@ export async function GET(request: Request) {
                 ? 'SELECT id FROM dashboards WHERE id = $1'
                 : `SELECT d.id FROM dashboards d 
                    LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
-                   WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2)`;
+                   LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
+                   WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)`;
 
             const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
             const accessCheck = await client.query(accessQuery, accessParams);
@@ -51,8 +52,9 @@ export async function GET(request: Request) {
                     )
                     SELECT d.id FROM dashboards d 
                     LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+                    LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
                     WHERE d.folder_id IN (SELECT id FROM subfolders) 
-                    AND (d.owner_id = $2 OR dc.user_id = $2)
+                    AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)
                     GROUP BY d.id`;
 
             const dashParams = session.role === 'admin' ? [folderId] : [folderId, session.id];
@@ -73,7 +75,8 @@ export async function GET(request: Request) {
                 ? 'SELECT id FROM dashboards'
                 : `SELECT d.id FROM dashboards d 
                    LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
-                   WHERE d.owner_id = $1 OR dc.user_id = $1
+                   LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
+                   WHERE d.owner_id = $1 OR dc.user_id = $1 OR fc.user_id = $1
                    GROUP BY d.id`;
 
             const dashParams = session.role === 'admin' ? [] : [session.id];
@@ -107,6 +110,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     try {
         const body = await request.json();
         const { id, week, name, status, owner, type, prio, gate, due, desc, dashboard_id } = body;
@@ -114,6 +120,22 @@ export async function POST(request: Request) {
         if (!dashboard_id) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
 
         const client = await pool.connect();
+
+        // Check Permission
+        const accessQuery = session.role === 'admin'
+            ? 'SELECT id FROM dashboards WHERE id = $1'
+            : `SELECT d.id FROM dashboards d 
+               LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+               LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
+               WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)`;
+
+        const accessParams = session.role === 'admin' ? [dashboard_id] : [dashboard_id, session.id];
+        const accessCheck = await client.query(accessQuery, accessParams);
+
+        if (accessCheck.rows.length === 0) {
+            client.release();
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
 
         const query = `
       INSERT INTO tasks (id, week, name, status, owner, type, prio, gate, due, description, dashboard_id)
@@ -142,6 +164,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+    const session = await getSession() as any;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -151,6 +176,31 @@ export async function DELETE(request: Request) {
         }
 
         const client = await pool.connect();
+
+        // To delete, we need to know the dashboard_id of the task
+        const taskRes = await client.query('SELECT dashboard_id FROM tasks WHERE id = $1', [id]);
+        if (taskRes.rows.length === 0) {
+            client.release();
+            return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+        }
+        const dashboardId = taskRes.rows[0].dashboard_id;
+
+        // Check Permission
+        const accessQuery = session.role === 'admin'
+            ? 'SELECT id FROM dashboards WHERE id = $1'
+            : `SELECT d.id FROM dashboards d 
+               LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+               LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
+               WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)`;
+
+        const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
+        const accessCheck = await client.query(accessQuery, accessParams);
+
+        if (accessCheck.rows.length === 0) {
+            client.release();
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
+
         await client.query('DELETE FROM tasks WHERE id = $1', [id]);
         client.release();
 
