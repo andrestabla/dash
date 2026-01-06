@@ -57,6 +57,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [availableUsers, setAvailableUsers] = useState<{ id: string, name: string, email: string }[]>([]);
+    const [projectEndDate, setProjectEndDate] = useState<string | null>(null);
 
     // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -376,6 +377,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 if (data && data.settings) {
                     setSettings(data.settings);
                     setDashboardName(data.name);
+                    if (data.end_date) setProjectEndDate(data.end_date.split('T')[0]);
                 }
             })
             .catch(err => console.error("Failed to load dashboard settings", err));
@@ -518,6 +520,14 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             id: editingTask.id || Date.now(),
             dashboard_id: dashboardId
         };
+
+        // Date Validation
+        if (newTask.due && projectEndDate) {
+            if (new Date(newTask.due) > new Date(projectEndDate)) {
+                showToast(`La fecha no puede ser posterior al fin del proyecto (${projectEndDate})`, "error");
+                return;
+            }
+        }
 
         const originalTasks = [...tasks];
 

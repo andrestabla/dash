@@ -51,8 +51,8 @@ export async function POST(request: Request) {
             await client.query('BEGIN');
 
             const result = await client.query(
-                'INSERT INTO dashboards (name, description, settings, folder_id, owner_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-                [name, description || '', settings || {}, folder_id || null, session.id]
+                'INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+                [name, description || '', settings || {}, folder_id || null, session.id, body.start_date || null, body.end_date || null]
             );
             const newDash = result.rows[0];
 
@@ -124,8 +124,8 @@ export async function PUT(request: Request) {
         }
 
         const result = await client.query(
-            'UPDATE dashboards SET name = $1, description = $2, settings = $3 WHERE id = $4 RETURNING *',
-            [name, description || '', settings || {}, id]
+            'UPDATE dashboards SET name = $1, description = $2, settings = $3, start_date = $4, end_date = $5 WHERE id = $6 RETURNING *',
+            [name, description || '', settings || {}, body.start_date || null, body.end_date || null, id]
         );
         client.release();
 

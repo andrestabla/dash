@@ -13,6 +13,8 @@ interface Dashboard {
     description: string;
     created_at: string;
     folder_id: string | null;
+    start_date?: string;
+    end_date?: string;
     settings: any;
 }
 
@@ -80,6 +82,14 @@ export default function Workspace() {
     const [wizIcon, setWizIcon] = useState("🗺️");
     const [wizColor, setWizColor] = useState("#3b82f6");
     const [wizFolderId, setWizFolderId] = useState<string | null>(null);
+    const [wizStartDate, setWizStartDate] = useState(new Date().toISOString().split('T')[0]);
+
+    const wizEndDate = useMemo(() => {
+        if (!wizStartDate) return "";
+        const d = new Date(wizStartDate);
+        d.setDate(d.getDate() + (wizWeeks * 7));
+        return d.toISOString().split('T')[0];
+    }, [wizStartDate, wizWeeks]);
 
     // Import State
     const [isImporting, setIsImporting] = useState(false);
@@ -231,6 +241,8 @@ export default function Workspace() {
             description: wizDesc,
             settings: finalSettings,
             folder_id: wizFolderId, // Use selected folder from wizard
+            start_date: wizStartDate,
+            end_date: wizEndDate,
             initialTasks: parsedTasks // Send parsed tasks if any
         };
 
@@ -343,6 +355,7 @@ export default function Workspace() {
         setWizIcon(d.settings?.icon || "🗺️");
         setWizColor(d.settings?.color || "#3b82f6");
         setWizWeeks(d.settings?.weeks?.length || 9);
+        setWizStartDate(d.start_date ? d.start_date.split('T')[0] : new Date().toISOString().split('T')[0]);
         setWizOwners(d.settings?.owners || []);
         setWizTypes(d.settings?.types || []);
         setWizGates(d.settings?.gates || []);
@@ -357,6 +370,7 @@ export default function Workspace() {
         setWizDesc("");
         setWizFolderId(currentFolderId); // Default to current folder
         setWizWeeks(9);
+        setWizStartDate(new Date().toISOString().split('T')[0]);
         setWizOwners(["Andrés Tabla"]);
         setWizTypes(DEFAULT_SETTINGS.types);
         setWizGates(DEFAULT_SETTINGS.gates);
@@ -784,6 +798,25 @@ export default function Workspace() {
                                             : "Se generarán " + wizWeeks + " semanas (W1 - W" + wizWeeks + ")."
                                         }
                                     </p>
+
+                                    <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                                        <div>
+                                            <label className="form-label" style={{ fontSize: 14 }}>Fecha de Inicio</label>
+                                            <input
+                                                type="date"
+                                                className="input-glass"
+                                                value={wizStartDate}
+                                                onChange={e => setWizStartDate(e.target.value)}
+                                                style={{ width: '100%', colorScheme: 'dark' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="form-label" style={{ fontSize: 14 }}>Fecha Final (Estimada)</label>
+                                            <div className="input-glass" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', cursor: 'not-allowed' }}>
+                                                {wizEndDate}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                             {wizardStep === 3 && (
