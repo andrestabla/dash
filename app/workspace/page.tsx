@@ -461,7 +461,7 @@ export default function Workspace() {
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
             {/* HEADER & NAV */}
             <header className="workspace-header">
-                <div style={{ flex: 1 }}>
+                <div className="workspace-header-left">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
                         {breadcrumbs.map((crumb, i) => (
                             <div key={crumb.id || 'root'} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1003,30 +1003,31 @@ export default function Workspace() {
                     padding-bottom: 24px; 
                     display: flex; 
                     justify-content: space-between; 
-                    align-items: flex-start; 
+                    align-items: center; 
                     position: relative; 
-                    flex-wrap: wrap; 
-                    gap: 20px; 
+                    gap: 24px;
+                }
+                .workspace-header-left {
+                    flex: 1;
+                    min-width: 200px;
                 }
                 .workspace-header-right { 
                     display: flex; 
                     flex-direction: column; 
                     align-items: flex-end; 
-                    gap: 12px; 
+                    gap: 16px; 
                 }
                 .workspace-actions { 
                     display: flex; 
                     align-items: center; 
                     gap: 12px; 
-                    flex-wrap: wrap; 
-                    justify-content: flex-end; 
                 }
 
-                @media (max-width: 768px) {
+                @media (max-width: 992px) {
                     .workspace-header { flex-direction: column; align-items: stretch; gap: 24px; }
                     .workspace-header-right { align-items: stretch; }
-                    .workspace-actions { justify-content: stretch; }
-                    .workspace-actions button { flex: 1; }
+                    .workspace-actions { justify-content: stretch; flex-wrap: wrap; }
+                    .workspace-actions button { flex: 1; min-width: 140px; }
                     .folder-header { flex-direction: column; align-items: flex-start; gap: 12px; }
                     .folder-actions { width: 100%; justify-content: space-between; }
                     .folder-actions button { flex: 1; }

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
     const session = await getSession() as any;
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

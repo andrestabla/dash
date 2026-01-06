@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -26,8 +28,6 @@ export async function POST(request: Request) {
         const newName = name || `${original.name} (Copia)`;
 
         // 3. Insert Copy
-        // We copy description, settings, folder_id. 
-        // We DO NOT copy id, created_at.
         const res = await client.query(
             `INSERT INTO dashboards (name, description, settings, folder_id) 
              VALUES ($1, $2, $3, $4) 
@@ -37,10 +37,24 @@ export async function POST(request: Request) {
 
         const newDashboard = res.rows[0];
 
-        // OPTIONAL: Copy Columns/Tasks? 
-        // For now, we are doing STRUCTURE ONLY (Empty Board with same settings).
-        // If we wanted to copy tasks, we would need to fetch all columns/tasks and re-insert them mapped to new ID.
-        // Given complexity and "LGTM" on plan, we stick to structure.
+        // 4. Clone Tasks
+        const tasksRes = await client.query('SELECT * FROM tasks WHERE dashboard_id = $1', [dashboardId]);
+        const tasks = tasksRes.rows;
+
+        for (let i = 0; i < tasks.length; i++) {
+            const task = tasks[i];
+            const newTaskId = Date.now() + i; // Generate unique BIGINT ID similar to frontend
+            await client.query(
+                `INSERT INTO tasks (
+                    id, name, status, prio, owner, type, week, gate, 
+                    dashboard_id, description, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
+                [
+                    newTaskId, task.name, task.status, task.prio, task.owner, task.type, task.week, task.gate,
+                    newDashboard.id, task.description
+                ]
+            );
+        }
 
         client.release();
 

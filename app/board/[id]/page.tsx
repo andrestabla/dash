@@ -731,9 +731,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     </div>
 
                     {/* TOP RIGHT CONTROLS - Now integrated into flex flow */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                            <div className="flex -space-x-2">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }} className="top-right-controls">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="desktop-actions">
+                            <div className="flex -space-x-2 hide-mobile">
                                 {availableUsers.slice(0, 3).map((u, i) => (
                                     <div key={i} title={u.name} style={{ width: 28, height: 28, borderRadius: '50%', background: `hsl(${i * 60}, 70%, 50%)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, border: '2px solid white' }}>
                                         {u.name.substring(0, 2).toUpperCase()}
@@ -741,17 +741,19 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 ))}
                             </div>
                             <button className="btn-primary" onClick={() => setIsShareModalOpen(true)} style={{ padding: '8px 16px', gap: 8 }}>
-                                <Share2 size={16} /> Compartir
+                                <Share2 size={16} /> <span className="hide-mobile">Compartir</span>
                             </button>
                             <button className="btn-ghost" onClick={openSettings} title="Configuración">⚙️</button>
-                            <Link href="/workspace" className="btn-ghost" style={{ textDecoration: 'none' }}>Volver</Link>
+                            <Link href="/workspace" className="btn-ghost hide-mobile" style={{ textDecoration: 'none' }}>Volver</Link>
                         </div>
-                        <button className="btn-ghost" onClick={toggleTheme} title="Cambiar Tema">
-                            🌓
-                        </button>
-                        <Link href="/workspace" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span>✕</span> <span className="hide-mobile">Cerrar</span>
-                        </Link>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <button className="btn-ghost" onClick={toggleTheme} title="Cambiar Tema">
+                                🌓
+                            </button>
+                            <Link href="/workspace" className="btn-ghost" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span>✕</span> <span className="hide-mobile">Cerrar</span>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -1283,7 +1285,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     @media (max-width: 768px) {
                         .hide-mobile { display: none !important; }
                         header { height: auto !important; }
-                        .top-bar { flex-direction: column; align-items: flex-start !important; }
+                        .top-bar { flex-direction: column; align-items: flex-start !important; gap: 20px !important; }
+                        .top-right-controls { width: 100%; justify-content: space-between; }
                         .controls { flex-direction: column; align-items: stretch !important; }
                         .filters { width: 100%; }
                         .filters > * { flex: 1; min-width: 140px; }

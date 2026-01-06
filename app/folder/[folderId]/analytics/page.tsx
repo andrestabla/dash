@@ -407,7 +407,10 @@ export default function FolderAnalyticsPage() {
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 12 }}>
-                        <button className="btn-ghost" onClick={() => router.push('/')} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button className="btn-ghost" onClick={loadData} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {loading ? "Cargando..." : "Refrescar"}
+                        </button>
+                        <button className="btn-ghost" onClick={() => router.push('/workspace')} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <ArrowLeft size={16} /> Volver
                         </button>
                         <div style={{ position: 'relative' }}>
@@ -638,6 +641,13 @@ export default function FolderAnalyticsPage() {
                     </div>
                 </div>
             </div>
+            <style jsx>{`
+                @media (max-width: 768px) {
+                    .glass-panel { padding: 16px !important; }
+                    .kpi-value { font-size: 24px !important; }
+                    h1 { font-size: 24px !important; }
+                }
+            `}</style>
         </div>
     );
 }
