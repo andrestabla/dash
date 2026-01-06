@@ -28,11 +28,21 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
 
         let isCollaborator = false;
         if (!isOwner && !isAdmin) {
+            // Check direct dashboard collaboration
             const collRes = await client.query(
                 'SELECT id FROM dashboard_collaborators WHERE dashboard_id = $1 AND user_id = $2',
                 [id, session.id]
             );
             isCollaborator = collRes.rows.length > 0;
+
+            // If not directly shared, check if parent folder is shared
+            if (!isCollaborator && dashboard.folder_id) {
+                const folderCollRes = await client.query(
+                    'SELECT id FROM folder_collaborators WHERE folder_id = $1 AND user_id = $2',
+                    [dashboard.folder_id, session.id]
+                );
+                isCollaborator = folderCollRes.rows.length > 0;
+            }
         }
 
         client.release();

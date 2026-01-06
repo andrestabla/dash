@@ -51,8 +51,10 @@ export async function POST(
 
         // 4. Send Notification if requested
         if (notify) {
+            const origin = request.headers.get('origin') || `https://${request.headers.get('host')}`;
+            const base = process.env.NEXT_PUBLIC_APP_URL || origin || 'https://misproyectos.com.co';
             const subject = `Invitación a carpeta compartida: ${folder.name}`;
-            const link = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/workspace`;
+            const link = `${base}/workspace`;
 
             const html = `
                 <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 12px;">

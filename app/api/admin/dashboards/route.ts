@@ -76,9 +76,11 @@ export async function PUT(request: Request) {
 
         // 3. Send Invites
         if (sendInvite && owners && owners.length > 0) {
+            const origin = request.headers.get('origin') || `https://${request.headers.get('host')}`;
+            const base = process.env.NEXT_PUBLIC_APP_URL || origin || 'https://misproyectos.com.co';
             const { sendEmail } = await import('@/lib/email');
             const subject = `Invitación a colaborar: ${name}`;
-            const link = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/board/${id}`;
+            const link = `${base}/board/${id}`;
 
             // We'll fire these in parallel
             const emailPromises = owners.map(async (email: string) => {
