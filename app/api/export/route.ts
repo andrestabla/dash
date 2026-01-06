@@ -23,11 +23,18 @@ async function getDashboardData(client: any, dashboardId: string) {
 
 // Helper to create a worksheet for a dashboard
 function createDashboardSheet(dashboard: any, tasks: any[]) {
+    // Helper to resolve status name
+    const getStatusName = (statusId: string) => {
+        if (!dashboard.settings || !dashboard.settings.statuses) return statusId;
+        const status = dashboard.settings.statuses.find((s: any) => s.id === statusId);
+        return status ? status.name : statusId;
+    };
+
     // 1. Prepare data rows
     const rows = tasks.map(t => ({
         "Semana": t.week,
         "Tarea / Hito": t.name,
-        "Estado": t.status,
+        "Estado": getStatusName(t.status),
         "Responsable": t.owner || "Sin asignar",
         "Tipo": t.type || "General",
         "Prioridad": t.prio || "",
@@ -43,7 +50,7 @@ function createDashboardSheet(dashboard: any, tasks: any[]) {
     const wscols = [
         { wch: 10 }, // Week
         { wch: 40 }, // Name
-        { wch: 15 }, // Status
+        { wch: 20 }, // Status (Expanded for potential long names)
         { wch: 20 }, // Owner
         { wch: 15 }, // Type
         { wch: 10 }, // Prio
