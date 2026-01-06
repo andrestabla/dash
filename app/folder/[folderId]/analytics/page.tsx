@@ -1,0 +1,380 @@
+"use client";
+
+import { useEffect, useState, useMemo, use } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Share2, Copy, Check, X } from "lucide-react";
+import { useToast } from "@/components/ToastProvider";
+
+export default function FolderAnalyticsPage({ params }: { params: Promise<{ folderId: string }> }) {
+    const { folderId } = use(params);
+    const router = useRouter();
+    const { showToast } = useToast();
+
+    const [loading, setLoading] = useState(true);
+    const [folderName, setFolderName] = useState("");
+    const [breadcrumbs, setBreadcrumbs] = useState<{ id: string | null, name: string }[]>([]);
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [filters, setFilters] = useState({
+        dashboardId: 'all',
+        search: '',
+        status: 'all',
+        owner: 'all',
+        type: 'all'
+    });
+
+    // Public sharing state
+    const [publicLinkState, setPublicLinkState] = useState<{ isPublic: boolean, token: string | null }>({ isPublic: false, token: null });
+    const [sharingLoading, setSharingLoading] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    useEffect(() => {
+        loadData();
+    }, [folderId]);
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            // Fetch folder info and breadcrumbs
+            const folderRes = await fetch('/api/folders');
+            if (folderRes.ok) {
+                const folders = await folderRes.json();
+                const folder = folders.find((f: any) => f.id === folderId);
+                if (folder) {
+                    setFolderName(folder.name);
+                    // Build breadcrumbs
+                    const crumbs = [{ id: null, name: 'Espacio de Trabajo' }];
+                    let current = folder;
+                    const path = [current];
+                    while (current.parent_id) {
+                        current = folders.find((f: any) => f.id === current.parent_id);
+                        if (current) path.unshift(current);
+                    }
+                    crumbs.push(...path.map((f: any) => ({ id: f.id, name: f.name })));
+                    crumbs.push({ id: null, name: 'Analítica' });
+                    setBreadcrumbs(crumbs);
+                }
+            }
+
+            // Fetch consolidated tasks
+            const tasksRes = await fetch(`/api/tasks?folderId=${folderId}`);
+            if (tasksRes.ok) {
+                const tasksData = await tasksRes.json();
+                setTasks(tasksData);
+            }
+        } catch (error) {
+            showToast("Error al cargar datos", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleShareAnalytics = async () => {
+        setSharingLoading(true);
+        try {
+            const newStatus = !publicLinkState.isPublic;
+            const res = await fetch(`/api/folders/${folderId}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'toggle_public', isPublic: newStatus })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setPublicLinkState({ isPublic: data.isPublic, token: data.token });
+                showToast(newStatus ? "Enlace público activado" : "Enlace público desactivado", "success");
+            }
+        } catch (error) {
+            showToast("Error al compartir", "error");
+        } finally {
+            setSharingLoading(false);
+        }
+    };
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        showToast("Enlace copiado", "success");
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    // Filter logic
+    const filteredTasks = useMemo(() => {
+        return tasks.filter(t => {
+            const matchesDash = filters.dashboardId === 'all' || String(t.dashboard_id) === String(filters.dashboardId);
+            const matchesSearch = t.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+                (t.desc && t.desc.toLowerCase().includes(filters.search.toLowerCase()));
+            const matchesStatus = filters.status === 'all' || t.status === filters.status;
+            const matchesOwner = filters.owner === 'all' || t.owner === filters.owner;
+            const matchesType = filters.type === 'all' || t.type === filters.type;
+            return matchesDash && matchesSearch && matchesStatus && matchesOwner && matchesType;
+        });
+    }, [tasks, filters]);
+
+    // Extract unique values
+    const uniqueDashboards = useMemo(() => {
+        const map = new Map();
+        tasks.forEach(t => map.set(t.dashboard_id, t.dashboard_name));
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    }, [tasks]);
+    const uniqueStatuses = useMemo(() => [...new Set(tasks.map(t => t.status).filter(Boolean))], [tasks]);
+    const uniqueOwners = useMemo(() => [...new Set(tasks.map(t => t.owner).filter(Boolean))], [tasks]);
+    const uniqueTypes = useMemo(() => [...new Set(tasks.map(t => t.type).filter(Boolean))], [tasks]);
+
+    if (loading) {
+        return (
+            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="spinner" style={{ width: 40, height: 40, border: '4px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ minHeight: '100vh', background: 'var(--bg-main)', padding: '24px 40px' }}>
+            {/* Header */}
+            <div style={{ maxWidth: 1200, margin: '0 auto', marginBottom: 32 }}>
+                {/* Breadcrumbs */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)', marginBottom: 16 }}>
+                    {breadcrumbs.map((crumb, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span
+                                onClick={() => crumb.id !== folderId && router.push(crumb.id ? `/` : '/')}
+                                style={{
+                                    cursor: crumb.id !== folderId ? 'pointer' : 'default',
+                                    fontWeight: i === breadcrumbs.length - 1 ? 700 : 400,
+                                    color: i === breadcrumbs.length - 1 ? 'var(--text-main)' : 'var(--text-dim)'
+                                }}
+                            >
+                                {crumb.name}
+                            </span>
+                            {i < breadcrumbs.length - 1 && <span>/</span>}
+                        </div>
+                    ))}
+                </div>
+
+                {/* Title & Actions */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h1 style={{ fontSize: 32, fontWeight: 700, margin: 0 }}>Analítica Consolidada</h1>
+                        <p style={{ fontSize: 14, color: 'var(--text-dim)', margin: '4px 0 0 0' }}>
+                            Vista agregada de tableros en {folderName} (Incluyendo subcarpetas)
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                        <button className="btn-ghost" onClick={() => router.push('/')} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <ArrowLeft size={16} /> Volver
+                        </button>
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                className="btn-primary"
+                                onClick={handleShareAnalytics}
+                                disabled={sharingLoading}
+                                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                            >
+                                <Share2 size={16} /> Compartir
+                            </button>
+                            {publicLinkState.isPublic && publicLinkState.token && (
+                                <div className="animate-fade-in" style={{
+                                    position: 'absolute', top: '100%', right: 0, marginTop: 8,
+                                    background: 'var(--bg-panel)', border: '1px solid var(--border-dim)',
+                                    borderRadius: 8, padding: 12, width: 320, zIndex: 50,
+                                    boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <p style={{ fontSize: 12, fontWeight: 700, margin: 0 }}>Enlace Público Activo</p>
+                                        <button className="btn-ghost" onClick={() => setPublicLinkState({ isPublic: false, token: null })} style={{ padding: 2 }}>
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <input
+                                            readOnly
+                                            value={`${window.location.origin}/public/analytics/${publicLinkState.token}`}
+                                            className="input-glass"
+                                            style={{ fontSize: 11, padding: 6, flex: 1 }}
+                                        />
+                                        <button
+                                            className="btn-primary"
+                                            onClick={() => copyToClipboard(`${window.location.origin}/public/analytics/${publicLinkState.token}`)}
+                                            style={{ padding: '4px 8px' }}
+                                        >
+                                            {copied ? <Check size={12} /> : <Copy size={12} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Filter Toolbar - REORDERED */}
+            <div style={{ maxWidth: 1200, margin: '0 auto', marginBottom: 32, padding: '16px 20px', background: 'var(--bg-panel)', borderRadius: 12, border: '1px solid var(--border-dim)' }}>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {/* 1. Proyecto */}
+                    <select
+                        className="input-glass"
+                        value={filters.dashboardId}
+                        onChange={e => setFilters(prev => ({ ...prev, dashboardId: e.target.value }))}
+                        style={{ padding: '8px 12px', fontSize: 13, minWidth: 140 }}
+                    >
+                        <option value="all">Todos los Proyectos</option>
+                        {uniqueDashboards.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+
+                    {/* 2. Tarea (Search) */}
+                    <div className="input-group" style={{ flex: 1, minWidth: 200 }}>
+                        <input
+                            className="input-glass"
+                            placeholder="Buscar tarea..."
+                            value={filters.search}
+                            onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                            style={{ padding: '8px 12px', fontSize: 13 }}
+                        />
+                    </div>
+
+                    {/* 3. Estado (Dynamic) */}
+                    <select
+                        className="input-glass"
+                        value={filters.status}
+                        onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                        style={{ padding: '8px 12px', fontSize: 13, minWidth: 120 }}
+                    >
+                        <option value="all">Todos los Estados</option>
+                        {uniqueStatuses.map((s: any) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+
+                    {/* 4. Responsables */}
+                    <select
+                        className="input-glass"
+                        value={filters.owner}
+                        onChange={e => setFilters(prev => ({ ...prev, owner: e.target.value }))}
+                        style={{ padding: '8px 12px', fontSize: 13, minWidth: 140 }}
+                    >
+                        <option value="all">Todos los Responsables</option>
+                        {uniqueOwners.map((o: any) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+
+                    {/* 5. Tipos */}
+                    <select
+                        className="input-glass"
+                        value={filters.type}
+                        onChange={e => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                        style={{ padding: '8px 12px', fontSize: 13, minWidth: 140 }}
+                    >
+                        <option value="all">Todos los Tipos</option>
+                        {uniqueTypes.map((t: any) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+
+                    {/* Clear Button */}
+                    {(filters.search || filters.status !== 'all' || filters.owner !== 'all' || filters.dashboardId !== 'all' || filters.type !== 'all') && (
+                        <button
+                            className="btn-ghost"
+                            onClick={() => setFilters({ search: '', status: 'all', owner: 'all', dashboardId: 'all', type: 'all' })}
+                            style={{ fontSize: 12, color: 'var(--primary)' }}
+                        >
+                            Limpiar
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Analytics Content */}
+            <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+                {/* KPIs */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 32 }}>
+                    <div className="glass-panel" style={{ padding: 24 }}>
+                        <div className="kpi-label">Total Tareas</div>
+                        <div className="kpi-value">{filteredTasks.length}</div>
+                    </div>
+                    <div className="glass-panel" style={{ padding: 24 }}>
+                        <div className="kpi-label">Progreso Global</div>
+                        <div className="kpi-value" style={{ color: '#10b981' }}>
+                            {filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => t.status === 'done').length / filteredTasks.length) * 100) : 0}%
+                        </div>
+                    </div>
+                    <div className="glass-panel" style={{ padding: 24 }}>
+                        <div className="kpi-label">Proyectos</div>
+                        <div className="kpi-value">{filters.dashboardId === 'all' ? uniqueDashboards.length : 1}</div>
+                    </div>
+                </div>
+
+                {/* Charts */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24 }}>
+                    {/* Status Distribution */}
+                    <div className="glass-panel" style={{ padding: 24 }}>
+                        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Estado Consolidado</h3>
+                        <div style={{ height: 32, borderRadius: 16, overflow: 'hidden', display: 'flex', marginBottom: 20 }}>
+                            {uniqueStatuses.map((s: any) => {
+                                const count = filteredTasks.filter(t => t.status === s).length;
+                                const pct = (count / filteredTasks.length) * 100;
+                                const colors: any = { done: '#10b981', doing: '#3b82f6', review: '#f59e0b', todo: '#64748b' };
+                                if (count === 0) return null;
+                                return <div key={s} style={{ width: `${pct}%`, background: colors[s] || '#64748b' }} title={`${s}: ${count}`}></div>
+                            })}
+                        </div>
+                        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                            {uniqueStatuses.map((s: any) => {
+                                const count = filteredTasks.filter(t => t.status === s).length;
+                                const colors: any = { done: '#10b981', doing: '#3b82f6', review: '#f59e0b', todo: '#64748b' };
+                                return (
+                                    <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: colors[s] || '#64748b' }}></div>
+                                        <span style={{ fontSize: 13 }}>{s} ({count})</span>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Priority Volume */}
+                    <div className="glass-panel" style={{ padding: 24 }}>
+                        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Volumen por Prioridad</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {['high', 'med', 'low'].map(p => {
+                                const count = filteredTasks.filter(t => t.prio === p).length;
+                                const labels: any = { high: 'Alta', med: 'Media', low: 'Baja' };
+                                const colors: any = { high: '#ef4444', med: '#f59e0b', low: '#10b981' };
+                                return (
+                                    <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <div style={{ width: 60, fontSize: 13, fontWeight: 600 }}>{labels[p]}</div>
+                                        <div style={{ flex: 1, height: 24, background: 'var(--panel-hover)', borderRadius: 4, overflow: 'hidden' }}>
+                                            <div style={{ width: `${(count / filteredTasks.length) * 100}%`, height: '100%', background: colors[p], display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 8, fontSize: 11, fontWeight: 600, color: 'white' }}>
+                                                {count > 0 && count}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Workload */}
+                    <div className="glass-panel" style={{ padding: 24 }}>
+                        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Carga de Trabajo (Top 10)</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {Array.from(new Set(filteredTasks.map(t => t.owner))).slice(0, 10).map(o => {
+                                const count = filteredTasks.filter(t => t.owner === o).length;
+                                const max = Math.max(...Array.from(new Set(filteredTasks.map(t => t.owner))).map(ow => filteredTasks.filter(t => t.owner === ow).length));
+                                return (
+                                    <div key={o} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-gradient)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
+                                            {o?.substring(0, 2).toUpperCase()}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                                                <span>{o}</span>
+                                                <span>{count}</span>
+                                            </div>
+                                            <div style={{ height: 4, background: 'var(--panel-hover)', borderRadius: 2 }}>
+                                                <div style={{ width: `${(count / max) * 100}%`, height: '100%', background: 'var(--primary)', borderRadius: 2 }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
