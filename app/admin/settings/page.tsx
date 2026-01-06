@@ -164,9 +164,9 @@ export default function AdminSettingsPage() {
                                                 key={p.id}
                                                 className="btn-ghost"
                                                 onClick={() => {
-                                                    if (p.id === 'gmail') setWizData({ ...wizData, host: 'smtp.gmail.com', port: '587' });
-                                                    if (p.id === 'outlook') setWizData({ ...wizData, host: 'smtp.office365.com', port: '587' });
-                                                    if (p.id === 'custom') setWizData({ ...wizData, host: '', port: '' });
+                                                    if (p.id === 'gmail') setWizData({ ...wizData, host: 'smtp.gmail.com', port: '587', secure: false });
+                                                    if (p.id === 'outlook') setWizData({ ...wizData, host: 'smtp.office365.com', port: '587', secure: false });
+                                                    if (p.id === 'custom') setWizData({ ...wizData, host: '', port: '', secure: true });
                                                 }}
                                                 style={{
                                                     border: (wizData.host === 'smtp.gmail.com' && p.id === 'gmail') ||
@@ -187,13 +187,14 @@ export default function AdminSettingsPage() {
                                         <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', padding: 12, borderRadius: 8, fontSize: 12, marginBottom: 20, color: '#3b82f6' }}>
                                             <strong>ℹ️ Instrucciones para Gmail:</strong><br />
                                             Debes usar una <b>Contraseña de Aplicación</b>, no tu contraseña normal.<br />
-                                            Ve a <a href="https://myaccount.google.com/apppasswords" target="_blank" style={{ textDecoration: 'underline' }}>Google Account &gt; Seguridad &gt; Contraseñas de aplicación</a>.
+                                            La conexión es STARTTLS (Puerto 587), no SSL directo.
                                         </div>
                                     )}
                                     {wizData.host === 'smtp.office365.com' && (
                                         <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', padding: 12, borderRadius: 8, fontSize: 12, marginBottom: 20, color: '#3b82f6' }}>
                                             <strong>ℹ️ Instrucciones para Outlook:</strong><br />
-                                            Asegúrate de que el <b>SMTP Authenticated Submission</b> esté habilitado en la administración de Office 365.
+                                            Asegúrate de que el <b>SMTP Authenticated Submission</b> esté habilitado.<br />
+                                            Usa el puerto 587 (STARTTLS).
                                         </div>
                                     )}
 
@@ -242,7 +243,7 @@ export default function AdminSettingsPage() {
 
                                     <div style={{ background: 'var(--bg-panel)', padding: 16, borderRadius: 12, marginBottom: 20 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                                            <span style={{ fontWeight: 600 }}>Usar conexión segura (TLS/SSL)</span>
+                                            <span style={{ fontWeight: 600 }}>Forzar SSL (Puerto 465)</span>
                                             <input type="checkbox" checked={wizData.secure} onChange={e => setWizData({ ...wizData, secure: e.target.checked })} style={{ transform: 'scale(1.5)', cursor: 'pointer' }} />
                                         </div>
                                         <hr style={{ border: 0, borderTop: '1px solid var(--border-dim)', margin: '12px 0' }} />

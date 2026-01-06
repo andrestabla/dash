@@ -18,13 +18,19 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing configuration fields' }, { status: 400 });
         }
 
+        // SMART CONFIG: If port is 587, it is consistently STARTTLS (secure: false).
+        // If port is 465, it is SSL (secure: true).
+        // Using "secure: true" on port 587 usually fails immediately.
+        const portNum = parseInt(port);
+        const isSecure = (portNum === 465) || (String(secure) === 'true' && portNum !== 587);
+
         const transporter = nodemailer.createTransport({
             host,
-            port: parseInt(port),
-            secure: String(secure) === 'true', // true for 465, false for other ports usually
+            port: portNum,
+            secure: isSecure,
             auth: { user, pass },
             tls: {
-                rejectUnauthorized: false // Helps in some dev environments, careful in prod
+                rejectUnauthorized: false
             }
         });
 
