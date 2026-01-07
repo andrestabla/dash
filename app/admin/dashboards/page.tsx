@@ -43,15 +43,22 @@ export default function AdminDashboardsPage() {
         setEditingBoard(board);
         setEditName(board.name);
         setEditDesc(board.description || "");
-        // We need to fetch the specific settings (owners) for this board as the list doesn't return full settings to save bandwidth
-        // But for V1 we might assuming fetching single board settings relative to the list is better?
-        // Actually the list query in route.ts doesn't select settings. 
-        // Let's quick-fetch the single board details or just update api to return settings slightly
-        // For now, I will fetch single board details on open.
-        fetch(`/api/dashboards/${board.id}`).then(res => res.json()).then(data => {
-            setEditOwners(data.settings?.owners || []);
-            setIsEditOpen(true);
-        });
+
+        // Fetch current permissions from dashboard_user_permissions table
+        fetch(`/api/dashboards/${board.id}/permissions`)
+            .then(res => res.json())
+            .then(data => {
+                // data.permissions is array of { user_id, user_email, role }
+                const ownerEmails = data.permissions?.map((p: any) => p.user_email) || [];
+                setEditOwners(ownerEmails);
+                setIsEditOpen(true);
+            })
+            .catch(err => {
+                console.error('Failed to load permissions:', err);
+                // Fallback to empty array
+                setEditOwners([]);
+                setIsEditOpen(true);
+            });
     };
 
     const handleSave = async (e: React.FormEvent) => {
