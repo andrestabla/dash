@@ -29,11 +29,19 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
             SELECT * FROM tasks WHERE dashboard_id = $1 ORDER BY created_at DESC
         `, [dashboard.id]);
 
+        // 3. Fetch Comments for these tasks
+        const commentsRes = await client.query(`
+            SELECT * FROM task_comments 
+            WHERE task_id IN (SELECT id FROM tasks WHERE dashboard_id = $1)
+            ORDER BY created_at ASC
+        `, [dashboard.id]);
+
         client.release();
 
         return NextResponse.json({
             dashboard: dashboard,
-            tasks: tasksRes.rows
+            tasks: tasksRes.rows,
+            comments: commentsRes.rows
         });
 
     } catch (error) {

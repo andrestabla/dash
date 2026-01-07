@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from 'next/link';
-import { LayoutGrid, List, BarChart2, Search, ExternalLink, X, Calendar, User, Flag, Tag, Info } from 'lucide-react';
+import { LayoutGrid, List, BarChart2, Search, ExternalLink, X, Calendar, User, Flag, Tag, Info, Users } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -50,6 +50,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     const [settings, setSettings] = useState<BoardSettings | null>(null);
     const [dashboardName, setDashboardName] = useState("");
     const [statuses, setStatuses] = useState<StatusColumn[]>(DEFAULT_STATUSES);
+    const [comments, setComments] = useState<any[]>([]);
 
     const [activeTab, setActiveTab] = useState<"kanban" | "list" | "data">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
@@ -73,6 +74,9 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                         setStatuses(data.dashboard.settings.statuses);
                     }
                 }
+                if (data.comments) {
+                    setComments(data.comments);
+                }
                 setLoading(false);
             })
             .catch(err => {
@@ -80,6 +84,29 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                 setLoading(false);
             });
     }, [token]);
+
+    const renderContentWithLinks = (text: string) => {
+        if (!text) return "";
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const parts = text.split(urlRegex);
+        return parts.map((part, i) => {
+            if (part.match(urlRegex)) {
+                return (
+                    <a
+                        key={i}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#3b82f6', textDecoration: 'underline', wordBreak: 'break-all' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {part}
+                    </a>
+                );
+            }
+            return part;
+        });
+    };
 
     const filteredTasks = tasks.filter((t: Task) => {
         if (filters.week && t.week !== filters.week) return false;
@@ -430,7 +457,31 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                     <Flag size={14} /> Descripción de la tarea
                                 </div>
                                 <div style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>
-                                    {selectedTask.desc || "Esta tarea no tiene una descripción detallada."}
+                                    {selectedTask.desc ? renderContentWithLinks(selectedTask.desc) : "Esta tarea no tiene una descripción detallada."}
+                                </div>
+                            </div>
+
+                            {/* COMMENTS SECTION */}
+                            <div style={{ marginTop: 32 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 16 }}>
+                                    <Users size={14} /> Comentarios ({comments.filter(c => c.task_id === selectedTask.id).length})
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {comments.filter(c => c.task_id === selectedTask.id).length === 0 ? (
+                                        <p style={{ fontSize: 13, color: 'var(--text-dim)', margin: 0, fontStyle: 'italic' }}>No hay comentarios para esta tarea.</p>
+                                    ) : (
+                                        comments.filter(c => c.task_id === selectedTask.id).map((c, i) => (
+                                            <div key={i} style={{ padding: '16px 20px', background: 'var(--bg-panel)', borderRadius: 16, border: '1px solid var(--border-dim)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                                                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)' }}>{c.author_name}</span>
+                                                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{new Date(c.created_at).toLocaleDateString()}</span>
+                                                </div>
+                                                <div style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>
+                                                    {renderContentWithLinks(c.content)}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
                             </div>
                         </div>
