@@ -106,6 +106,32 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         }
     };
 
+    // Link parsing helper
+    const renderContentWithLinks = (content: string) => {
+        if (!content) return null;
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const parts = content.split(urlRegex);
+
+        return parts.map((part, i) => {
+            if (part.match(urlRegex)) {
+                return (
+                    <a
+                        key={i}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ color: '#3b82f6', textDecoration: 'underline', wordBreak: 'break-all' }}
+                    >
+                        {part}
+                    </a>
+                );
+            }
+            return part;
+        });
+    };
+
     useEffect(() => {
         if (isShareModalOpen) {
             fetchShareData();
@@ -1024,6 +1050,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 <div className="form-group">
                                     <label className="form-label">Descripción</label>
                                     <textarea className="input-glass" value={editingTask.desc || ""} onChange={(e) => setEditingTask({ ...editingTask, desc: e.target.value })} rows={4} />
+                                    {editingTask.desc && (
+                                        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-dim)', background: 'rgba(0,0,0,0.02)', padding: 10, borderRadius: 8, border: '1px solid var(--border-dim)' }}>
+                                            <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 10, textTransform: 'uppercase' }}>Vista Previa con Enlaces:</div>
+                                            <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{renderContentWithLinks(editingTask.desc)}</div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* COMMENTS SECTION */}
@@ -1062,7 +1094,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{c.content}</div>
+                                                    <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{renderContentWithLinks(c.content)}</div>
                                                 )}
                                             </div>
                                         ))}
