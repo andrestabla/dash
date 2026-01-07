@@ -7,7 +7,7 @@ import { useToast } from "@/components/ToastProvider";
 
 import ConfirmModal from "@/components/ConfirmModal";
 
-import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users } from 'lucide-react';
+import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, LayoutGrid, ListTodo, BarChart3 } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -831,9 +831,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     </div>
 
                     <div className="tabs">
-                        <div className={`tab ${activeTab === "kanban" ? "active" : ""}`} onClick={() => setActiveTab("kanban")}>🧩 Tablero</div>
-                        <div className={`tab ${activeTab === "timeline" ? "active" : ""}`} onClick={() => setActiveTab("timeline")}>🗓️ Lista</div>
-                        <div className={`tab ${activeTab === "analytics" ? "active" : ""}`} onClick={() => setActiveTab("analytics")}>📊 Datos</div>
+                        <div className={`tab ${activeTab === "kanban" ? "active" : ""}`} onClick={() => setActiveTab("kanban")}>
+                            <LayoutGrid size={16} /> <span>Tablero</span>
+                        </div>
+                        <div className={`tab ${activeTab === "timeline" ? "active" : ""}`} onClick={() => setActiveTab("timeline")}>
+                            <ListTodo size={16} /> <span>Lista</span>
+                        </div>
+                        <div className={`tab ${activeTab === "analytics" ? "active" : ""}`} onClick={() => setActiveTab("analytics")}>
+                            <BarChart3 size={16} /> <span>Datos</span>
+                        </div>
                     </div>
                 </div>
 
@@ -1328,8 +1334,38 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 .app-sub { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; margin: 0; font-weight: 700; opacity: 0.8; }
 
                 /* Controls & Filters */
-                .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-                .filters { display: flex; gap: 10px; }
+                .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 20px; }
+                .filters { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; }
+                
+                .tabs { 
+                    display: flex; 
+                    background: rgba(0,0,0,0.03); 
+                    padding: 4px; 
+                    border-radius: 14px; 
+                    gap: 4px;
+                    border: 1px solid rgba(0,0,0,0.05);
+                }
+                .tab { 
+                    display: flex; 
+                    align-items: center; 
+                    gap: 8px; 
+                    padding: 8px 16px; 
+                    border-radius: 10px; 
+                    cursor: pointer; 
+                    font-size: 13px; 
+                    font-weight: 600; 
+                    color: #64748b; 
+                    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                    white-space: nowrap;
+                }
+                .tab:hover { background: rgba(255,255,255,0.5); color: #1e293b; }
+                .tab.active { 
+                    background: white; 
+                    color: #3b82f6; 
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                    transform: translateY(0);
+                }
+                .tab.active svg { color: #3b82f6; }
                 .filters input, .filters select { 
                     padding: 8px 16px; 
                     border-radius: 12px; 
