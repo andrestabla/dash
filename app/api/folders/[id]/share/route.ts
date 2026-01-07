@@ -14,11 +14,50 @@ export async function POST(
 
     try {
         const body = await request.json();
-        const { email, role, notify } = body;
-
-        if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+        const { action, email, role, notify } = body;
 
         const client = await pool.connect();
+
+        // Handle toggle_public action for public link sharing
+        if (action === 'toggle_public') {
+            const { isPublic } = body;
+
+            // Verify folder exists and user has permission
+            const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);
+            if (folderRes.rows.length === 0) {
+                client.release();
+                return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+            }
+
+            const folder = folderRes.rows[0];
+            if (session.role !== 'admin' && folder.owner_id !== session.id) {
+                client.release();
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
+
+            let token = null;
+
+            if (isPublic) {
+                // Generate token if not exists
+                const res = await client.query('SELECT public_token FROM folders WHERE id = $1', [id]);
+                token = res.rows[0]?.public_token;
+
+                if (!token) {
+                    token = crypto.randomUUID();
+                    await client.query('UPDATE folders SET is_public = TRUE, public_token = $1 WHERE id = $2', [token, id]);
+                } else {
+                    await client.query('UPDATE folders SET is_public = TRUE WHERE id = $1', [id]);
+                }
+            } else {
+                await client.query('UPDATE folders SET is_public = FALSE WHERE id = $1', [id]);
+            }
+
+            client.release();
+            return NextResponse.json({ success: true, isPublic, token });
+        }
+
+        // Handle user collaboration sharing (original functionality)
+        if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
 
         // 1. Check if folder exists and user has permission (Owner or Admin)
         const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);

@@ -153,6 +153,7 @@ export default function FolderAnalyticsPage() {
     // Public sharing state
     const [publicLinkState, setPublicLinkState] = useState<{ isPublic: boolean, token: string | null }>({ isPublic: false, token: null });
     const [sharingLoading, setSharingLoading] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
     const [copied, setCopied] = useState(false);
     const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
 
@@ -245,6 +246,9 @@ export default function FolderAnalyticsPage() {
             if (res.ok) {
                 const data = await res.json();
                 setPublicLinkState({ isPublic: data.isPublic, token: data.token });
+                if (data.isPublic) {
+                    setShowShareModal(true);
+                }
                 showToast(newStatus ? "Enlace público activado" : "Enlace público desactivado", "success");
             }
         } catch (error) {
@@ -431,7 +435,7 @@ export default function FolderAnalyticsPage() {
                             >
                                 <Share2 size={16} /> Compartir
                             </button>
-                            {publicLinkState.isPublic && publicLinkState.token && (
+                            {showShareModal && publicLinkState.isPublic && publicLinkState.token && (
                                 <div className="animate-fade-in" style={{
                                     position: 'absolute', top: '100%', right: 0, marginTop: 8,
                                     background: 'var(--bg-panel)', border: '1px solid var(--border-dim)',
@@ -440,7 +444,7 @@ export default function FolderAnalyticsPage() {
                                 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                                         <p style={{ fontSize: 12, fontWeight: 700, margin: 0 }}>Enlace Público Activo</p>
-                                        <button className="btn-ghost" onClick={() => setPublicLinkState({ isPublic: false, token: null })} style={{ padding: 2 }}>
+                                        <button className="btn-ghost" onClick={() => setShowShareModal(false)} style={{ padding: 2 }}>
                                             <X size={14} />
                                         </button>
                                     </div>

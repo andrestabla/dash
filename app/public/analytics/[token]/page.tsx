@@ -274,6 +274,83 @@ export default function PublicAnalyticsPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Dashboard Table */}
+                <div style={{ background: '#1e293b', padding: 24, borderRadius: 16, marginTop: 32 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase' }}>
+                        Lista de Tableros
+                    </h3>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.1)' }}>
+                                    <th style={{ textAlign: 'left', padding: '12px 8px', fontSize: 13, fontWeight: 600, opacity: 0.7 }}>Tablero</th>
+                                    <th style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13, fontWeight: 600, opacity: 0.7 }}>Tareas</th>
+                                    <th style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13, fontWeight: 600, opacity: 0.7 }}>Progreso</th>
+                                    <th style={{ textAlign: 'left', padding: '12px 8px', fontSize: 13, fontWeight: 600, opacity: 0.7 }}>Propietario</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(() => {
+                                    // Filter dashboards based on current filter
+                                    const dashboardsToShow = filters.dashboardId === 'all'
+                                        ? uniqueDashboards
+                                        : uniqueDashboards.filter(d => String(d.id) === String(filters.dashboardId));
+
+                                    if (dashboardsToShow.length === 0) {
+                                        return (
+                                            <tr>
+                                                <td colSpan={4} style={{ textAlign: 'center', padding: 24, opacity: 0.5, fontSize: 13 }}>
+                                                    No hay tableros disponibles
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+
+                                    return dashboardsToShow.map((dashboard: any) => {
+                                        const dashboardTasks = tasks.filter(t => String(t.dashboard_id) === String(dashboard.id));
+                                        const avgProgress = dashboardTasks.length > 0
+                                            ? Math.round(dashboardTasks.reduce((acc, t) => acc + getStatusInfo(t).progress, 0) / dashboardTasks.length)
+                                            : 0;
+
+                                        // Get owner from first task (assuming all tasks in dashboard have same owner info)
+                                        const ownerName = dashboardTasks[0]?.dashboard_owner_name || 'N/A';
+
+                                        return (
+                                            <tr key={dashboard.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s' }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <td style={{ padding: '12px 8px', fontSize: 14, fontWeight: 600 }}>
+                                                    {dashboard.name || 'Sin nombre'}
+                                                </td>
+                                                <td style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13 }}>
+                                                    {dashboardTasks.length}
+                                                </td>
+                                                <td style={{ textAlign: 'center', padding: '12px 8px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                                        <div style={{ flex: 1, maxWidth: 100, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+                                                            <div style={{
+                                                                width: `${avgProgress}%`,
+                                                                height: '100%',
+                                                                background: avgProgress === 100 ? '#10b981' : '#3b82f6',
+                                                                borderRadius: 3
+                                                            }}></div>
+                                                        </div>
+                                                        <span style={{ fontSize: 12, fontWeight: 600, minWidth: 35 }}>{avgProgress}%</span>
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '12px 8px', fontSize: 13 }}>
+                                                    {ownerName}
+                                                </td>
+                                            </tr>
+                                        );
+                                    });
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     );
