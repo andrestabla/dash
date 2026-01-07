@@ -235,6 +235,12 @@ export default function FolderAnalyticsPage() {
     };
 
     const handleShareAnalytics = async () => {
+        // Prevent sharing for root analytics view
+        if (folderId === 'null') {
+            showToast("No se puede compartir la vista consolidada del espacio de trabajo", "error");
+            return;
+        }
+
         setSharingLoading(true);
         try {
             const newStatus = !publicLinkState.isPublic;
@@ -430,8 +436,9 @@ export default function FolderAnalyticsPage() {
                             <button
                                 className="btn-primary"
                                 onClick={handleShareAnalytics}
-                                disabled={sharingLoading}
-                                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                                disabled={sharingLoading || folderId === 'null'}
+                                title={folderId === 'null' ? 'No se puede compartir la vista consolidada' : 'Compartir carpeta'}
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: folderId === 'null' ? 0.5 : 1, cursor: folderId === 'null' ? 'not-allowed' : 'pointer' }}
                             >
                                 <Share2 size={16} /> Compartir
                             </button>
