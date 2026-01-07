@@ -995,7 +995,8 @@ export default function Workspace() {
                     
                     /* Adjust Grid for Mobile */
                     .dashboard-grid { grid-template-columns: 1fr; }
-                    
+                }
+
                 /* Workspace Header Fix */
                 .workspace-header { 
                     margin-bottom: 40px; 
