@@ -702,8 +702,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
     return (
         <DragDropContext onDragEnd={onDragEnd}>
-            <header style={{ height: 'auto', minHeight: 70, padding: '12px 24px' }}>
-                <div className="top-bar" style={{ flexWrap: 'wrap', gap: 16 }}>
+            <header>
+                <div className="top-bar">
                     <div className="logo-area">
                         <Link href="/workspace" className="btn-ghost" title="Volver al Workspace">
                             <span style={{ fontSize: 24 }}>←</span>
@@ -1255,6 +1255,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         position: sticky; 
                         top: 0; 
                         z-index: 40; 
+                    }
+                    .top-bar { 
+                        width: 100%; 
+                        display: flex; 
+                        justify-content: space-between; 
+                        align-items: center; 
+                        flex-direction: row;
                     }
                     
                     /* Typography Polish */
