@@ -154,6 +154,7 @@ export default function FolderAnalyticsPage() {
     const [publicLinkState, setPublicLinkState] = useState<{ isPublic: boolean, token: string | null }>({ isPublic: false, token: null });
     const [sharingLoading, setSharingLoading] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [selectedDashboard, setSelectedDashboard] = useState<any>(null);
 
     useEffect(() => {
         loadData();
@@ -648,7 +649,199 @@ export default function FolderAnalyticsPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Dashboard Table */}
+                <div className="glass-panel" style={{ padding: 24, marginTop: 32 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase', color: 'var(--text-dim)' }}>
+                        Lista de Tableros
+                    </h3>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '2px solid var(--border-dim)' }}>
+                                    <th style={{ textAlign: 'left', padding: '12px 8px', fontSize: 13, fontWeight: 600, color: 'var(--text-dim)' }}>Tablero</th>
+                                    <th style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13, fontWeight: 600, color: 'var(--text-dim)' }}>Tareas</th>
+                                    <th style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13, fontWeight: 600, color: 'var(--text-dim)' }}>Progreso</th>
+                                    <th style={{ textAlign: 'left', padding: '12px 8px', fontSize: 13, fontWeight: 600, color: 'var(--text-dim)' }}>Propietario</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(() => {
+                                    // Filter dashboards based on the current filter
+                                    const dashboardsToShow = filters.dashboardId === 'all'
+                                        ? availableDashboards
+                                        : availableDashboards.filter(d => String(d.id) === String(filters.dashboardId));
+
+                                    if (dashboardsToShow.length === 0) {
+                                        return (
+                                            <tr>
+                                                <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--text-dim)', fontSize: 13 }}>
+                                                    No hay tableros disponibles
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+
+                                    return dashboardsToShow.map((dashboard: any) => {
+                                        const dashboardTasks = tasks.filter(t => String(t.dashboard_id) === String(dashboard.id));
+                                        const avgProgress = dashboardTasks.length > 0
+                                            ? Math.round(dashboardTasks.reduce((acc, t) => acc + getStatusInfo(t).progress, 0) / dashboardTasks.length)
+                                            : 0;
+
+                                        return (
+                                            <tr key={dashboard.id} style={{ borderBottom: '1px solid var(--border-dim)', transition: 'background 0.2s' }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--panel-hover)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <td style={{ padding: '12px 8px' }}>
+                                                    <button
+                                                        onClick={() => setSelectedDashboard(dashboard)}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: 'var(--primary)',
+                                                            fontSize: 14,
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer',
+                                                            textAlign: 'left',
+                                                            padding: 0,
+                                                            textDecoration: 'underline',
+                                                            textDecorationStyle: 'dotted'
+                                                        }}
+                                                    >
+                                                        {dashboard.name || 'Sin nombre'}
+                                                    </button>
+                                                </td>
+                                                <td style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13 }}>
+                                                    {dashboardTasks.length}
+                                                </td>
+                                                <td style={{ textAlign: 'center', padding: '12px 8px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                                        <div style={{ flex: 1, maxWidth: 100, height: 6, background: 'var(--panel-hover)', borderRadius: 3, overflow: 'hidden' }}>
+                                                            <div style={{
+                                                                width: `${avgProgress}%`,
+                                                                height: '100%',
+                                                                background: avgProgress === 100 ? '#10b981' : 'var(--primary)',
+                                                                borderRadius: 3
+                                                            }}></div>
+                                                        </div>
+                                                        <span style={{ fontSize: 12, fontWeight: 600, minWidth: 35 }}>{avgProgress}%</span>
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '12px 8px', fontSize: 13 }}>
+                                                    {dashboard.owner_name || 'N/A'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    });
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
+
+            {/* Dashboard Modal */}
+            {selectedDashboard && (
+                <div
+                    className="animate-fade-in"
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 9999,
+                        padding: 20
+                    }}
+                    onClick={() => setSelectedDashboard(null)}
+                >
+                    <div
+                        className="glass-panel"
+                        style={{
+                            maxWidth: 600,
+                            width: '100%',
+                            padding: 32,
+                            position: 'relative'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setSelectedDashboard(null)}
+                            style={{
+                                position: 'absolute',
+                                top: 16,
+                                right: 16,
+                                background: 'var(--panel-hover)',
+                                border: 'none',
+                                borderRadius: 8,
+                                width: 32,
+                                height: 32,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                color: 'var(--text-main)'
+                            }}
+                        >
+                            <X size={18} />
+                        </button>
+
+                        <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+                            {selectedDashboard.name || 'Sin nombre'}
+                        </h2>
+                        <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 24 }}>
+                            Detalles del tablero
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+                            <div>
+                                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 4 }}>Propietario</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>{selectedDashboard.owner_name || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 4 }}>Total de Tareas</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                                    {tasks.filter(t => String(t.dashboard_id) === String(selectedDashboard.id)).length}
+                                </div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 4 }}>Progreso Promedio</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                                    {(() => {
+                                        const dashboardTasks = tasks.filter(t => String(t.dashboard_id) === String(selectedDashboard.id));
+                                        return dashboardTasks.length > 0
+                                            ? Math.round(dashboardTasks.reduce((acc, t) => acc + getStatusInfo(t).progress, 0) / dashboardTasks.length)
+                                            : 0;
+                                    })()}%
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <button
+                                className="btn-primary"
+                                onClick={() => window.open(`/board/${selectedDashboard.id}`, '_blank')}
+                                style={{ flex: 1 }}
+                            >
+                                Abrir en Nueva Ventana
+                            </button>
+                            <button
+                                className="btn-ghost"
+                                onClick={() => router.push(`/board/${selectedDashboard.id}`)}
+                                style={{ flex: 1 }}
+                            >
+                                Ir al Tablero
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style jsx>{`
                 @media (max-width: 768px) {
                     .glass-panel { padding: 16px !important; }
