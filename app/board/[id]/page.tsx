@@ -785,8 +785,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             </header>
 
             <main>
-                <div className="controls" style={{ flexWrap: 'wrap', gap: 16 }}>
-                    <div className="filters" style={{ flexWrap: 'wrap', gap: 12 }}>
+                <div className="controls">
+                    <div className="filters">
                         <button className="btn-primary" onClick={() => {
                             setEditingTask({ id: undefined, name: "", status: settings.statuses?.[0]?.id || "todo", week: settings.weeks[0]?.id || "", owner: settings.owners[0] || "", type: "Feature" });
                             setIsModalOpen(true);
