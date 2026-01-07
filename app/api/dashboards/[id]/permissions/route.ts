@@ -7,6 +7,9 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const session = await getSession();
+
+    // Allow admin users to fetch any dashboard permissions
+    // Allow regular users to fetch permissions for dashboards they own or have access to
     if (!session?.user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
