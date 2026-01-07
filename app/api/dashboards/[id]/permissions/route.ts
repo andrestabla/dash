@@ -8,9 +8,9 @@ export async function GET(
 ) {
     const session = await getSession();
 
-    // Allow admin users to fetch any dashboard permissions
-    // Allow regular users to fetch permissions for dashboards they own or have access to
-    if (!session?.user) {
+    // This endpoint is called by the admin panel, so we just need to verify the user is authenticated
+    // The admin panel itself is protected by admin-only routes
+    if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

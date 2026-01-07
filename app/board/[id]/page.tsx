@@ -859,9 +859,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                     <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{st.name}</span>
                                                     <span className={`counter-badge ${isBottleneck ? "warning" : ""}`}>{colTasks.length}</span>
                                                 </div>
-                                                <div className="lane-actions" style={{ opacity: 0, transition: 'opacity 0.2s' }}>
-                                                    <button className="btn-ghost" onClick={() => openEditCol(st)} style={{ padding: 4, height: 'auto', color: 'var(--text-main)' }} title="Editar Columna"><Edit2 size={14} /></button>
-                                                    <button className="btn-ghost" onClick={() => confirmDeleteCol(st.id)} style={{ padding: 4, height: 'auto', color: '#ef4444' }} title="Eliminar Columna"><Trash2 size={14} /></button>
+                                                <div className="lane-actions" style={{ display: 'flex', gap: 4 }}>
+                                                    <button className="btn-ghost" onClick={() => openEditCol(st)} style={{ padding: 4, height: 'auto', color: 'var(--text-secondary)' }} title="Editar Columna"><Edit2 size={14} /></button>
+                                                    <button className="btn-ghost" onClick={() => confirmDeleteCol(st.id)} style={{ padding: 4, height: 'auto', color: 'var(--text-secondary)' }} title="Eliminar Columna"><Trash2 size={14} /></button>
                                                 </div>
                                             </div>
 
