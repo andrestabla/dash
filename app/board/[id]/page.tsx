@@ -1019,11 +1019,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800 }}>
                             <div className="modal-header">
                                 <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 4 }}>{editingTask.id}</div>
+                                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 4 }}>NOMBRE TAREA</div>
                                     <input
                                         className="modal-title"
                                         value={editingTask.name}
                                         onChange={(e) => setEditingTask({ ...editingTask, name: e.target.value })}
+                                        placeholder="Ej: Diseñar interfaz de usuario"
                                         style={{ background: 'transparent', border: 'none', padding: 0, width: '100%', outline: 'none' }}
                                     />
                                 </div>
@@ -1121,11 +1122,17 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                         <textarea
                                             value={newComment}
                                             onChange={e => setNewComment(e.target.value)}
-                                            placeholder="Escribe un comentario..."
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    if (newComment.trim()) handleAddComment();
+                                                }
+                                            }}
+                                            placeholder="Escribe un comentario... (Enter para enviar)"
                                             className="input-glass"
                                             style={{ flex: 1, minHeight: 40, padding: 8, fontSize: 13 }}
                                         />
-                                        <button className="btn-ghost" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 'auto' }}>
+                                        <button className="btn-primary" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 'auto' }}>
                                             <Send size={16} />
                                         </button>
                                     </div>
@@ -1165,14 +1172,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Color</label>
-                                    <div style={{ display: 'flex', gap: 10 }}>
-                                        {["#3b82f6", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6"].map(c => (
-                                            <div key={c} onClick={() => setNewColColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: newColColor === c ? '0 0 0 2px var(--panel), 0 0 0 4px ' + c : 'none' }}></div>
-                                        ))}
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 10 }}>
-                                        {["#3b82f6", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6"].map(c => (
-                                            <div key={c} onClick={() => setNewColColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: newColColor === c ? '0 0 0 2px var(--panel), 0 0 0 4px ' + c : 'none' }}></div>
+                                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                        {["#3b82f6", "#ef4444", "#f59e0b", "#10b981", "#8b5cf6", "#64748b", "#ec4899", "#14b8a6", "#f97316", "#6366f1"].map(c => (
+                                            <div key={c} onClick={() => setNewColColor(c)} style={{ width: 32, height: 32, borderRadius: '50%', background: c, cursor: 'pointer', border: newColColor === c ? '3px solid white' : '1px solid rgba(255,255,255,0.2)', boxShadow: newColColor === c ? '0 0 0 2px ' + c : 'none', transition: 'all 0.2s' }}></div>
                                         ))}
                                     </div>
                                 </div>
