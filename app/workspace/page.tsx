@@ -45,8 +45,36 @@ const DEFAULT_SETTINGS = {
     color: "#3b82f6"
 };
 
-const ICONS = ["🗺️", "🚀", "💻", "🎨", "📈", "📅", "🔥", "⚙️", "📱", "🌐"];
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#64748b"];
+// Dashboard Icons - Expanded selection
+const ICONS = [
+    "🗺️", "🚀", "💻", "🎨", "📈", "📅", "🔥", "⚙️", "📱", "🌐",
+    "🎯", "💡", "📊", "🎬", "🎭", "📢", "💬", "🏆", "⭐", "🌟",
+    "✨", "🔧", "🛠️", "📐", "✏️", "🖌️", "📧", "🗓️", "⏰", "💾",
+    "🖥️", "📡", "📺", "🎪", "🎮", "🎲", "🧩", "🔬", "🔭", "💼"
+];
+
+// Folder Icons - Expanded selection
+const FOLDER_ICONS = [
+    "📁", "📂", "🗂️", "📋", "💼", "📊", "📈", "📉",
+    "🚀", "💡", "🎯", "🎨", "🎭", "🎬", "💻", "⚙️",
+    "🔧", "🛠️", "📱", "🌟", "⭐", "🔥", "✨", "🏆",
+    "🎖️", "🏅", "💰", "💳", "🏢", "🏦", "🗃️", "📌"
+];
+
+const COLORS = [
+    "#3b82f6", // Blue
+    "#10b981", // Green
+    "#f59e0b", // Amber
+    "#ef4444", // Red
+    "#8b5cf6", // Purple
+    "#ec4899", // Pink
+    "#64748b", // Slate
+    "#06b6d4", // Cyan
+    "#84cc16", // Lime
+    "#f97316", // Orange
+    "#a855f7", // Violet
+    "#14b8a6"  // Teal
+];
 
 export default function Workspace() {
     const [dashboards, setDashboards] = useState<Dashboard[]>([]);
@@ -537,18 +565,34 @@ export default function Workspace() {
                 {!isLoading && currentItems.folders.length > 0 && (
                     <div style={{ marginBottom: 32 }}>
                         <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 16 }}>Carpetas</h4>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
                             {currentItems.folders.map(f => (
                                 <div
                                     key={f.id}
                                     className="glass-panel hover-lift"
                                     onClick={() => setCurrentFolderId(f.id)}
-                                    style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', border: '1px solid var(--border-dim)', borderLeft: `4px solid ${f.color || '#fbbf24'}` }}
+                                    style={{
+                                        padding: 16,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 12,
+                                        cursor: 'pointer',
+                                        border: '1px solid var(--border-dim)',
+                                        borderLeft: `4px solid ${f.color || '#fbbf24'}`,
+                                        minHeight: 60,
+                                        transition: 'all 0.2s ease'
+                                    }}
                                 >
-                                    <div style={{ color: f.color || '#fbbf24' }}>{f.icon || <Folder size={24} fill={f.color || "#fbbf24"} fillOpacity={0.2} />}</div>
-                                    <span style={{ fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+                                    <div style={{ fontSize: 24, flexShrink: 0 }}>{f.icon || <Folder size={24} fill={f.color || "#fbbf24"} fillOpacity={0.2} />}</div>
+                                    <span style={{
+                                        fontWeight: 600,
+                                        flex: 1,
+                                        wordBreak: 'break-word',
+                                        lineHeight: 1.3,
+                                        fontSize: 14
+                                    }}>{f.name}</span>
 
-                                    <div className="folder-actions" onClick={e => e.stopPropagation()} style={{ display: 'flex' }}>
+                                    <div className="folder-actions" onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                                         <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); setSharingFolder(f); setIsSharingFolder(true); }} style={{ padding: 4 }} title="Compartir"><Share2 size={12} /></button>
                                         <button className="btn-ghost" onClick={(e) => handleExport(e, f.id, 'folder')} style={{ padding: 4 }} title="Descargar Reporte"><Download size={14} /></button>
                                         <button className="btn-ghost" onClick={(e) => editFolder(e, f)} style={{ padding: 4 }}><Edit2 size={12} /></button>
@@ -638,17 +682,50 @@ export default function Workspace() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                                 <div>
                                     <label className="form-label">Ícono</label>
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                        {["📁", "📂", "💼", "📊", "🚀", "💡", "🎯"].map(ic => (
-                                            <div key={ic} onClick={() => setFolderIcon(ic)} style={{ cursor: 'pointer', padding: 8, borderRadius: 8, background: folderIcon === ic ? 'var(--bg-panel)' : 'transparent', border: folderIcon === ic ? '1px solid var(--primary)' : '1px solid transparent', transition: 'all 0.2s', fontSize: 20 }}>{ic}</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6, maxHeight: 200, overflowY: 'auto', padding: 4 }}>
+                                        {FOLDER_ICONS.map(ic => (
+                                            <div
+                                                key={ic}
+                                                onClick={() => setFolderIcon(ic)}
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    padding: 8,
+                                                    borderRadius: 8,
+                                                    background: folderIcon === ic ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.05)',
+                                                    border: folderIcon === ic ? '2px solid var(--primary)' : '1px solid transparent',
+                                                    transition: 'all 0.2s',
+                                                    fontSize: 20,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    aspectRatio: '1'
+                                                }}
+                                            >
+                                                {ic}
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
                                 <div>
                                     <label className="form-label">Color</label>
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
                                         {COLORS.map(c => (
-                                            <div key={c} onClick={() => setFolderColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: folderColor === c ? '0 0 0 2px var(--bg-card), 0 0 0 4px ' + c : 'none', transition: 'all 0.2s' }}></div>
+                                            <div
+                                                key={c}
+                                                onClick={() => setFolderColor(c)}
+                                                style={{
+                                                    width: 28,
+                                                    height: 28,
+                                                    borderRadius: '50%',
+                                                    background: c,
+                                                    cursor: 'pointer',
+                                                    boxShadow: folderColor === c ? '0 0 0 2px var(--bg-card), 0 0 0 4px ' + c : 'none',
+                                                    transition: 'all 0.2s',
+                                                    border: '2px solid rgba(255,255,255,0.1)',
+                                                    justifySelf: 'center'
+                                                }}
+                                            >
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
@@ -776,17 +853,49 @@ export default function Workspace() {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
                                         <div>
                                             <label className="form-label">Ícono</label>
-                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6, maxHeight: 200, overflowY: 'auto', padding: 4 }}>
                                                 {ICONS.map(ic => (
-                                                    <div key={ic} onClick={() => setWizIcon(ic)} style={{ cursor: 'pointer', padding: 10, borderRadius: 8, background: wizIcon === ic ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.05)', transition: 'all 0.2s' }}>{ic}</div>
+                                                    <div
+                                                        key={ic}
+                                                        onClick={() => setWizIcon(ic)}
+                                                        style={{
+                                                            cursor: 'pointer',
+                                                            padding: 8,
+                                                            borderRadius: 8,
+                                                            background: wizIcon === ic ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.05)',
+                                                            border: wizIcon === ic ? '2px solid var(--primary)' : '1px solid transparent',
+                                                            transition: 'all 0.2s',
+                                                            fontSize: 20,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            aspectRatio: '1'
+                                                        }}
+                                                    >
+                                                        {ic}
+                                                    </div>
                                                 ))}
                                             </div>
                                         </div>
                                         <div>
                                             <label className="form-label">Color Principal</label>
-                                            <div style={{ display: 'flex', gap: 12 }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
                                                 {COLORS.map(c => (
-                                                    <div key={c} onClick={() => setWizColor(c)} style={{ width: 32, height: 32, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: wizColor === c ? '0 0 0 3px var(--bg-card), 0 0 0 5px ' + c : 'none', transition: 'all 0.2s' }}></div>
+                                                    <div
+                                                        key={c}
+                                                        onClick={() => setWizColor(c)}
+                                                        style={{
+                                                            width: 32,
+                                                            height: 32,
+                                                            borderRadius: '50%',
+                                                            background: c,
+                                                            cursor: 'pointer',
+                                                            boxShadow: wizColor === c ? '0 0 0 3px var(--bg-card), 0 0 0 5px ' + c : 'none',
+                                                            transition: 'all 0.2s',
+                                                            border: '2px solid rgba(255,255,255,0.1)'
+                                                        }}
+                                                    >
+                                                    </div>
                                                 ))}
                                             </div>
                                         </div>
