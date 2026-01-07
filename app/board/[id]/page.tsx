@@ -958,40 +958,50 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     </div>
                 )}
 
-                {/* TIMELINE */}
+                {/* TIMELINE (LIST VIEW) */}
                 {activeTab === "timeline" && (
-                    <div className="view-section active">
-                        <div className="timeline-view">
+                    <div className="view-section active animate-fade-in">
+                        <div className="timeline-container">
                             {settings.weeks.map(w => {
                                 const weekTasks = filteredTasks.filter(t => t.week === w.id);
                                 if (weekTasks.length === 0) return null;
                                 return (
-                                    <div key={w.id} className="tl-group">
-                                        <div className="tl-header">{w.name}</div>
-                                        {weekTasks.map(t => (
-                                            <div key={t.id} className="tl-item">
-                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: statuses.find(s => s.id === t.status)?.color }}></div>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</div>
-                                                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                                                        <span style={{
-                                                            background: statuses.find(s => s.id === t.status)?.color || '#64748b',
-                                                            color: 'white',
-                                                            fontSize: 10,
-                                                            fontWeight: 600,
-                                                            marginRight: 8
-                                                        }}>
-                                                            {statuses.find(s => s.id === t.status)?.name || t.status}
-                                                        </span>
-                                                        {t.owner} · {t.type}
+                                    <div key={w.id} className="tl-week-group">
+                                        <div className="tl-week-header">
+                                            <div className="tl-week-dot"></div>
+                                            <span>{w.name}</span>
+                                            <div className="tl-count">{weekTasks.length} tareas</div>
+                                        </div>
+                                        <div className="tl-cards-grid">
+                                            {weekTasks.map(t => {
+                                                const taskStatus = statuses.find(s => s.id === t.status) || DEFAULT_STATUSES[0];
+                                                return (
+                                                    <div key={t.id} className="tl-card" onClick={() => openModal(t)}>
+                                                        <div className="tl-card-top">
+                                                            <div className="tl-status-dot" style={{ background: taskStatus.color }}></div>
+                                                            <div className="tl-task-name">{t.name}</div>
+                                                            <div className="tl-actions" onClick={e => e.stopPropagation()}>
+                                                                <button className="btn-ghost-sm" onClick={() => duplicateTask(t)} title="Duplicar"><Copy size={14} /></button>
+                                                                <button className="btn-ghost-sm" onClick={() => openModal(t)} title="Editar"><Edit2 size={14} /></button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="tl-card-meta">
+                                                            <div className="tl-badge" style={{ background: `${taskStatus.color}20`, color: taskStatus.color }}>
+                                                                {taskStatus.name}
+                                                            </div>
+                                                            <div className="tl-meta-info">
+                                                                <Users size={12} /> <span>{t.owner.split(' (')[0]}</span>
+                                                            </div>
+                                                            <div className="tl-meta-info">
+                                                                <div className={`type-tag ${t.type.toLowerCase().includes('feature') ? 'feature' : t.type.toLowerCase().includes('bug') ? 'bug' : 'other'}`}>
+                                                                    {t.type}
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div style={{ display: 'flex', gap: 4 }}>
-                                                    <button className="btn-ghost" onClick={() => duplicateTask(t)} title="Duplicar tarea" style={{ padding: 4 }}><Copy size={16} /></button>
-                                                    <button className="btn-ghost" onClick={() => openModal(t)} style={{ padding: 4 }}>✏️</button>
-                                                </div>
-                                            </div>
-                                        ))}
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 )
                             })}
@@ -1427,12 +1437,54 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                    .lane-head { color: #94a3b8; }
                 }
 
-                /* MOBILE HELPERS */
+                /* TIMELINE CARD VIEW */
+                .timeline-container { padding: 4px; display: flex; flex-direction: column; gap: 32px; overflow-y: auto; height: 100%; }
+                .tl-week-group { display: flex; flex-direction: column; gap: 16px; }
+                .tl-week-header { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 700; color: #1e293b; padding-bottom: 8px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+                .tl-week-dot { width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; box-shadow: 0 0 8px rgba(59,130,246,0.4); }
+                .tl-count { font-size: 11px; font-weight: 500; color: #64748b; background: rgba(0,0,0,0.04); padding: 2px 8px; border-radius: 20px; }
+                
+                .tl-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+                .tl-card { 
+                    background: rgba(255, 255, 255, 0.6);
+                    backdrop-filter: blur(8px);
+                    border: 1px solid rgba(255,255,255,0.7);
+                    border-radius: 16px;
+                    padding: 16px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+                }
+                .tl-card:hover {
+                    background: white;
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+                    border-color: #3b82f640;
+                }
+                .tl-card-top { display: flex; align-items: start; gap: 12px; }
+                .tl-status-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+                .tl-task-name { flex: 1; font-size: 14px; font-weight: 600; color: #1e293b; line-height: 1.4; }
+                .tl-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s; }
+                .tl-card:hover .tl-actions { opacity: 1; }
+                .btn-ghost-sm { background: transparent; border: none; padding: 4px; border-radius: 6px; color: #94a3b8; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+                .btn-ghost-sm:hover { background: rgba(0,0,0,0.05); color: #1e293b; }
+                
+                .tl-card-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+                .tl-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+                .tl-meta-info { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #64748b; font-weight: 500; }
+                
+                .type-tag { font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; border: 1px solid transparent; }
+                .type-tag.feature { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+                .type-tag.bug { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+                .type-tag.other { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+
+                /* Mobile Optimization */
                 @media (max-width: 768px) {
-                    .hide-mobile { display: none !important; }
-                    .controls { flex-direction: column; align-items: stretch !important; margin-bottom: 16px; }
-                    .filters { width: 100%; }
-                    .filters > * { flex: 1; min-width: 140px; }
+                    .tl-cards-grid { grid-template-columns: 1fr; }
+                    .tl-actions { opacity: 1; }
                     main { overflow-y: auto !important; height: auto !important; padding: 16px; }
                     .kanban-container { height: auto !important; padding-bottom: 40px; }
                     .lanes { height: auto !important; gap: 16px; padding-right: 0; }
