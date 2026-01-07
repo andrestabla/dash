@@ -587,7 +587,7 @@ export default function Workspace() {
                                     <span style={{
                                         fontWeight: 600,
                                         flex: 1,
-                                        wordBreak: 'break-word',
+                                        overflowWrap: 'break-word',
                                         lineHeight: 1.3,
                                         fontSize: 14
                                     }}>{f.name}</span>
