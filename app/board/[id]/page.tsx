@@ -1314,10 +1314,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     gap: 12px !important;
                 }
 
-                /* Dark Mode Overrides for Header */
-                @media (prefers-color-scheme: dark) {
-                   header { background: rgba(15, 23, 42, 0.7); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+                /* Dark Mode Overrides for Header - Global scope to match ThemeProvider */
+                :global(.dark) header { 
+                    background: rgba(15, 23, 42, 0.8) !important; 
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important; 
+                    backdrop-filter: blur(12px) !important;
                 }
+                :global(.dark) .logo-area h1 { color: #f8fafc !important; }
+                :global(.dark) .btn-ghost { color: #94a3b8 !important; }
+                :global(.dark) .btn-ghost:hover { background: rgba(255, 255, 255, 0.05) !important; color: #f8fafc !important; }
 
                 /* Mobile Overrides for Header */
                 @media (max-width: 768px) {
@@ -1423,18 +1428,69 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 
                 .drop-zone { flex: 1; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 14px; min-height: 100px; }
 
-                /* Dark Mode Overrides for main content */
-                @media (prefers-color-scheme: dark) {
-                   main { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
-                   .app-title { background: linear-gradient(45deg, #f8fafc, #cbd5e1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-                   .lane { 
-                       background: rgba(30, 41, 59, 0.4); 
-                       border: 1px solid rgba(255, 255, 255, 0.05); 
-                       box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
-                   }
-                   .lane:hover { background: rgba(30, 41, 59, 0.6); }
-                   .filters input, .filters select { background: rgba(30, 41, 59, 0.6); border-color: rgba(255,255,255,0.1); color: white; }
-                   .lane-head { color: #94a3b8; }
+                /* Premium Dark Mode Refinement - Reactive to .dark class */
+                :global(.dark) main { 
+                    background: radial-gradient(circle at top left, #1e293b, #0f172a) !important; 
+                }
+                :global(.dark) .app-title { 
+                    background: linear-gradient(45deg, #f8fafc, #94a3b8); 
+                    -webkit-background-clip: text; 
+                    -webkit-text-fill-color: transparent; 
+                }
+                :global(.dark) .app-sub { color: #94a3b8; }
+                
+                :global(.dark) .tabs { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); }
+                :global(.dark) .tab { color: #94a3b8; }
+                :global(.dark) .tab:hover { background: rgba(255,255,255,0.05); color: white; }
+                :global(.dark) .tab.active { 
+                    background: rgba(59, 130, 246, 0.15); 
+                    color: #60a5fa; 
+                    border: 1px solid rgba(59, 130, 246, 0.2); 
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                }
+                :global(.dark) .tab.active svg { color: #60a5fa; }
+
+                :global(.dark) .filters input, :global(.dark) .filters select { 
+                    background: rgba(30, 41, 59, 0.7); 
+                    border-color: rgba(255,255,255,0.1); 
+                    color: white; 
+                }
+                :global(.dark) .filters input:focus, :global(.dark) .filters select:focus { 
+                    background: rgba(30, 41, 59, 0.9);
+                    border-color: #3b82f6;
+                    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+                }
+
+                :global(.dark) .lane { 
+                    background: rgba(15, 23, 42, 0.4); 
+                    border: 1px solid rgba(255, 255, 255, 0.05); 
+                    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+                    backdrop-filter: blur(20px);
+                }
+                :global(.dark) .lane:hover { 
+                    background: rgba(15, 23, 42, 0.6); 
+                    border-color: rgba(255, 255, 255, 0.1);
+                }
+                :global(.dark) .lane-head { color: #94a3b8; }
+                :global(.dark) .tl-card {
+                    background: rgba(30, 41, 59, 0.5);
+                    border-color: rgba(255, 255, 255, 0.05);
+                }
+                :global(.dark) .tl-card:hover {
+                    background: rgba(30, 41, 59, 0.8);
+                    border-color: rgba(59, 130, 246, 0.3);
+                }
+                :global(.dark) .tl-task-name { color: #f8fafc; }
+                :global(.dark) .tl-week-header { color: #f1f5f9; border-color: rgba(255,255,255,0.08); }
+                :global(.dark) .tl-count { background: rgba(255,255,255,0.05); color: #94a3b8; }
+                :global(.dark) .kanban-card {
+                    background: rgba(30, 41, 59, 0.8) !important;
+                    border-color: rgba(255, 255, 255, 0.08) !important;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+                }
+                :global(.dark) .kanban-card:hover {
+                    background: rgba(30, 41, 59, 1) !important;
+                    border-color: #3b82f680 !important;
                 }
 
                 /* TIMELINE CARD VIEW */

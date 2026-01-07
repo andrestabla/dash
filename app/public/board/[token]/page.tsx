@@ -516,6 +516,20 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
 
                 .row-hover:hover { background: var(--bg-panel); }
 
+                /* DARK MODE REFINEMENTS */
+                :global(.dark) main { background: radial-gradient(circle at top left, #1e293b, #0f172a) !important; }
+                :global(.dark) header { background: rgba(15, 23, 42, 0.8) !important; border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important; }
+                :global(.dark) .toolbar { background: rgba(30, 41, 59, 0.5) !important; border-color: rgba(255, 255, 255, 0.08) !important; }
+                :global(.dark) .tabs { background: rgba(0, 0, 0, 0.2) !important; }
+                :global(.dark) .tab.active { background: rgba(255, 255, 255, 0.05) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; }
+                
+                :global(.dark) .lane { background: rgba(15, 23, 42, 0.4) !important; border-color: rgba(255, 255, 255, 0.05) !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important; }
+                :global(.dark) .kanban-card { background: rgba(30, 41, 59, 0.7) !important; border-color: rgba(255, 255, 255, 0.08) !important; }
+                :global(.dark) .kanban-card:hover { border-color: var(--primary) !important; background: rgba(30, 41, 59, 0.9) !important; }
+                
+                :global(.dark) .modal-container { background: rgba(30, 41, 59, 0.8) !important; border-color: rgba(255, 255, 255, 0.1) !important; }
+                :global(.dark) .info-block { background: rgba(15, 23, 42, 0.5) !important; border-color: rgba(255, 255, 255, 0.05) !important; }
+
                 .lane::-webkit-scrollbar { width: 4px; }
                 .lane::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
                 .dark .lane::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); }
