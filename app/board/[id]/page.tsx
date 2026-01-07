@@ -735,7 +735,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             <span style={{ fontSize: 24 }}>←</span>
                         </Link>
                         <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
-                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 <h1 className="app-title">{settings.icon} {dashboardName}</h1>
                                 <div style={{
                                     padding: '4px 12px',
@@ -1294,6 +1294,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         justify-content: space-between; 
                         align-items: center; 
                         flex-direction: row;
+                        flex-wrap: nowrap;
+                    }
+                    .logo-area {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
                     }
                     
                     /* Typography Polish */
