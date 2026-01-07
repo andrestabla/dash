@@ -147,6 +147,8 @@ export default function Workspace() {
     const [shareEmail, setShareEmail] = useState("");
     const [shareNotify, setShareNotify] = useState(true);
     const [isSavingShare, setIsSavingShare] = useState(false);
+    const [selectedDashboards, setSelectedDashboards] = useState<string[]>([]);
+    const [folderDashboards, setFolderDashboards] = useState<any[]>([]);
 
     const [isLoading, setIsLoading] = useState(true);
 
@@ -593,7 +595,16 @@ export default function Workspace() {
                                     }}>{f.name}</span>
 
                                     <div className="folder-actions" onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                                        <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); setSharingFolder(f); setIsSharingFolder(true); }} style={{ padding: 4 }} title="Compartir"><Share2 size={12} /></button>
+                                        <button className="btn-ghost" onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSharingFolder(f);
+                                            // Load dashboards in this folder
+                                            const foldDashboards = dashboards.filter(d => d.folder_id === f.id);
+                                            setFolderDashboards(foldDashboards);
+                                            // Select all dashboards by default
+                                            setSelectedDashboards(foldDashboards.map(d => d.id));
+                                            setIsSharingFolder(true);
+                                        }} style={{ padding: 4 }} title="Compartir"><Share2 size={12} /></button>
                                         <button className="btn-ghost" onClick={(e) => handleExport(e, f.id, 'folder')} style={{ padding: 4 }} title="Descargar Reporte"><Download size={14} /></button>
                                         <button className="btn-ghost" onClick={(e) => editFolder(e, f)} style={{ padding: 4 }}><Edit2 size={12} /></button>
                                         <button className="btn-ghost" onClick={(e) => deleteFolder(e, f.id)} style={{ padding: 4, color: '#f87171' }}><Trash2 size={12} /></button>
@@ -1191,6 +1202,72 @@ export default function Workspace() {
                                 </div>
                             </div>
 
+                            {/* Dashboard Selection */}
+                            <div className="form-group" style={{ marginTop: 20 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                    <label className="form-label">Tableros con Acceso</label>
+                                    <button
+                                        type="button"
+                                        className="btn-ghost"
+                                        onClick={() => {
+                                            if (selectedDashboards.length === folderDashboards.length) {
+                                                setSelectedDashboards([]);
+                                            } else {
+                                                setSelectedDashboards(folderDashboards.map(d => d.id));
+                                            }
+                                        }}
+                                        style={{ fontSize: 12, padding: '4px 8px', height: 'auto' }}
+                                    >
+                                        {selectedDashboards.length === folderDashboards.length ? 'Deseleccionar Todos' : 'Seleccionar Todos'}
+                                    </button>
+                                </div>
+                                <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border-dim)', borderRadius: 12, padding: 8, background: 'rgba(0,0,0,0.1)' }}>
+                                    {folderDashboards.length === 0 && (
+                                        <p style={{ padding: 10, color: 'var(--text-dim)', fontSize: 13, textAlign: 'center' }}>
+                                            No hay tableros en esta carpeta
+                                        </p>
+                                    )}
+                                    {folderDashboards.map(dashboard => (
+                                        <div
+                                            key={dashboard.id}
+                                            className="hover-lift"
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 10,
+                                                padding: '8px 12px',
+                                                borderRadius: 8,
+                                                cursor: 'pointer',
+                                                transition: 'background 0.2s',
+                                                background: selectedDashboards.includes(dashboard.id) ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                                                border: selectedDashboards.includes(dashboard.id) ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid transparent'
+                                            }}
+                                            onClick={() => {
+                                                setSelectedDashboards(prev =>
+                                                    prev.includes(dashboard.id)
+                                                        ? prev.filter(id => id !== dashboard.id)
+                                                        : [...prev, dashboard.id]
+                                                );
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedDashboards.includes(dashboard.id)}
+                                                onChange={() => { }}
+                                                style={{ cursor: 'pointer', transform: 'scale(1.1)' }}
+                                            />
+                                            <div style={{ fontSize: 24 }}>{dashboard.settings?.icon || '🗺️'}</div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontSize: 14, fontWeight: 500 }}>{dashboard.name}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                                                    {dashboard.description || 'Sin descripción'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'rgba(59, 130, 246, 0.05)', borderRadius: 12, border: '1px solid rgba(59, 130, 246, 0.1)' }}>
                                 <input
                                     type="checkbox"
@@ -1206,23 +1283,29 @@ export default function Workspace() {
                         </div>
 
                         <div className="modal-footer">
-                            <button className="btn-ghost" onClick={() => setIsSharingFolder(false)}>Cancelar</button>
+                            <button className="btn-ghost" onClick={() => { setIsSharingFolder(false); setShareEmail(""); setSelectedDashboards([]); }}>Cancelar</button>
                             <button
                                 className="btn-primary"
-                                disabled={!shareEmail || isSavingShare}
+                                disabled={!shareEmail || selectedDashboards.length === 0 || isSavingShare}
                                 onClick={async () => {
                                     setIsSavingShare(true);
                                     try {
                                         const res = await fetch(`/api/folders/${sharingFolder.id}/share`, {
                                             method: "POST",
                                             headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({ email: shareEmail, notify: shareNotify })
+                                            body: JSON.stringify({
+                                                email: shareEmail,
+                                                dashboardIds: selectedDashboards,
+                                                notify: shareNotify
+                                            })
                                         });
 
                                         if (res.ok) {
-                                            showToast("Acceso compartido correctamente", "success");
+                                            const data = await res.json();
+                                            showToast(`Acceso compartido: ${data.dashboardsShared} tablero(s)`, "success");
                                             setIsSharingFolder(false);
                                             setShareEmail("");
+                                            setSelectedDashboards([]);
                                         } else {
                                             const data = await res.json();
                                             showToast(data.error || "Error al compartir", "error");

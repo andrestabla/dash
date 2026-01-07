@@ -56,8 +56,10 @@ export async function POST(
             return NextResponse.json({ success: true, isPublic, token });
         }
 
-        // Handle user collaboration sharing (original functionality)
+        // Handle user collaboration sharing with dashboard selection
         if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+
+        const { dashboardIds } = body; // Array of dashboard IDs to grant access to
 
         // 1. Check if folder exists and user has permission (Owner or Admin)
         const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);
@@ -80,26 +82,53 @@ export async function POST(
         }
         const targetUser = userRes.rows[0];
 
-        // 3. Add to collaborators
+        // 3. Add to folder collaborators
         await client.query(
             'INSERT INTO folder_collaborators (folder_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT (folder_id, user_id) DO UPDATE SET role = EXCLUDED.role',
             [id, targetUser.id, role || 'viewer']
         );
 
+        // 4. Add dashboard-level permissions for selected dashboards
+        let dashboardCount = 0;
+        if (dashboardIds && Array.isArray(dashboardIds) && dashboardIds.length > 0) {
+            for (const dashboardId of dashboardIds) {
+                // Verify dashboard belongs to this folder
+                const dashRes = await client.query(
+                    'SELECT id FROM dashboards WHERE id = $1 AND folder_id = $2',
+                    [dashboardId, id]
+                );
+
+                if (dashRes.rows.length > 0) {
+                    // Add permission to dashboard_user_permissions table
+                    await client.query(
+                        `INSERT INTO dashboard_user_permissions (dashboard_id, user_id, granted_by, role)
+                         VALUES ($1, $2, $3, $4)
+                         ON CONFLICT (dashboard_id, user_id) DO UPDATE SET role = $4, granted_by = $3`,
+                        [dashboardId, targetUser.id, session.id, role || 'viewer']
+                    );
+                    dashboardCount++;
+                }
+            }
+        }
+
         client.release();
 
-        // 4. Send Notification if requested
+        // 5. Send Notification if requested
         if (notify) {
             const origin = request.headers.get('origin') || `https://${request.headers.get('host')}`;
             const base = process.env.NEXT_PUBLIC_APP_URL || origin || 'https://misproyectos.com.co';
             const subject = `Invitación a carpeta compartida: ${folder.name}`;
             const link = `${base}/workspace`;
 
+            const dashboardText = dashboardCount > 0
+                ? `con acceso a ${dashboardCount} tablero${dashboardCount > 1 ? 's' : ''}`
+                : '';
+
             const html = `
                 <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 12px;">
                     <h2 style="color: #3b82f6;">📁 Carpeta Compartida</h2>
                     <p>Hola,</p>
-                    <p>Has recibido acceso a la carpeta <b>"${folder.name}"</b> en Mis Proyectos.</p>
+                    <p>Has recibido acceso a la carpeta <b>"${folder.name}"</b> en Mis Proyectos ${dashboardText}.</p>
                     <p>Ahora puedes ver los tableros y contenido dentro de esta carpeta desde tu espacio de trabajo.</p>
                     <div style="margin: 30px 0; text-align: center;">
                         <a href="${link}" style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">
@@ -114,7 +143,10 @@ export async function POST(
             await sendEmail(email, subject, html);
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({
+            success: true,
+            dashboardsShared: dashboardCount
+        });
 
     } catch (error) {
         console.error("Folder Share error:", error);
