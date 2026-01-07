@@ -79,7 +79,7 @@ export default function LandingPage() {
 
           <div className="hero-visual animate-fade-in delay-200">
             <div className="main-mockup-frame shadow-large">
-              <img src="/Users/andrestabla/.gemini/antigravity/brain/2468aa2b-68ea-45d7-8573-a603e4fe7dc0/kanban_board_mockup_1767741346726.png" alt="Kanban Board Mockup" className="mockup-img" />
+              <img src="/mockups/kanban_board_real.png" alt="Plataforma de Gestión MisProyectos" className="mockup-img" />
               <div className="floating-badge top-right animate-float">
                 <Target size={16} /> 100% Trazable
               </div>
@@ -132,7 +132,7 @@ export default function LandingPage() {
           <div className="split-layout reverse">
             <div className="visual-side">
               <div className="concept-card glass-panel shadow-large">
-                <img src="/Users/andrestabla/.gemini/antigravity/brain/2468aa2b-68ea-45d7-8573-a603e4fe7dc0/portfolio_folders_mockup_1767741376330.png" alt="Portfolio Mockup" className="mockup-img-small" />
+                <img src="/mockups/analytics_view_real.png" alt="Analítica y Gobernanza" className="mockup-img-small" />
               </div>
             </div>
             <div className="info-side">
@@ -198,7 +198,7 @@ export default function LandingPage() {
           <div className="benefits-grid">
             <div className="benefit-card glass-panel hover-lift">
               <div className="benefit-img-box">
-                <img src="/Users/andrestabla/.gemini/antigravity/brain/2468aa2b-68ea-45d7-8573-a603e4fe7dc0/analytics_dashboard_mockup_1767741362202.png" alt="Analytics" />
+                <img src="/mockups/analytics_view_real.png" alt="Dashboard de Analítica en Tiempo Real" />
               </div>
               <div className="benefit-content">
                 <h3 className="benefit-title">Mejores decisiones con información visible</h3>
