@@ -54,6 +54,9 @@ export async function POST(request: Request) {
 
     } catch (error) {
         console.error('Accept Policy Error:', error);
-        return NextResponse.json({ error: 'Error al procesar la solicitud' }, { status: 500 });
+        return NextResponse.json({
+            error: 'Error al procesar la solicitud',
+            detail: error instanceof Error ? error.message : String(error)
+        }, { status: 500 });
     }
 }
