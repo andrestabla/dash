@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Settings, Bell, ArrowLeft, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, Bell, ArrowLeft, Menu, X, Shield } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -19,6 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'Tableros', href: '/admin/dashboards', icon: LayoutDashboard },
         { name: 'Configuración', href: '/admin/settings', icon: Settings },
         { name: 'Notificaciones', href: '/admin/notifications', icon: Bell },
+        { name: 'Seguridad & SSO', href: '/admin/sso', icon: Shield },
     ];
 
     return (

@@ -70,11 +70,13 @@ export default function LoginPage() {
                 <div className="glass-panel animate-slide-up" style={{ width: 420, padding: 40, border: '1px solid rgba(255,255,255,0.08)' }}>
 
                     <div style={{ textAlign: 'center', marginBottom: 40 }}>
-                        {branding.brand_logo_url ? (
-                            <img src={branding.brand_logo_url} alt="Logo" style={{ height: 60, marginBottom: 16, objectFit: 'contain' }} />
-                        ) : (
-                            <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }} className="text-gradient">Bienvenido</h1>
-                        )}
+                        <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+                            {branding.brand_logo_url ? (
+                                <img src={branding.brand_logo_url} alt="Logo" style={{ height: 60, marginBottom: 16, objectFit: 'contain', cursor: 'pointer' }} />
+                            ) : (
+                                <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8, cursor: 'pointer' }} className="text-gradient">Bienvenido</h1>
+                            )}
+                        </Link>
                         <p style={{ color: 'var(--text-dim)' }}>Inicia sesión para continuar</p>
                     </div>
 
