@@ -42,9 +42,24 @@ export async function POST(request: Request) {
         }
 
         // Create Session
-        await login({ id: user.id, email: user.email, name: user.name, role: user.role });
+        await login({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            accepted_privacy_policy: user.accepted_privacy_policy
+        });
 
-        return NextResponse.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+        return NextResponse.json({
+            success: true,
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                accepted_privacy_policy: user.accepted_privacy_policy
+            }
+        });
 
     } catch (error) {
         console.error(error);

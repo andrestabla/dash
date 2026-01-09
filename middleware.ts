@@ -34,9 +34,20 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    // Role Based Access Control (Optional Step)
+    // Role Based Access Control
     if (path.startsWith('/admin') && verified?.role !== 'admin') {
-        return NextResponse.redirect(new URL('/workspace', request.url)); // Redirect to workspace if not admin
+        return NextResponse.redirect(new URL('/workspace', request.url));
+    }
+
+    // Privacy Policy Enforcement
+    // If authenticated but hasn't accepted policy, redirect to onboarding
+    // Exempt: /onboarding/privacy-policy, /api/auth/accept-policy, /api/auth/logout
+    const isExemptFromPolicy = path.startsWith('/onboarding/privacy-policy') ||
+        path === '/api/auth/accept-policy' ||
+        path === '/api/auth/logout';
+
+    if (verified && !verified.accepted_privacy_policy && !isExemptFromPolicy && isProtected) {
+        return NextResponse.redirect(new URL('/onboarding/privacy-policy', request.url));
     }
 
     return NextResponse.next();
