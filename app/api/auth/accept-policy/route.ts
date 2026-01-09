@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession, login } from '@/lib/auth';
+import { logAction } from '@/lib/audit';
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
@@ -42,6 +43,9 @@ export async function POST(request: Request) {
                 role: updatedUser.role,
                 accepted_privacy_policy: updatedUser.accepted_privacy_policy
             });
+
+            // LOG ACTION
+            await logAction(session.id, 'ACCEPT_POLICY', 'Usuario aceptó la política de privacidad y tratamiento de datos', session.id, client);
 
             return NextResponse.json({
                 success: true,

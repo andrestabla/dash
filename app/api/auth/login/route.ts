@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { login } from '@/lib/auth';
+import { logAction } from '@/lib/audit';
 
 export async function POST(request: Request) {
     try {
@@ -49,6 +50,9 @@ export async function POST(request: Request) {
             role: user.role,
             accepted_privacy_policy: user.accepted_privacy_policy
         });
+
+        // LOG LOGIN ACTION
+        await logAction(user.id, 'LOGIN', 'Usuario inició sesión en la plataforma', user.id);
 
         return NextResponse.json({
             success: true,

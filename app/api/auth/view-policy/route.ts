@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { getSession, login } from '@/lib/auth';
+import { logAction } from '@/lib/audit';
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
@@ -18,6 +19,9 @@ export async function POST(request: Request) {
                  WHERE id = $1`,
                 [session.id]
             );
+
+            // LOG ACTION
+            await logAction(session.id, 'VIEW_POLICY', 'Usuario visualizó la política de privacidad', session.id, client);
 
             return NextResponse.json({ success: true });
         } finally {

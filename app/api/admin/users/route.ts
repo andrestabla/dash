@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { getSession } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
+import { logAction } from '@/lib/audit';
 
 // Ensure only admins access this
 interface Session {
@@ -20,17 +21,7 @@ const verifyAdmin = async (): Promise<Session | null> => {
     return session as Session;
 };
 
-// Helper to log actions
-const logAction = async (client: any, userId: string, action: string, details: string, performedBy: string) => {
-    try {
-        await client.query(
-            'INSERT INTO audit_logs (user_id, action, details, performed_by) VALUES ($1, $2, $3, $4)',
-            [userId, action, details, performedBy]
-        );
-    } catch (e) {
-        console.error("Failed to write audit log:", e);
-    }
-}
+// Use logAction from @/lib/audit
 
 export async function GET() {
     if (!await verifyAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -69,7 +60,7 @@ export async function POST(request: Request) {
                 [email, hashed, role || 'user', name || null, 'active']
             );
 
-            await logAction(client, result.rows[0].id, 'CREATE_USER', `User created with role ${role}`, session.id);
+            await logAction(result.rows[0].id, 'CREATE_USER', `User created with role ${role}`, session.id, client);
 
             // Send Welcome Email
             if (body.sendEmail) {
@@ -139,7 +130,7 @@ export async function PUT(request: Request) {
             if (status) logDetails.push(`Status: ${status}`);
             if (password) logDetails.push(`Password manually reset`);
 
-            await logAction(client, id, 'UPDATE_USER', logDetails.join(', '), session.id);
+            await logAction(id, 'UPDATE_USER', logDetails.join(', '), session.id, client);
         }
 
         // Send credentials if requested
@@ -157,7 +148,7 @@ export async function PUT(request: Request) {
                 </div>
             `;
             await sendEmail(email, subject, html);
-            await logAction(client, id, 'RESEND_CREDS', `Credentials resent to ${email}`, session.id);
+            await logAction(id, 'RESEND_CREDS', `Credentials resent to ${email}`, session.id, client);
         }
 
         // Send approval/denial emails if status changed
