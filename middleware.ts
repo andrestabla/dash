@@ -3,6 +3,19 @@ import type { NextRequest } from 'next/server';
 import { verifyToken } from './lib/auth';
 
 export async function middleware(request: NextRequest) {
+    // 1. Basic CSRF Protection for state-changing requests
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method)) {
+        const origin = request.headers.get('origin');
+        const host = request.headers.get('host');
+
+        if (origin) {
+            const originHost = new URL(origin).host;
+            if (originHost !== host) {
+                return new NextResponse('Forbidden: Cross-site request blocked', { status: 403 });
+            }
+        }
+    }
+
     const publicRoutes = ['/login', '/_next', '/api/auth', '/api/setup', '/favicon.ico', '/api/auth/login', '/api/auth/me'];
     const path = request.nextUrl.pathname;
 

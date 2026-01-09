@@ -34,6 +34,7 @@ export async function login(payload: any) {
     cookieStore.set('session', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
         maxAge: 60 * 60 * 24, // 1 day
         path: '/',
     });
