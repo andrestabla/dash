@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Connection string provided by the user
-const connectionString = 'postgresql://neondb_owner:npg_cmqedE60uOAF@ep-holy-dew-a4cxhmv8-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+const connectionString = 'postgresql://neondb_owner:npg_7qvpgUrD6Qfc@ep-red-rice-a4po8o6h-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
 
 async function runMigration() {
     console.log('🚀 Starting database migration...');

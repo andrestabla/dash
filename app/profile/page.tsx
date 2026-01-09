@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/components/ToastProvider';
+import { Shield } from 'lucide-react';
+import PrivacyPolicyModal from '@/components/PrivacyPolicyModal';
 
 export default function ProfilePage() {
     const { theme, toggleTheme } = useTheme();
@@ -12,6 +14,7 @@ export default function ProfilePage() {
     const [user, setUser] = useState({ name: '', email: '' });
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(true);
+    const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
 
     useEffect(() => {
         fetch('/api/users/profile')
@@ -84,11 +87,31 @@ export default function ProfilePage() {
                         <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>Mínimo 6 caracteres recomendado.</p>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                        <button
+                            type="button"
+                            onClick={() => setIsPolicyModalOpen(true)}
+                            className="btn-ghost"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                fontSize: 13,
+                                color: 'var(--text-dim)',
+                                padding: '8px 0'
+                            }}
+                        >
+                            <Shield size={16} /> Consultar Política de Privacidad
+                        </button>
                         <button type="submit" className="btn-primary">Guardar Cambios</button>
                     </div>
                 </form>
             </div>
+
+            <PrivacyPolicyModal
+                isOpen={isPolicyModalOpen}
+                onClose={() => setIsPolicyModalOpen(false)}
+            />
         </div>
     );
 }

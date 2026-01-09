@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import PrivacyPolicyContent from '@/components/PrivacyPolicyContent';
 
 export default function PrivacyPolicyPage() {
     const [accepted, setAccepted] = useState(false);
@@ -72,32 +73,8 @@ export default function PrivacyPolicyPage() {
                 </div>
 
                 {/* Content */}
-                <div className="p-8 max-h-[400px] overflow-y-auto text-white/70 space-y-4 leading-relaxed custom-scrollbar">
-                    <section>
-                        <h2 className="text-white font-semibold text-lg mb-2">1. Recolección de Información</h2>
-                        <p>Recopilamos información necesaria para la gestión de proyectos, incluyendo nombre, correo electrónico y actividad dentro de la plataforma para mejorar tu experiencia y la eficiencia del equipo.</p>
-                    </section>
-
-                    <section>
-                        <h2 className="text-white font-semibold text-lg mb-2">2. Uso de los Datos</h2>
-                        <p>Tus datos se utilizan exclusivamente para:</p>
-                        <ul className="list-disc pl-5 space-y-1">
-                            <li>Autenticación y seguridad de la cuenta.</li>
-                            <li>Notificaciones sobre actualizaciones en tus proyectos.</li>
-                            <li>Colaboración en tiempo real con otros miembros de tu organización.</li>
-                            <li>Análisis interno para optimizar el rendimiento de la herramienta.</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h2 className="text-white font-semibold text-lg mb-2">3. Protección de la Información</h2>
-                        <p>Implementamos medidas de seguridad técnicas y organizativas para proteger tus datos contra acceso no autorizado, alteración o destrucción. No compartimos tus datos con terceros con fines comerciales.</p>
-                    </section>
-
-                    <section>
-                        <h2 className="text-white font-semibold text-lg mb-2">4. Tus Derechos</h2>
-                        <p>Puedes solicitar el acceso, rectificación o eliminación de tus datos personales en cualquier momento contactando al administrador de tu organización o a través de nuestro equipo de soporte.</p>
-                    </section>
+                <div className="p-8 max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <PrivacyPolicyContent />
                 </div>
 
                 {/* Footer / Actions */}
@@ -125,8 +102,8 @@ export default function PrivacyPolicyPage() {
                         onClick={handleAccept}
                         disabled={loading}
                         className={`w-full py-4 rounded-xl font-semibold transition-all duration-200 ${loading
-                                ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                                : 'bg-white text-black hover:bg-white/90 active:scale-[0.98] shadow-lg shadow-white/5'
+                            ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                            : 'bg-white text-black hover:bg-white/90 active:scale-[0.98] shadow-lg shadow-white/5'
                             }`}
                     >
                         {loading ? 'Procesando...' : 'Aceptar y Continuar'}
