@@ -1,27 +1,42 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const { origin } = new URL(request.url);
         const client = await pool.connect();
-        const ssoEnabled = await client.query("SELECT value FROM system_settings WHERE key = 'sso_enabled'");
-        const platform = await client.query("SELECT value FROM system_settings WHERE key = 'sso_platform'");
+        const settings: Record<string, string> = {};
+        const settingsRes = await client.query("SELECT key, value FROM system_settings WHERE key LIKE 'sso_%'");
+        settingsRes.rows.forEach(row => {
+            settings[row.key] = row.value;
+        });
         client.release();
 
-        if (!ssoEnabled.rows[0] || ssoEnabled.rows[0].value !== 'true') {
-            return NextResponse.redirect(new URL('/login?error=SSO_DISABLED', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'));
+        if (settings['sso_enabled'] !== 'true') {
+            return NextResponse.redirect(new URL(`/login?error=SSO_DISABLED`, origin));
         }
 
-        // Simulating redirect to Identity Provider (Google, Microsoft, etc.)
-        // In a real app, you'd build the authorization URL here.
-        // For this demo, we'll redirect to our callback directly with a mock "code"
-        const callbackUrl = new URL('/api/auth/callback/sso', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
-        callbackUrl.searchParams.set('code', 'mock_sso_code_valid');
-        callbackUrl.searchParams.set('state', 'random_state_string');
+        const platform = settings['sso_platform'];
+        const clientId = settings['sso_client_id'];
+        const redirectUri = `${origin}/api/auth/callback/sso`;
+        const state = Math.random().toString(36).substring(7);
 
-        return NextResponse.redirect(callbackUrl);
+        let authUrl = '';
+
+        if (platform === 'google') {
+            authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&state=${state}`;
+        } else if (platform === 'microsoft') {
+            const authority = settings['sso_authority'] || 'https://login.microsoftonline.com/common';
+            authUrl = `${authority}/oauth2/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&state=${state}`;
+        } else {
+            // Default/Custom SAML logic could go here
+            return NextResponse.redirect(new URL(`/login?error=UNSUPPORTED_PLATFORM`, origin));
+        }
+
+        return NextResponse.redirect(new URL(authUrl));
     } catch (error) {
         console.error('SSO Redirect Error:', error);
-        return NextResponse.redirect(new URL('/login?error=SSO_FAILED', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'));
+        const fallbackOrigin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        return NextResponse.redirect(new URL('/login?error=SSO_FAILED', fallbackOrigin));
     }
 }

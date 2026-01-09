@@ -2,10 +2,14 @@ const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
-// Connection string provided by the user
-const connectionString = 'postgresql://neondb_owner:npg_7qvpgUrD6Qfc@ep-red-rice-a4po8o6h-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+// Connection string from environment variable
+const connectionString = process.env.DATABASE_URL;
 
 async function runMigration() {
+    if (!connectionString) {
+        console.error('❌ DATABASE_URL environment variable is not set');
+        process.exit(1);
+    }
     console.log('🚀 Starting database migration...');
 
     const pool = new Pool({

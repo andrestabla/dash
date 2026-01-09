@@ -14,15 +14,75 @@ export async function GET(request: Request) {
     }
 
     try {
-        // 1. Simulate fetching user info from provider using the code
-        // In a real app, you would exchange the code for tokens first.
-        const mockSsoUser = {
-            email: 'usuario.sso@empresa.com',
-            name: 'Colaborador SSO',
-            externalId: 'sso_123456789'
-        };
-
         const client = await pool.connect();
+        const settings: Record<string, string> = {};
+        const settingsRes = await client.query("SELECT key, value FROM system_settings WHERE key LIKE 'sso_%'");
+        settingsRes.rows.forEach(row => {
+            settings[row.key] = row.value;
+        });
+
+        if (settings['sso_enabled'] !== 'true') {
+            client.release();
+            return NextResponse.redirect(new URL('/login?error=SSO_DISABLED', request.url));
+        }
+
+        const platform = settings['sso_platform'];
+        const clientId = settings['sso_client_id'];
+        const clientSecret = settings['sso_client_secret'];
+        const redirectUri = `${new URL(request.url).origin}/api/auth/callback/sso`;
+
+        let email = '';
+        let name = '';
+
+        if (platform === 'google') {
+            const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code,
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    redirect_uri: redirectUri,
+                    grant_type: 'authorization_code',
+                }),
+            });
+            const tokens = await tokenRes.json();
+            if (!tokens.access_token) throw new Error('Failed to get Google access token');
+
+            const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${tokens.access_token}` },
+            });
+            const userData = await userRes.json();
+            email = userData.email;
+            name = userData.name;
+        } else if (platform === 'microsoft') {
+            const authority = settings['sso_authority'] || 'https://login.microsoftonline.com/common';
+            const tokenRes = await fetch(`${authority}/oauth2/v2.0/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    code: code,
+                    redirect_uri: redirectUri,
+                    grant_type: 'authorization_code',
+                    scope: 'openid email profile https://graph.microsoft.com/user.read'
+                }),
+            });
+            const tokens = await tokenRes.json();
+            if (!tokens.access_token) throw new Error('Failed to get Microsoft access token');
+
+            const userRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+                headers: { Authorization: `Bearer ${tokens.access_token}` },
+            });
+            const userData = await userRes.json();
+            email = userData.mail || userData.userPrincipalName;
+            name = userData.displayName;
+        }
+
+        if (!email) throw new Error('Could not retrieve email from provider');
+
+        const mockSsoUser = { email, name };
 
         try {
             // 2. Check if user exists
