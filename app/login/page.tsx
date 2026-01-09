@@ -122,6 +122,21 @@ export default function LoginPage() {
                             {loading ? 'Entrando...' : 'Ingresar al Portal'}
                         </button>
 
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '10px 0' }}>
+                            <div style={{ flex: 1, height: 1, background: 'var(--border-dim)' }} />
+                            <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 600 }}>O TAMBIÉN</span>
+                            <div style={{ flex: 1, height: 1, background: 'var(--border-dim)' }} />
+                        </div>
+
+                        <Link href="/api/auth/sso" style={{ textDecoration: 'none' }}>
+                            <button
+                                type="button"
+                                className="btn-ghost"
+                                style={{ width: '100%', justifyContent: 'center', height: 48, fontSize: 15, border: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.03)' }}
+                            >
+                                <span style={{ marginRight: 10 }}>🔐</span> Ingresar con SSO Corporativo
+                            </button>
+                        </Link>
                     </form>
 
                     <div style={{ marginTop: 24, textAlign: 'center', paddingTop: 24, borderTop: '1px solid var(--border-dim)' }}>
