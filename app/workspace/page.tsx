@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
-import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check, Share2, UserPlus, Mail } from "lucide-react";
+import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check, Share2, UserPlus, Mail, BookOpen } from "lucide-react";
 
 interface Dashboard {
     id: string;
@@ -525,6 +525,11 @@ export default function Workspace() {
                         )}
                         <Link href="/profile">
                             <button className="btn-ghost" title="Mi Perfil" style={{ padding: 6 }}><User size={18} /></button>
+                        </Link>
+                        <Link href="/tutorials">
+                            <button className="btn-ghost" title="Tutoriales" style={{ padding: 6, color: 'var(--primary)' }}>
+                                <BookOpen size={18} />
+                            </button>
                         </Link>
                         <button className="btn-ghost" onClick={confirmLogout} title="Cerrar Sesión" style={{ padding: 6 }}><LogOut size={18} /></button>
                     </div>

@@ -7,7 +7,7 @@ import { useToast } from "@/components/ToastProvider";
 
 import ConfirmModal from "@/components/ConfirmModal";
 
-import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, LayoutGrid, ListTodo, BarChart3 } from 'lucide-react';
+import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, LayoutGrid, ListTodo, BarChart3, BookOpen } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -770,6 +770,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 <Share2 size={16} /> <span className="hide-mobile">Compartir</span>
                             </button>
                             <button className="btn-ghost" onClick={openSettings} title="Configuración">⚙️</button>
+                            <Link href="/tutorials">
+                                <button className="btn-ghost" title="Tutoriales" style={{ padding: 6, color: 'var(--primary)' }}>
+                                    <BookOpen size={18} />
+                                </button>
+                            </Link>
                             <Link href="/workspace" className="btn-ghost hide-mobile" style={{ textDecoration: 'none' }}>Volver</Link>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

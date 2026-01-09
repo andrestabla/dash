@@ -2,119 +2,128 @@
 
 import Link from 'next/link';
 import {
-    ArrowLeft,
-    HelpCircle,
-    MessageSquare,
-    Mail,
-    ChevronDown,
-    ShieldCheck,
-    CreditCard,
-    Users2,
-    Globe
+  ArrowLeft,
+  HelpCircle,
+  MessageSquare,
+  Mail,
+  ChevronDown,
+  ShieldCheck,
+  CreditCard,
+  Users2,
+  Globe
 } from "lucide-react";
 import { useState } from 'react';
 
 export default function HelpPage() {
-    const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
-    const faqs = [
-        {
-            q: "¿Es segura mi información?",
-            a: "Totalmente. Utilizamos encriptación de grado bancario y bases de datos aisladas para asegurar que tu información corporativa esté siempre protegida y accesible solo para ti.",
-            icon: <ShieldCheck className="icon-blue" size={20} />
-        },
-        {
-            q: "¿Cómo invito a colaboradores?",
-            a: "Desde el panel de administración, puedes asignar roles y permisos a correos electrónicos específicos. Ellos recibirán una invitación automática para unirse al tablero.",
-            icon: <Users2 className="icon-purple" size={20} />
-        },
-        {
-            q: "¿Tienen planes para empresas grandes?",
-            a: "Sí. Ofrecemos soluciones Enterprise con límites personalizados, soporte dedicado y opciones de despliegue On-Premise si tu organización lo requiere.",
-            icon: <CreditCard className="icon-orange" size={20} />
-        },
-        {
-            q: "¿Puedo compartir vistas públicas?",
-            a: "¡Claro! MisProyectos permite generar enlaces públicos de solo lectura tanto para tableros como para analíticas, ideal para reportes externos a clientes.",
-            icon: <Globe className="icon-green" size={20} />
-        }
-    ];
+  const faqs = [
+    {
+      q: "¿Es segura mi información?",
+      a: "Totalmente. Utilizamos encriptación de grado bancario y bases de datos aisladas para asegurar que tu información corporativa esté siempre protegida y accesible solo para ti.",
+      icon: <ShieldCheck className="icon-blue" size={20} />
+    },
+    {
+      q: "¿Cómo invito a colaboradores?",
+      a: "Desde el panel de administración, puedes asignar roles y permisos a correos electrónicos específicos. Ellos recibirán una invitación automática para unirse al tablero.",
+      icon: <Users2 className="icon-purple" size={20} />
+    },
+    {
+      q: "¿Tienen planes para empresas grandes?",
+      a: "Sí. Ofrecemos soluciones Enterprise con límites personalizados, soporte dedicado y opciones de despliegue On-Premise si tu organización lo requiere.",
+      icon: <CreditCard className="icon-orange" size={20} />
+    },
+    {
+      q: "¿Puedo compartir vistas públicas?",
+      a: "¡Claro! MisProyectos permite generar enlaces públicos de solo lectura tanto para tableros como para analíticas, ideal para reportes externos a clientes.",
+      icon: <Globe className="icon-green" size={20} />
+    }
+  ];
 
-    return (
-        <div className="help-root">
-            {/* HEADER */}
-            <header className="help-header animate-fade-in">
-                <div className="container">
-                    <div className="header-content">
-                        <Link href="/" className="back-link">
-                            <ArrowLeft size={16} /> Volver al Inicio
-                        </Link>
-                        <div className="logo">
-                            <img src="https://imageneseiconos.s3.us-east-1.amazonaws.com/iconos/logo_misproyectos.png" alt="Mis Proyectos" style={{ height: 32 }} />
-                        </div>
+  return (
+    <div className="help-root">
+      {/* HEADER */}
+      <header className="help-header animate-fade-in">
+        <div className="container">
+          <div className="header-content">
+            <Link href="/" className="back-link">
+              <ArrowLeft size={16} /> Volver al Inicio
+            </Link>
+            <div className="logo">
+              <img src="https://imageneseiconos.s3.us-east-1.amazonaws.com/iconos/logo_misproyectos.png" alt="Mis Proyectos" style={{ height: 32 }} />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="container help-main">
+        <div className="help-hero animate-slide-up">
+          <h1 className="help-title"><HelpCircle className="icon-blue" size={48} /> Centro de Ayuda</h1>
+          <p className="help-subtitle">Estamos aquí para apoyarte en la optimización de tus flujos de trabajo.</p>
+        </div>
+
+        <div className="help-grid">
+          {/* FAQ SECTION */}
+          <section className="faq-section animate-fade-in delay-100">
+            <h2 className="section-title">Preguntas Frecuentes</h2>
+            <div className="faq-list">
+              {faqs.map((faq, idx) => (
+                <div
+                  key={idx}
+                  className={`faq-item glass-panel ${activeFaq === idx ? 'active' : ''}`}
+                  onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
+                >
+                  <div className="faq-header">
+                    <div className="faq-q-text">
+                      {faq.icon}
+                      <span>{faq.q}</span>
                     </div>
+                    <ChevronDown size={18} className="faq-chevron" />
+                  </div>
+                  <div className="faq-answer">
+                    <p>{faq.a}</p>
+                  </div>
                 </div>
-            </header>
+              ))}
+            </div>
+          </section>
 
-            <main className="container help-main">
-                <div className="help-hero animate-slide-up">
-                    <h1 className="help-title"><HelpCircle className="icon-blue" size={48} /> Centro de Ayuda</h1>
-                    <p className="help-subtitle">Estamos aquí para apoyarte en la optimización de tus flujos de trabajo.</p>
+          {/* SUPPORT SECTION */}
+          <section className="support-section animate-fade-in delay-200">
+            <h2 className="section-title">Contacto Directo</h2>
+            <div className="support-cards">
+              <a href="https://wa.me/573044544525" target="_blank" className="support-card glass-panel hover-lift">
+                <div className="support-icon-box whatsapp">
+                  <MessageSquare size={24} />
                 </div>
+                <h3>Soporte por WhatsApp</h3>
+                <p>Respuesta inmediata para dudas técnicas y operativas.</p>
+                <div className="support-action">Contactar ahora</div>
+              </a>
 
-                <div className="help-grid">
-                    {/* FAQ SECTION */}
-                    <section className="faq-section animate-fade-in delay-100">
-                        <h2 className="section-title">Preguntas Frecuentes</h2>
-                        <div className="faq-list">
-                            {faqs.map((faq, idx) => (
-                                <div
-                                    key={idx}
-                                    className={`faq-item glass-panel ${activeFaq === idx ? 'active' : ''}`}
-                                    onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
-                                >
-                                    <div className="faq-header">
-                                        <div className="faq-q-text">
-                                            {faq.icon}
-                                            <span>{faq.q}</span>
-                                        </div>
-                                        <ChevronDown size={18} className="faq-chevron" />
-                                    </div>
-                                    <div className="faq-answer">
-                                        <p>{faq.a}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-
-                    {/* SUPPORT SECTION */}
-                    <section className="support-section animate-fade-in delay-200">
-                        <h2 className="section-title">Contacto Directo</h2>
-                        <div className="support-cards">
-                            <a href="https://wa.me/573044544525" target="_blank" className="support-card glass-panel hover-lift">
-                                <div className="support-icon-box whatsapp">
-                                    <MessageSquare size={24} />
-                                </div>
-                                <h3>Soporte por WhatsApp</h3>
-                                <p>Respuesta inmediata para dudas técnicas y operativas.</p>
-                                <div className="support-action">Contactar ahora</div>
-                            </a>
-
-                            <a href="mailto:proyectos@algoritmot.com" className="support-card glass-panel hover-lift">
-                                <div className="support-icon-box email">
-                                    <Mail size={24} />
-                                </div>
-                                <h3>Correo Electrónico</h3>
-                                <p>Para solicitudes complejas, cuentas Enterprise o facturación.</p>
-                                <div className="support-action">proyectos@algoritmot.com</div>
-                            </a>
-                        </div>
-                    </section>
+              <a href="/tutorials" className="support-card glass-panel hover-lift">
+                <div className="support-icon-box" style={{ background: '#f59e0b', color: 'white' }}>
+                  <HelpCircle size={24} />
                 </div>
-            </main>
+                <h3>Guía Paso a Paso</h3>
+                <p>Aprende a usar todas las funciones con tutoriales detallados.</p>
+                <div className="support-action">Ir a Tutoriales</div>
+              </a>
 
-            <style jsx>{`
+              <a href="mailto:proyectos@algoritmot.com" className="support-card glass-panel hover-lift">
+                <div className="support-icon-box email">
+                  <Mail size={24} />
+                </div>
+                <h3>Correo Electrónico</h3>
+                <p>Para solicitudes complejas, cuentas Enterprise o facturación.</p>
+                <div className="support-action">proyectos@algoritmot.com</div>
+              </a>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <style jsx>{`
         .help-root {
           background: #0f172a;
           color: white;
@@ -345,6 +354,6 @@ export default function HelpPage() {
           .container { padding: 0 20px; }
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
