@@ -20,20 +20,35 @@ export default function LoginPage() {
         setError('');
         setDetail('');
 
-        const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-        });
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-        const data = await res.json();
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
 
-        if (res.ok) {
-            router.push('/workspace');
-            router.refresh();
-        } else {
-            setError(data.error || 'Credenciales inválidas');
-            if (data.detail) setDetail(data.detail);
+            const contentType = res.headers.get('content-type');
+            const data = (contentType && contentType.includes('application/json'))
+                ? await res.json()
+                : { error: 'Error del servidor (no JSON)' };
+
+            if (res.ok) {
+                router.push('/workspace');
+                router.refresh();
+            } else {
+                setError(data.error || 'Credenciales inválidas');
+                if (data.detail) setDetail(data.detail);
+                setLoading(false);
+            }
+        } catch (err: any) {
+            console.error('Login Fetch Error:', err);
+            setError(err.name === 'AbortError' ? 'El servidor tarda demasiado en responder' : 'Error de red o conexión');
+            setDetail(err.message);
             setLoading(false);
         }
     };

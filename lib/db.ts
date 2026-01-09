@@ -12,6 +12,7 @@ if (!global.pool) {
         ssl: {
             rejectUnauthorized: false,
         },
+        connectionTimeoutMillis: 5000,
     });
 }
 pool = global.pool;
