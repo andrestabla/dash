@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
-import { hash } from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 export async function GET() {
     const session = await getSession();
@@ -32,7 +32,7 @@ export async function PUT(request: Request) {
         const client = await pool.connect();
 
         if (password && password.trim().length >= 6) {
-            const hashedPassword = await hash(password, 10);
+            const hashedPassword = await bcrypt.hash(password, 10);
             await client.query(
                 'UPDATE users SET name = $1, password = $2 WHERE id = $3',
                 [name, hashedPassword, (session as any).id]
