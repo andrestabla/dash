@@ -20,6 +20,9 @@ export default function PrivacyPolicyPage() {
                     setUser(data.user);
                     if (data.user.accepted_privacy_policy) {
                         router.push('/workspace');
+                    } else {
+                        // Record view if not already accepted
+                        fetch('/api/auth/view-policy', { method: 'POST' }).catch(console.error);
                     }
                 } else {
                     router.push('/login');

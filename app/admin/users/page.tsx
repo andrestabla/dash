@@ -15,6 +15,9 @@ interface User {
     role: string;
     status: string;
     created_at: string;
+    accepted_privacy_policy: boolean;
+    privacy_policy_accepted_at?: string;
+    privacy_policy_viewed_at?: string;
 }
 
 export default function AdminUsersPage() {
@@ -160,6 +163,7 @@ export default function AdminUsersPage() {
                             <th>Rol</th>
                             <th>Estado</th>
                             <th>Creado</th>
+                            <th>Política Privacidad</th>
                             <th style={{ textAlign: "right", paddingRight: 24 }}>Acciones</th>
                         </tr>
                     </thead>
@@ -199,6 +203,30 @@ export default function AdminUsersPage() {
                                     </span>
                                 </td>
                                 <td style={{ fontSize: 13, color: "var(--text-dim)" }}>{new Date(u.created_at).toLocaleDateString()}</td>
+                                <td>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <span style={{
+                                            padding: "2px 8px",
+                                            borderRadius: 12,
+                                            background: u.accepted_privacy_policy ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                            color: u.accepted_privacy_policy ? '#10b981' : '#ef4444',
+                                            fontSize: 10, fontWeight: 700,
+                                            display: 'inline-flex', alignItems: 'center', gap: 4, width: 'fit-content'
+                                        }}>
+                                            {u.accepted_privacy_policy ? 'ACEPTADA' : 'PENDIENTE'}
+                                        </span>
+                                        {u.privacy_policy_viewed_at && (
+                                            <div style={{ fontSize: 10, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <History size={10} /> Vista: {new Date(u.privacy_policy_viewed_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                            </div>
+                                        )}
+                                        {u.privacy_policy_accepted_at && (
+                                            <div style={{ fontSize: 10, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Check size={10} className="text-success" /> Aceptó: {new Date(u.privacy_policy_accepted_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </td>
                                 <td style={{ textAlign: "right", paddingRight: 24 }}>
                                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 4 }}>
                                         {u.status === 'pending' && (

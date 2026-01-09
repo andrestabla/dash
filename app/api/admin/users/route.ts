@@ -37,7 +37,12 @@ export async function GET() {
 
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT id, email, name, role, status, created_at FROM users ORDER BY created_at DESC');
+        const result = await client.query(`
+            SELECT id, email, name, role, status, created_at, 
+                   accepted_privacy_policy, privacy_policy_accepted_at, privacy_policy_viewed_at 
+            FROM users 
+            ORDER BY created_at DESC
+        `);
         client.release();
         return NextResponse.json(result.rows);
     } catch (error) {
