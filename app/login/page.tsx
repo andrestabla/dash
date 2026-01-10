@@ -144,6 +144,12 @@ export default function LoginPage() {
                             {loading ? 'Entrando...' : 'Ingresar al Portal'}
                         </button>
 
+                        {status && (
+                            <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--primary)', fontWeight: 600, marginTop: 8, animation: 'pulse 2s infinite' }}>
+                                {status}
+                            </div>
+                        )}
+
                     </form>
 
                     <div style={{ marginTop: 24, textAlign: 'center', paddingTop: 24, borderTop: '1px solid var(--border-dim)' }}>
