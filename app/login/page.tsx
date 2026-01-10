@@ -10,6 +10,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [detail, setDetail] = useState('');
+    const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
     const { branding } = useTheme();
@@ -19,10 +20,11 @@ export default function LoginPage() {
         setLoading(true);
         setError('');
         setDetail('');
+        setStatus('Enviando solicitud...');
 
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
@@ -30,6 +32,8 @@ export default function LoginPage() {
                 body: JSON.stringify({ email, password }),
                 signal: controller.signal
             });
+
+            setStatus('Recibiendo respuesta...');
             clearTimeout(timeoutId);
 
             const contentType = res.headers.get('content-type');
@@ -38,18 +42,21 @@ export default function LoginPage() {
                 : { error: 'Error del servidor (no JSON)' };
 
             if (res.ok) {
+                setStatus('¡Éxito! Redirigiendo...');
                 router.push('/workspace');
                 router.refresh();
             } else {
                 setError(data.error || 'Credenciales inválidas');
                 if (data.detail) setDetail(data.detail);
                 setLoading(false);
+                setStatus('');
             }
         } catch (err: any) {
             console.error('Login Fetch Error:', err);
-            setError(err.name === 'AbortError' ? 'El servidor tarda demasiado en responder' : 'Error de red o conexión');
+            setError(err.name === 'AbortError' ? 'El servidor tardó demasiado (15s)' : 'Error de conexión');
             setDetail(err.message);
             setLoading(false);
+            setStatus('');
         }
     };
 
