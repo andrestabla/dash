@@ -12,8 +12,26 @@ export default function LoginPage() {
     const [detail, setDetail] = useState('');
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
+    const [logs, setLogs] = useState<string[]>([]);
     const router = useRouter();
     const { branding } = useTheme();
+
+    useEffect(() => {
+        const originalLog = console.log;
+        const originalError = console.error;
+        console.log = (...args) => {
+            setLogs(prev => [...prev.slice(-9), `LOG: ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`]);
+            originalLog(...args);
+        };
+        console.error = (...args) => {
+            setLogs(prev => [...prev.slice(-9), `ERR: ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`]);
+            originalError(...args);
+        };
+        return () => {
+            console.log = originalLog;
+            console.error = originalError;
+        };
+    }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -21,11 +39,13 @@ export default function LoginPage() {
         setError('');
         setDetail('');
         setStatus('Enviando solicitud...');
+        console.log('Login attempt started...');
 
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
+            console.log('Fetching /api/auth/login...');
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -34,6 +54,7 @@ export default function LoginPage() {
             });
 
             setStatus('Recibiendo respuesta...');
+            console.log('Response status:', res.status);
             clearTimeout(timeoutId);
 
             const contentType = res.headers.get('content-type');
@@ -42,17 +63,19 @@ export default function LoginPage() {
                 : { error: 'Error del servidor (no JSON)' };
 
             if (res.ok) {
-                setStatus('¡Éxito! Redirigiendo...');
-                router.push('/workspace');
-                router.refresh();
+                setStatus('¡Éxito! Redirigiendo (Force)...');
+                console.log('Login success, forcing window.location.href...');
+                // Force full reload to /workspace
+                window.location.href = '/workspace';
             } else {
                 setError(data.error || 'Credenciales inválidas');
                 if (data.detail) setDetail(data.detail);
                 setLoading(false);
                 setStatus('');
+                console.log('Login failed:', data.error);
             }
         } catch (err: any) {
-            console.error('Login Fetch Error:', err);
+            console.error('Fetch error:', err);
             setError(err.name === 'AbortError' ? 'El servidor tardó demasiado (15s)' : 'Error de conexión');
             setDetail(err.message);
             setLoading(false);
@@ -85,6 +108,15 @@ export default function LoginPage() {
                     <div style={{ position: 'absolute', bottom: -100, left: -100, width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(80px)' }} />
                 </>
             )}
+
+            {/* Debugging Window */}
+            <div style={{ position: 'fixed', bottom: 20, right: 20, width: 300, background: 'rgba(0,0,0,0.85)', color: '#00ff00', fontFamily: 'monospace', fontSize: 10, padding: 10, borderRadius: 8, zIndex: 100, border: '1px solid #333' }}>
+                <div style={{ borderBottom: '1px solid #333', paddingBottom: 5, marginBottom: 5, fontWeight: 'bold' }}>DEBUG CONSOLE</div>
+                {logs.map((log, i) => (
+                    <div key={i} style={{ marginBottom: 2 }}>{log}</div>
+                ))}
+                {logs.length === 0 && <div>Esperando eventos...</div>}
+            </div>
 
             {/* Main Content */}
             <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
