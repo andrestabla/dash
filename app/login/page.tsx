@@ -12,28 +12,11 @@ export default function LoginPage() {
     const [detail, setDetail] = useState('');
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
-    const [logs, setLogs] = useState<string[]>([]);
     const router = useRouter();
     const { branding } = useTheme();
 
-    useEffect(() => {
-        const originalLog = console.log;
-        const originalError = console.error;
-        console.log = (...args) => {
-            setLogs(prev => [...prev.slice(-9), `LOG: ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`]);
-            originalLog(...args);
-        };
-        console.error = (...args) => {
-            setLogs(prev => [...prev.slice(-9), `ERR: ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`]);
-            originalError(...args);
-        };
-        return () => {
-            console.log = originalLog;
-            console.error = originalError;
-        };
-    }, []);
-
     const handleLogin = async (e: React.FormEvent) => {
+
         e.preventDefault();
         setLoading(true);
         setError('');
@@ -109,16 +92,8 @@ export default function LoginPage() {
                 </>
             )}
 
-            {/* Debugging Window */}
-            <div style={{ position: 'fixed', bottom: 20, right: 20, width: 300, background: 'rgba(0,0,0,0.85)', color: '#00ff00', fontFamily: 'monospace', fontSize: 10, padding: 10, borderRadius: 8, zIndex: 100, border: '1px solid #333' }}>
-                <div style={{ borderBottom: '1px solid #333', paddingBottom: 5, marginBottom: 5, fontWeight: 'bold' }}>DEBUG CONSOLE</div>
-                {logs.map((log, i) => (
-                    <div key={i} style={{ marginBottom: 2 }}>{log}</div>
-                ))}
-                {logs.length === 0 && <div>Esperando eventos...</div>}
-            </div>
-
             {/* Main Content */}
+
             <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
 
                 <div className="glass-panel animate-slide-up" style={{ width: 420, padding: 40, border: '1px solid rgba(255,255,255,0.08)' }}>

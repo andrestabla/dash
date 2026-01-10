@@ -12,6 +12,8 @@ export async function GET() {
         const result = await client.query('SELECT id, email, name FROM users WHERE status = \'active\' ORDER BY name ASC');
         client.release();
         return NextResponse.json(result.rows);
+
+
     } catch (error) {
         return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }

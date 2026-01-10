@@ -16,8 +16,9 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    const publicRoutes = ['/login', '/_next', '/api/auth', '/api/setup', '/favicon.ico', '/api/auth/login', '/api/auth/me'];
     const path = request.nextUrl.pathname;
+
+
 
     // Explicitly check for protected paths
     const isProtected = path.startsWith('/board') ||
@@ -28,6 +29,8 @@ export async function middleware(request: NextRequest) {
 
     const token = request.cookies.get('session')?.value;
     const verified = token ? await verifyToken(token) : null;
+
+
 
     // Handle Landing Page vs Workspace
     if (path === '/') {
@@ -64,6 +67,7 @@ export async function middleware(request: NextRequest) {
     }
 
     return NextResponse.next();
+
 }
 
 export const config = {

@@ -152,6 +152,8 @@ export default function Workspace() {
 
     const [isLoading, setIsLoading] = useState(true);
 
+
+
     // --- DATA LOADING ---
     const loadData = () => {
         setIsLoading(true);
@@ -163,14 +165,21 @@ export default function Workspace() {
             if (Array.isArray(dData)) setDashboards(dData);
             if (Array.isArray(fData)) setFolders(fData);
             if (Array.isArray(uData)) setAvailableUsers(uData);
-        }).catch(err => console.error(err))
-            .finally(() => setIsLoading(false));
+        }).catch(err => {
+            console.error(err);
+        }).finally(() => {
+            setIsLoading(false);
+        });
     };
+
+
 
     useEffect(() => {
         loadData();
         fetch('/api/auth/me').then(res => res.json()).then(data => setUser(data.user));
     }, []);
+
+
 
     // --- COMPUTED ---
     const currentItems = useMemo(() => {

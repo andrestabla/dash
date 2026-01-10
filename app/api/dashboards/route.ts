@@ -12,11 +12,10 @@ export async function GET() {
         let query;
         let params: any[] = [];
 
+
         if (session.role === 'admin') {
-            // Admins see everything
             query = 'SELECT * FROM dashboards ORDER BY created_at DESC';
         } else {
-            // Users see their own OR shared ones
             query = `
                 SELECT d.* FROM dashboards d
                 LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id
@@ -32,11 +31,13 @@ export async function GET() {
         const result = await client.query(query, params);
         client.release();
         return NextResponse.json(result.rows);
+
     } catch (error) {
         console.error("Dashboard Fetch Error", error);
         return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 }
+
 
 export async function POST(request: Request) {
     const session = await getSession() as any;

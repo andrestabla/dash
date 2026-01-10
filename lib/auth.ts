@@ -19,14 +19,20 @@ export async function verifyToken(token: string) {
     } catch (error) {
         return null;
     }
+
+
 }
 
 export async function getSession() {
     const cookieStore = await cookies();
     const token = cookieStore.get('session')?.value;
-    if (!token) return null;
+    if (!token) {
+        return null;
+    }
     return await verifyToken(token);
 }
+
+
 
 export async function login(payload: any) {
     const token = await signToken(payload);

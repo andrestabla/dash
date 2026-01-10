@@ -12,6 +12,7 @@ export async function GET() {
         let query;
         let params: any[] = [];
 
+
         if (session.role === 'admin') {
             query = 'SELECT * FROM folders ORDER BY name ASC';
         } else {
@@ -27,11 +28,13 @@ export async function GET() {
         const res = await client.query(query, params);
         client.release();
         return NextResponse.json(res.rows);
+
     } catch (error) {
         console.error("Folder Fetch error:", error);
         return NextResponse.json({ error: 'Failed to fetch folders' }, { status: 500 });
     }
 }
+
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
