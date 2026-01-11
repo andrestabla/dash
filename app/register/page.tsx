@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { User, Mail, Lock, ArrowRight, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 
@@ -12,6 +12,22 @@ export default function RegisterPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
+    const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean, platform: string | null }>({ enabled: false, platform: null });
+
+    useEffect(() => {
+        const checkSso = async () => {
+            try {
+                const res = await fetch('/api/auth/sso-status');
+                if (res.ok) {
+                    const data = await res.json();
+                    setSsoConfig(data);
+                }
+            } catch (err) {
+                console.error('Error checking SSO status:', err);
+            }
+        };
+        checkSso();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -161,6 +177,43 @@ export default function RegisterPage() {
                             <>Solicitar Registro <ArrowRight size={20} /></>
                         )}
                     </button>
+
+                    {ssoConfig.enabled && (
+                        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>O continuar con</span>
+                                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => window.location.href = '/api/auth/sso'}
+                                className="btn-ghost"
+                                style={{
+                                    height: 48,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    borderColor: 'rgba(255,255,255,0.1)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 12
+                                }}
+                            >
+                                {ssoConfig.platform === 'google' ? (
+                                    <img src="https://www.vectorlogo.zone/logos/google/google-icon.svg" alt="Google" style={{ width: 18 }} />
+                                ) : ssoConfig.platform === 'microsoft' ? (
+                                    <img src="https://www.vectorlogo.zone/logos/microsoft/microsoft-icon.svg" alt="Microsoft" style={{ width: 18 }} />
+                                ) : (
+                                    <div style={{ width: 20, height: 20, background: 'var(--primary-gradient)', borderRadius: '50%' }} />
+                                )}
+                                {ssoConfig.platform === 'google' ? 'Acceso con Google' :
+                                    ssoConfig.platform === 'microsoft' ? 'Acceso con Microsoft' :
+                                        'Acceso con cuenta empresarial'}
+                            </button>
+                        </div>
+                    )}
                 </form>
 
                 <div style={{ marginTop: 32, textAlign: 'center', paddingTop: 32, borderTop: '1px solid var(--border-dim)' }}>
