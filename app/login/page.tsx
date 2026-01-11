@@ -12,8 +12,24 @@ export default function LoginPage() {
     const [detail, setDetail] = useState('');
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
+    const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean, platform: string | null }>({ enabled: false, platform: null });
     const router = useRouter();
     const { branding } = useTheme();
+
+    useEffect(() => {
+        const checkSso = async () => {
+            try {
+                const res = await fetch('/api/auth/sso-status');
+                if (res.ok) {
+                    const data = await res.json();
+                    setSsoConfig(data);
+                }
+            } catch (err) {
+                console.error('Error checking SSO status:', err);
+            }
+        };
+        checkSso();
+    }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
 
@@ -154,6 +170,43 @@ export default function LoginPage() {
                         {status && (
                             <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--primary)', fontWeight: 600, marginTop: 8, animation: 'pulse 2s infinite' }}>
                                 {status}
+                            </div>
+                        )}
+
+                        {ssoConfig.enabled && (
+                            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>O continuar con</span>
+                                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => window.location.href = '/api/auth/sso'}
+                                    className="btn-ghost"
+                                    style={{
+                                        height: 48,
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        borderColor: 'rgba(255,255,255,0.1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: 12
+                                    }}
+                                >
+                                    {ssoConfig.platform === 'google' ? (
+                                        <img src="https://imageneseiconos.s3.us-east-1.amazonaws.com/varios/google_logo.png" alt="Google" style={{ width: 20 }} />
+                                    ) : ssoConfig.platform === 'microsoft' ? (
+                                        <img src="https://imageneseiconos.s3.us-east-1.amazonaws.com/varios/microsoft_logo.png" alt="Microsoft" style={{ width: 18 }} />
+                                    ) : (
+                                        <div style={{ width: 20, height: 20, background: 'var(--primary-gradient)', borderRadius: '50%' }} />
+                                    )}
+                                    {ssoConfig.platform === 'google' ? 'Acceso con Google' :
+                                        ssoConfig.platform === 'microsoft' ? 'Acceso con Microsoft' :
+                                            'Acceso con tu cuenta empresarial'}
+                                </button>
                             </div>
                         )}
 
