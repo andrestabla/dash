@@ -7,6 +7,30 @@ const verifyAdmin = async () => {
     return session?.role === 'admin';
 };
 
+export async function GET() {
+    if (!await verifyAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+
+    try {
+        const client = await pool.connect();
+        const settingsRes = await client.query("SELECT key, value FROM system_settings WHERE key LIKE 'sso_%'");
+
+        const settings: Record<string, string> = {};
+        settingsRes.rows.forEach(row => {
+            if (row.key === 'sso_client_secret') {
+                settings[row.key] = row.value ? '********' : '';
+            } else {
+                settings[row.key] = row.value;
+            }
+        });
+
+        client.release();
+        return NextResponse.json(settings);
+    } catch (error) {
+        console.error('Failed to fetch SSO settings:', error);
+        return NextResponse.json({ error: 'Failed to fetch SSO settings' }, { status: 500 });
+    }
+}
+
 export async function POST(request: Request) {
     if (!await verifyAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 

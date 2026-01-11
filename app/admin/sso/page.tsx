@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Shield,
     ChevronRight,
@@ -13,7 +13,9 @@ import {
     CheckCircle2,
     AlertCircle,
     Copy,
-    ExternalLink
+    ExternalLink,
+    Activity,
+    BookOpen
 } from 'lucide-react';
 import { useToast } from "@/components/ToastProvider";
 
@@ -33,7 +35,34 @@ export default function SSOWizard() {
         enabled: false
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [currentConfig, setCurrentConfig] = useState<any>(null);
     const { showToast } = useToast();
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const res = await fetch('/api/admin/sso');
+                if (res.ok) {
+                    const data = await res.json();
+                    setCurrentConfig(data);
+
+                    // Pre-fill if settings exist
+                    if (data.sso_platform) {
+                        setPlatform(data.sso_platform);
+                        setFormData({
+                            clientId: data.sso_client_id || '',
+                            clientSecret: data.sso_client_secret || '',
+                            authority: data.sso_authority || '',
+                            enabled: data.sso_enabled === 'true'
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching SSO settings:', error);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -74,6 +103,41 @@ export default function SSOWizard() {
                     Permite que tus usuarios inicien sesión de forma segura usando sus credenciales corporativas.
                 </p>
             </div>
+
+            {/* Current Status Indicator */}
+            {currentConfig && (
+                <div className="glass-panel animate-fade-in" style={{ padding: 20, marginBottom: 32, display: 'flex', alignItems: 'center', gap: 20, border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        background: currentConfig.sso_enabled === 'true' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                        color: currentConfig.sso_enabled === 'true' ? '#10b981' : '#ef4444',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <Activity size={24} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 700, fontSize: 16 }}>Estado: {currentConfig.sso_enabled === 'true' ? 'Activo' : 'Inactivo'}</span>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: currentConfig.sso_enabled === 'true' ? '#10b981' : '#ef4444' }} />
+                        </div>
+                        <div style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 2 }}>
+                            {currentConfig.sso_enabled === 'true'
+                                ? `Autenticación vía ${PLATFORMS.find(p => p.id === currentConfig.sso_platform)?.name || currentConfig.sso_platform}`
+                                : 'El inicio de sesión corporativo está deshabilitado'}
+                        </div>
+                    </div>
+                    {currentConfig.sso_enabled === 'true' && (
+                        <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-dim)' }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>ID: {currentConfig.sso_client_id?.substring(0, 15)}...</div>
+                            <div>Configurado el {new Date().toLocaleDateString()}</div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Stepper Header */}
             <div style={{ display: 'flex', marginBottom: 40, position: 'relative', justifyContent: 'space-between' }}>
@@ -300,14 +364,5 @@ export default function SSOWizard() {
                 }
             `}</style>
         </div>
-    );
-}
-
-// Mock icon for book open since it might not be imported from the parent layout
-function BookOpen({ size, className }: { size: number, className: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-        </svg>
     );
 }
