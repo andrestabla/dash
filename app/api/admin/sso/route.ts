@@ -49,6 +49,11 @@ export async function POST(request: Request) {
         ];
 
         for (const setting of ssoSettings) {
+            // Skip updating secret if it's the masked placeholder
+            if (setting.key === 'sso_client_secret' && setting.value === '********') {
+                continue;
+            }
+
             await client.query(
                 `INSERT INTO system_settings (key, value) VALUES ($1, $2) 
                  ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
