@@ -91,20 +91,25 @@ export async function GET(request: Request) {
 
             if (!user) {
                 // 3. AUTO-CREATE USER
-                console.log(`Auto-creating user for SSO: ${mockSsoUser.email}`);
+                const userId = crypto.randomUUID();
+                console.log(`[SSO] Auto-creating user: ${mockSsoUser.email} with ID: ${userId}`);
 
                 // Use a random secure password as placeholder (wont be used for SSO login)
                 const placeholderPassword = await bcrypt.hash(Math.random().toString(36).slice(-12), 10);
 
-                const newUser = await client.query(
-                    `INSERT INTO users (email, name, password, role, status, accepted_privacy_policy) 
-                     VALUES ($1, $2, $3, $4, $5, $6) 
-                     RETURNING *`,
-                    [mockSsoUser.email, mockSsoUser.name, placeholderPassword, 'user', 'active', true]
-                );
-                user = newUser.rows[0];
-
-                await logAction(user.id, 'SSO_AUTO_REGISTER', 'Usuario creado automáticamente vía SSO', user.id, client);
+                try {
+                    const newUser = await client.query(
+                        `INSERT INTO users (id, email, name, password, role, status, accepted_privacy_policy) 
+                         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+                         RETURNING *`,
+                        [userId, mockSsoUser.email, mockSsoUser.name, placeholderPassword, 'user', 'active', true]
+                    );
+                    user = newUser.rows[0];
+                    await logAction(user.id, 'SSO_AUTO_REGISTER', 'Usuario creado automáticamente vía SSO', user.id, client);
+                } catch (dbError: any) {
+                    console.error('[SSO] Database error during user creation:', dbError);
+                    throw dbError;
+                }
             } else {
                 // 4. Update existing user metadata if needed and ensure Active
                 if (user.status !== 'active') {

@@ -197,9 +197,9 @@ export default function LoginPage() {
                                     }}
                                 >
                                     {ssoConfig.platform === 'google' ? (
-                                        <img src="https://imageneseiconos.s3.us-east-1.amazonaws.com/varios/google_logo.png" alt="Google" style={{ width: 20 }} />
+                                        <img src="https://www.vectorlogo.zone/logos/google/google-icon.svg" alt="Google" style={{ width: 18 }} />
                                     ) : ssoConfig.platform === 'microsoft' ? (
-                                        <img src="https://imageneseiconos.s3.us-east-1.amazonaws.com/varios/microsoft_logo.png" alt="Microsoft" style={{ width: 18 }} />
+                                        <img src="https://www.vectorlogo.zone/logos/microsoft/microsoft-icon.svg" alt="Microsoft" style={{ width: 18 }} />
                                     ) : (
                                         <div style={{ width: 20, height: 20, background: 'var(--primary-gradient)', borderRadius: '50%' }} />
                                     )}
