@@ -28,9 +28,13 @@ export async function GET(request: Request) {
         }
 
         const platform = settings['sso_platform'];
-        const clientId = settings['sso_client_id'];
-        const clientSecret = settings['sso_client_secret'];
+        const clientId = settings['sso_client_id']?.trim();
+        const clientSecret = settings['sso_client_secret']?.trim();
         const redirectUri = `${new URL(request.url).origin}/api/auth/callback/sso`;
+
+        if (!clientId || !clientSecret) {
+            throw new Error('Configuración de SSO incompleta (Falta Client ID o Secret)');
+        }
 
         let email = '';
         let name = '';

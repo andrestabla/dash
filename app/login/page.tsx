@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTheme } from '@/components/ThemeProvider';
 
@@ -14,7 +14,25 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean, platform: string | null }>({ enabled: false, platform: null });
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { branding } = useTheme();
+
+    useEffect(() => {
+        const urlError = searchParams.get('error');
+        const urlDetails = searchParams.get('details');
+
+        if (urlError) {
+            if (urlError === 'SSO_SYNC_FAILED') {
+                setError('Error de sincronización SSO');
+            } else if (urlError === 'SSO_DISABLED') {
+                setError('El acceso SSO no está habilitado');
+            } else {
+                setError(urlError);
+            }
+
+            if (urlDetails) setDetail(urlDetails);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         const checkSso = async () => {
@@ -152,9 +170,48 @@ export default function LoginPage() {
                         </div>
 
                         {error && (
-                            <div style={{ padding: 12, background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', borderRadius: 8, fontSize: 13, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                <div style={{ fontWeight: 700 }}>⚠️ {error}</div>
-                                {detail && <div style={{ fontSize: 11, marginTop: 4, opacity: 0.9 }}>{detail}</div>}
+                            <div className="animate-fade-in" style={{
+                                padding: 16,
+                                background: 'rgba(239, 68, 68, 0.05)',
+                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                borderRadius: 12,
+                                fontSize: 13
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#f87171', fontWeight: 700 }}>
+                                    <span style={{ fontSize: 18 }}>⚠️</span>
+                                    <span>{error}</span>
+                                </div>
+
+                                {detail && (
+                                    <div style={{ marginTop: 12 }}>
+                                        <div style={{
+                                            fontSize: 10,
+                                            fontWeight: 800,
+                                            color: '#f87171',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em',
+                                            marginBottom: 6,
+                                            opacity: 0.8
+                                        }}>
+                                            Diagnóstico Técnico
+                                        </div>
+                                        <div style={{
+                                            padding: 10,
+                                            background: 'rgba(0,0,0,0.3)',
+                                            borderRadius: 8,
+                                            fontFamily: 'monospace',
+                                            fontSize: 11,
+                                            color: 'var(--text-dim)',
+                                            border: '1px solid rgba(255,255,255,0.05)',
+                                            wordBreak: 'break-all'
+                                        }}>
+                                            {detail}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 8, lineHeight: 1.4 }}>
+                                            <strong>Sugerencia:</strong> Si ves "Unauthorized", revisa que el <i>Client Secret</i> sea correcto en el panel administrativo.
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
