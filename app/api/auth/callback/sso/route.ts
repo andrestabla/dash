@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { login } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
+import crypto from 'crypto';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -142,8 +143,9 @@ export async function GET(request: Request) {
             client.release();
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('SSO Callback Error:', error);
-        return NextResponse.redirect(new URL('/login?error=SSO_SYNC_FAILED', request.url));
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        return NextResponse.redirect(new URL(`/login?error=SSO_SYNC_FAILED&details=${encodeURIComponent(errorMsg)}`, request.url));
     }
 }

@@ -15,8 +15,8 @@ export async function logAction(
     performedBy: string,
     client: any = null
 ) {
-    const query = 'INSERT INTO audit_logs (user_id, action, details, performed_by) VALUES ($1, $2, $3, $4)';
-    const values = [userId, action, details, performedBy];
+    const query = 'INSERT INTO audit_logs (user_id, action, details) VALUES ($1, $2, $3)';
+    const values = [userId, action, JSON.stringify({ note: details, performed_by: performedBy })];
 
     try {
         if (client) {
