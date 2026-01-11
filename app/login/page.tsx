@@ -18,10 +18,15 @@ export default function LoginPage() {
     const { branding } = useTheme();
 
     useEffect(() => {
-        const urlError = searchParams.get('error');
-        const urlDetails = searchParams.get('details');
+        // Use direct window search for more reliability during hydration
+        if (typeof window === 'undefined') return;
+
+        const params = new URLSearchParams(window.location.search);
+        const urlError = params.get('error');
+        const urlDetails = params.get('details');
 
         if (urlError) {
+            console.log('Error parameter detected:', urlError, urlDetails);
             if (urlError === 'SSO_SYNC_FAILED') {
                 setError('Error de sincronización SSO');
             } else if (urlError === 'SSO_DISABLED') {
@@ -32,7 +37,7 @@ export default function LoginPage() {
 
             if (urlDetails) setDetail(urlDetails);
         }
-    }, [searchParams]);
+    }, []);
 
     useEffect(() => {
         const checkSso = async () => {
@@ -208,7 +213,9 @@ export default function LoginPage() {
                                             {detail}
                                         </div>
                                         <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 8, lineHeight: 1.4 }}>
-                                            <strong>Sugerencia:</strong> Si ves "Unauthorized", revisa que el <i>Client Secret</i> sea correcto en el panel administrativo.
+                                            <strong>Sugerencias:</strong><br />
+                                            - Si ves "Unauthorized", revisa que el <i>Client Secret</i> sea correcto.<br />
+                                            - Si ves "redirect_uri_mismatch", asegúrate de añadir tanto la versión con <strong>www</strong> como la versión <strong>sin www</strong> en Google Console.
                                         </div>
                                     </div>
                                 )}

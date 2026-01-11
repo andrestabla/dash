@@ -52,11 +52,19 @@ export async function GET(request: Request) {
                     grant_type: 'authorization_code',
                 }),
             });
-            const tokens = await tokenRes.json();
+
+            const tokensText = await tokenRes.text();
+            let tokens: any;
+            try {
+                tokens = JSON.parse(tokensText);
+            } catch (e) {
+                console.error('[SSO] Google returned non-JSON:', tokensText);
+                throw new Error(`Google Server Error (${tokenRes.status}): ${tokensText.substring(0, 100)}`);
+            }
 
             if (!tokens.access_token) {
-                console.error('[SSO] Google token exchange failed:', tokens);
-                throw new Error(tokens.error_description || tokens.error || 'Failed to get Google access token');
+                console.error('[SSO] Google token error:', tokens);
+                throw new Error(tokens.error_description || tokens.error || `Error ${tokenRes.status}: Token rejected`);
             }
 
             const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
