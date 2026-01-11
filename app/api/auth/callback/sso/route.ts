@@ -36,6 +36,7 @@ export async function GET(request: Request) {
         let name = '';
 
         if (platform === 'google') {
+            console.log(`[SSO] Initiating Google token exchange. Redirect URI: ${redirectUri}`);
             const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -48,7 +49,11 @@ export async function GET(request: Request) {
                 }),
             });
             const tokens = await tokenRes.json();
-            if (!tokens.access_token) throw new Error('Failed to get Google access token');
+
+            if (!tokens.access_token) {
+                console.error('[SSO] Google token exchange failed:', tokens);
+                throw new Error(tokens.error_description || tokens.error || 'Failed to get Google access token');
+            }
 
             const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                 headers: { Authorization: `Bearer ${tokens.access_token}` },
