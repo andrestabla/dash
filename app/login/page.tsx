@@ -30,6 +30,10 @@ export default function LoginPage() {
                 setError('Error de sincronización SSO');
             } else if (urlError === 'SSO_DISABLED') {
                 setError('El acceso SSO no está habilitado');
+            } else if (urlError === 'PENDING_APPROVAL') {
+                setError('Tu solicitud está pendiente de aprobación por un administrador');
+            } else if (urlError === 'ACCOUNT_INACTIVE') {
+                setError('Tu cuenta no está activa. Contacta al soporte.');
             } else {
                 setError(urlError);
             }

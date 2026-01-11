@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { login } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
+import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
 
 export async function GET(request: Request) {
@@ -108,43 +109,75 @@ export async function GET(request: Request) {
             let user = userCheck.rows[0];
 
             if (!user) {
-                // 3. AUTO-CREATE USER
+                // 3. AUTO-CREATE USER as 'pending'
                 const userId = crypto.randomUUID();
-                console.log(`[SSO] Auto-creating user: ${mockSsoUser.email} with ID: ${userId}`);
-
-                // Use a random secure password as placeholder (wont be used for SSO login)
                 const placeholderPassword = await bcrypt.hash(Math.random().toString(36).slice(-12), 10);
 
-                try {
-                    const newUser = await client.query(
-                        `INSERT INTO users (id, email, name, password, role, status, accepted_privacy_policy) 
-                         VALUES ($1, $2, $3, $4, $5, $6, $7) 
-                         RETURNING *`,
-                        [userId, mockSsoUser.email, mockSsoUser.name, placeholderPassword, 'user', 'active', true]
-                    );
-                    user = newUser.rows[0];
-                    await logAction(user.id, 'SSO_AUTO_REGISTER', 'Usuario creado automáticamente vía SSO', user.id, client);
-                } catch (dbError: any) {
-                    console.error('[SSO] Database error during user creation:', dbError);
-                    throw dbError;
-                }
-            } else {
-                // 4. Update existing user metadata if needed and ensure Active
-                if (user.status !== 'active') {
-                    await client.query('UPDATE users SET status = $1 WHERE id = $2', ['active', user.id]);
-                    user.status = 'active';
+                const newUser = await client.query(
+                    `INSERT INTO users (id, email, name, password, role, status, accepted_privacy_policy) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7) 
+                     RETURNING *`,
+                    [userId, mockSsoUser.email, mockSsoUser.name, placeholderPassword, 'user', 'pending', false]
+                );
+                user = newUser.rows[0];
+                await logAction(user.id, 'SSO_AUTO_REGISTER', 'Usuario registrado vía SSO (Pendiente de aprobación)', user.id, client);
+
+                // Send Notification Emails
+                const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://misproyectos.com.co';
+
+                // To User
+                const userHtml = `
+                    <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+                        <div style="background: #3b82f6; padding: 30px; text-align: center;">
+                            <h1 style="color: white; margin: 0; font-size: 24px;">¡Registro Recibido! 🚀</h1>
+                        </div>
+                        <div style="padding: 30px; line-height: 1.6;">
+                            <p>Hola <b>${user.name}</b>,</p>
+                            <p>Tu cuenta ha sido creada exitosamente vía SSO y está <b>pendiente de aprobación</b> por un administrador.</p>
+                            <p>Te avisaremos por este medio cuando tu cuenta haya sido activada.</p>
+                        </div>
+                    </div>
+                `;
+                await sendEmail(user.email, "Registro Recibido - Project Control", userHtml);
+
+                // To Admins
+                const admins = await client.query("SELECT email FROM users WHERE role = 'admin'");
+                const adminHtml = `
+                    <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+                        <div style="background: #1e293b; padding: 30px; text-align: center;">
+                            <h1 style="color: white; margin: 0; font-size: 24px;">Nueva Solicitud SSO 👤</h1>
+                        </div>
+                        <div style="padding: 30px; line-height: 1.6;">
+                            <p>Un nuevo usuario se ha registrado usando ${platform}:</p>
+                            <ul style="background: #f8fafc; padding: 20px; border-radius: 8px; list-style: none;">
+                                <li><b>Nombre:</b> ${user.name}</li>
+                                <li><b>Email:</b> ${user.email}</li>
+                            </ul>
+                            <p><a href="${appUrl}/admin/users" style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Ir a Gestión de Usuarios</a></p>
+                        </div>
+                    </div>
+                `;
+                for (const admin of admins.rows) {
+                    await sendEmail(admin.email, `Solicitud de Registro SSO: ${user.name}`, adminHtml);
                 }
 
-                // Update name if it changed in SSO provider
-                if (user.name !== mockSsoUser.name) {
-                    await client.query('UPDATE users SET name = $1 WHERE id = $2', [mockSsoUser.name, user.id]);
-                    user.name = mockSsoUser.name;
-                }
-
-                await logAction(user.id, 'SSO_LOGIN', 'Inicio de sesión exitoso vía SSO', user.id, client);
+                return NextResponse.redirect(new URL('/login?error=PENDING_APPROVAL', request.url));
             }
 
-            // 5. Create Session
+            // 4. Check status for existing users
+            if (user.status !== 'active') {
+                return NextResponse.redirect(new URL('/login?error=PENDING_APPROVAL', request.url));
+            }
+
+            // 5. Update name if it changed in SSO provider
+            if (user.name !== mockSsoUser.name) {
+                await client.query('UPDATE users SET name = $1 WHERE id = $2', [mockSsoUser.name, user.id]);
+                user.name = mockSsoUser.name;
+            }
+
+            await logAction(user.id, 'SSO_LOGIN', 'Inicio de sesión exitoso vía SSO', user.id, client);
+
+            // 6. Create Session
             await login({
                 id: user.id,
                 email: user.email,
@@ -153,7 +186,7 @@ export async function GET(request: Request) {
                 accepted_privacy_policy: user.accepted_privacy_policy
             });
 
-            // 6. Redirect to Workspace
+            // 7. Redirect to Workspace
             return NextResponse.redirect(new URL('/workspace', request.url));
 
         } finally {
