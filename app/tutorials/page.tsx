@@ -170,6 +170,37 @@ export default function TutorialsPage() {
                     </p>
                 </div>
 
+                {/* Demo Dashboard CTA */}
+                <div className="mb-12 glass-card p-8 border-2 border-blue-500/30 bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+                    <div className="flex items-center justify-between flex-wrap gap-6">
+                        <div className="flex-1 min-w-[300px]">
+                            <div className="flex items-center gap-3 mb-3">
+                                <PlayCircle size={32} className="text-blue-400" />
+                                <h3 className="text-2xl font-bold">🎯 Explora el Demo Interactivo</h3>
+                            </div>
+                            <p className="text-slate-300 mb-4">
+                                Descubre todas las funcionalidades de Dash en acción. Tablero demo con 17 tareas reales,
+                                múltiples vistas (Kanban, Timeline, Analítica) y flujos de trabajo profesionales.
+                            </p>
+                            <div className="flex gap-4 flex-wrap">
+                                <Link
+                                    href="/public/board/f390206e3791467a6651867fabcb2fa0"
+                                    target="_blank"
+                                    className="px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                                >
+                                    <PlayCircle size={20} />
+                                    Ver Demo en Vivo
+                                </Link>
+                                <div className="px-4 py-3 bg-slate-800/50 rounded-xl text-sm text-slate-400 flex items-center gap-2">
+                                    <MousePointer2 size={16} />
+                                    Sin registro · Acceso público
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-6xl opacity-20">💎</div>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
                     {/* Sidebar Navigation */}
                     <div className="lg:col-span-1 space-y-4">
