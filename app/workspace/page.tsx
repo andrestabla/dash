@@ -16,6 +16,7 @@ interface Dashboard {
     start_date?: string;
     end_date?: string;
     settings: any;
+    is_demo?: boolean;
 }
 
 interface Folder {
@@ -653,7 +654,21 @@ export default function Workspace() {
                                 </div>
 
                                 <div style={{ fontSize: 48, marginBottom: 16 }}>{d.settings?.icon || "🗺️"}</div>
-                                <h3 style={{ margin: '0 0 8px 0', fontSize: 20 }}>{d.name}</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <h3 style={{ margin: '0', fontSize: 20 }}>{d.name}</h3>
+                                    {d.is_demo && (
+                                        <span style={{
+                                            background: 'rgba(59, 130, 246, 0.1)',
+                                            color: '#3b82f6',
+                                            fontSize: 9,
+                                            fontWeight: 800,
+                                            padding: '2px 6px',
+                                            borderRadius: 4,
+                                            border: '1px solid rgba(59, 130, 246, 0.2)',
+                                            letterSpacing: '0.5px'
+                                        }}>DEMO</span>
+                                    )}
+                                </div>
                                 <p style={{ margin: 0, fontSize: 14, color: 'var(--text-dim)', flex: 1, lineHeight: 1.5 }}>
                                     {d.description || "Sin descripción"}
                                 </p>

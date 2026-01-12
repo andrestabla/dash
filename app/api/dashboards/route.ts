@@ -22,6 +22,7 @@ export async function GET() {
                 WHERE d.owner_id = $1 
                 OR dc.user_id = $1
                 OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
+                OR d.is_demo = TRUE
                 GROUP BY d.id
                 ORDER BY d.created_at DESC
             `;
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { name, description, settings, initialTasks, folder_id } = body;
+        const { name, description, settings, initialTasks, folder_id, is_demo } = body;
 
         if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
@@ -54,8 +55,8 @@ export async function POST(request: Request) {
             await client.query('BEGIN');
 
             const result = await client.query(
-                'INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-                [name, description || '', settings || {}, folder_id || null, session.id, body.start_date || null, body.end_date || null]
+                'INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+                [name, description || '', settings || {}, folder_id || null, session.id, body.start_date || null, body.end_date || null, is_demo || false]
             );
             const newDash = result.rows[0];
 
@@ -115,7 +116,7 @@ export async function PUT(request: Request) {
         const client = await pool.connect();
 
         // Check permission: Admin, Owner, or Collaborator
-        const check = await client.query('SELECT owner_id, folder_id FROM dashboards WHERE id = $1', [id]);
+        const check = await client.query('SELECT owner_id, folder_id, is_demo FROM dashboards WHERE id = $1', [id]);
         if (check.rows.length === 0) {
             client.release();
             return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
@@ -124,6 +125,11 @@ export async function PUT(request: Request) {
         const dashboard = check.rows[0];
         const isOwner = dashboard.owner_id === session.id;
         const isAdmin = session.role === 'admin';
+
+        if (dashboard.is_demo && !isAdmin) {
+            client.release();
+            return NextResponse.json({ error: 'Cannot modify demo dashboard' }, { status: 403 });
+        }
 
         let isCollaborator = false;
         if (!isOwner && !isAdmin) {
@@ -150,8 +156,8 @@ export async function PUT(request: Request) {
         }
 
         const result = await client.query(
-            'UPDATE dashboards SET name = $1, description = $2, settings = $3, start_date = $4, end_date = $5 WHERE id = $6 RETURNING *',
-            [name, description || '', settings || {}, body.start_date || null, body.end_date || null, id]
+            'UPDATE dashboards SET name = $1, description = $2, settings = $3, start_date = $4, end_date = $5, is_demo = $6 WHERE id = $7 RETURNING *',
+            [name, description || '', settings || {}, body.start_date || null, body.end_date || null, body.is_demo ?? dashboard.is_demo, id]
         );
         client.release();
 
@@ -175,13 +181,19 @@ export async function DELETE(request: Request) {
         const client = await pool.connect();
 
         // Check permission: Admin or Owner
-        const check = await client.query('SELECT owner_id FROM dashboards WHERE id = $1', [id]);
+        const check = await client.query('SELECT owner_id, is_demo FROM dashboards WHERE id = $1', [id]);
         if (check.rows.length === 0) {
             client.release();
             return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
         }
 
-        if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
+        const dashboard = check.rows[0];
+        if (dashboard.is_demo && session.role !== 'admin') {
+            client.release();
+            return NextResponse.json({ error: 'Cannot delete demo dashboard' }, { status: 403 });
+        }
+
+        if (session.role !== 'admin' && dashboard.owner_id !== session.id) {
             client.release();
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }

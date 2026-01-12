@@ -7,7 +7,8 @@ import { useToast } from "@/components/ToastProvider";
 
 import ConfirmModal from "@/components/ConfirmModal";
 
-import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, LayoutGrid, ListTodo, BarChart3, BookOpen } from 'lucide-react';
+import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, LayoutGrid, ListTodo, BarChart3, BookOpen, Lock } from 'lucide-react';
+import UserTour from "@/components/UserTour";
 
 interface Task {
     id: number;
@@ -58,7 +59,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [availableUsers, setAvailableUsers] = useState<{ id: string, name: string, email: string }[]>([]);
     const [projectEndDate, setProjectEndDate] = useState<string | null>(null);
-    const [dashboardMeta, setDashboardMeta] = useState<{ description?: string, start_date?: string, end_date?: string }>({});
+    const [dashboardMeta, setDashboardMeta] = useState<{ description?: string, start_date?: string, end_date?: string, is_demo?: boolean }>({});
+    const [isDemoMode, setIsDemoMode] = useState(false);
+    const [showTour, setShowTour] = useState(false);
 
     // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,7 +75,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     // Comments State
     const [comments, setComments] = useState<any[]>([]);
     const [newComment, setNewComment] = useState("");
-    const [currentUser, setCurrentUser] = useState<{ name: string, email: string } | null>(null);
+    const [currentUser, setCurrentUser] = useState<{ name: string, email: string, role?: string, preferences?: any } | null>(null);
 
     // Comment Editing State
     const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -195,12 +198,38 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         showToast("Enlace copiado", "success");
     };
 
+    const handleTourComplete = async () => {
+        setShowTour(false);
+        // Save to DB
+        try {
+            await fetch('/api/users/preferences', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ preferences: { demo_tour_completed: true } })
+            });
+        } catch (e) { console.error(e); }
+    };
+
+    const TOUR_STEPS = [
+        { title: "¡Bienvenido al Tablero Demo!", description: "Este es un tablero de ejemplo configurado para mostrarte todo el potencial de la plataforma." },
+        { title: "Gestión Kanban", description: "Puedes visualizar el progreso de las tareas arrastrándolas entre columnas. El porcentaje de completado se actualiza automáticamente." },
+        { title: "Filtros y Vistas", description: "En la parte superior puedes cambiar entre vista Kanban, Timeline y Analítica, además de filtrar por semana o responsable." },
+        { title: "Colaboración", description: "Haz clic en cualquier tarea para ver sus detalles, añadir comentarios y adjuntar archivos." },
+        { title: "Modo Lectura", description: "Como este es un tablero didáctico, las funciones de edición están limitadas para usuarios demostrativos." }
+    ];
+
     // Fetch Current User
     useEffect(() => {
         fetch('/api/auth/me').then(res => res.json()).then(data => {
-            if (data.user) setCurrentUser(data.user);
+            if (data.user) {
+                setCurrentUser(data.user);
+                // Trigger tour if demo board and not completed
+                if (dashboardMeta.is_demo && !data.user.preferences?.demo_tour_completed) {
+                    setShowTour(true);
+                }
+            }
         }).catch(() => { });
-    }, []);
+    }, [dashboardMeta.is_demo]);
 
     // Load Comments when Modal Opens
     useEffect(() => {
@@ -420,8 +449,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     setDashboardMeta({
                         description: data.description,
                         start_date: data.start_date,
-                        end_date: data.end_date
+                        end_date: data.end_date,
+                        is_demo: data.is_demo
                     });
+                    setIsDemoMode(data.is_demo === true);
                     if (data.end_date) setProjectEndDate(data.end_date.split('T')[0]);
                 }
             })
@@ -482,6 +513,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
     // --- DRAG AND DROP ---
     const onDragEnd = async (result: DropResult) => {
+        if (isDemoMode && currentUser?.role !== 'admin') {
+            showToast("No puedes mover tareas en el tablero demo", "info");
+            return;
+        }
         const { source, destination, draggableId } = result;
 
         if (!destination) return;
@@ -751,6 +786,22 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                         return acc + (st?.percentage || 0);
                                     }, 0) / tasks.length) : 0}% Completado
                                 </div>
+                                {isDemoMode && (
+                                    <div style={{
+                                        padding: '4px 12px',
+                                        borderRadius: 20,
+                                        background: 'rgba(59, 130, 246, 0.1)',
+                                        color: '#3b82f6',
+                                        fontSize: 10,
+                                        fontWeight: 800,
+                                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 4
+                                    }}>
+                                        <Lock size={12} /> MODO LECTURA
+                                    </div>
+                                )}
                             </div>
                             <p className="app-sub">TABLERO DE TRABAJO</p>
                         </div>
@@ -766,10 +817,14 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     </div>
                                 ))}
                             </div>
-                            <button className="btn-primary" onClick={() => setIsShareModalOpen(true)} style={{ padding: '8px 16px', gap: 8 }}>
-                                <Share2 size={16} /> <span className="hide-mobile">Compartir</span>
-                            </button>
-                            <button className="btn-ghost" onClick={openSettings} title="Configuración">⚙️</button>
+                            {(!isDemoMode || currentUser?.role === 'admin') && (
+                                <>
+                                    <button className="btn-primary" onClick={() => setIsShareModalOpen(true)} style={{ padding: '8px 16px', gap: 8 }}>
+                                        <Share2 size={16} /> <span className="hide-mobile">Compartir</span>
+                                    </button>
+                                    <button className="btn-ghost" onClick={openSettings} title="Configuración">⚙️</button>
+                                </>
+                            )}
                             <Link href="/tutorials">
                                 <button className="btn-ghost" title="Tutoriales" style={{ padding: 6, color: 'var(--primary)' }}>
                                     <BookOpen size={18} />
@@ -792,16 +847,20 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             <main>
                 <div className="controls">
                     <div className="filters">
-                        <button className="btn-primary" onClick={() => {
-                            setEditingTask({ id: undefined, name: "", status: settings.statuses?.[0]?.id || "todo", week: settings.weeks[0]?.id || "", owner: settings.owners[0] || "", type: "Feature" });
-                            setIsModalOpen(true);
-                        }} style={{ marginRight: 12 }}>
-                            <span>➕</span> <span style={{ marginLeft: 4 }}>Nueva Tarea</span>
-                        </button>
+                        {(!isDemoMode || currentUser?.role === 'admin') && (
+                            <>
+                                <button className="btn-primary" onClick={() => {
+                                    setEditingTask({ id: undefined, name: "", status: settings.statuses?.[0]?.id || "todo", week: settings.weeks[0]?.id || "", owner: settings.owners[0] || "", type: "Feature" });
+                                    setIsModalOpen(true);
+                                }} style={{ marginRight: 12 }}>
+                                    <span>➕</span> <span style={{ marginLeft: 4 }}>Nueva Tarea</span>
+                                </button>
 
-                        <button className="btn-ghost" onClick={openAddCol} style={{ marginRight: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)' }}>
-                            <span>🏗️</span> <span style={{ marginLeft: 4 }}>Nueva Columna</span>
-                        </button>
+                                <button className="btn-ghost" onClick={openAddCol} style={{ marginRight: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)' }}>
+                                    <span>🏗️</span> <span style={{ marginLeft: 4 }}>Nueva Columna</span>
+                                </button>
+                            </>
+                        )}
 
                         <input
                             placeholder="🔍 Buscar..."
@@ -864,10 +923,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                     <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{st.name}</span>
                                                     <span className={`counter-badge ${isBottleneck ? "warning" : ""}`}>{colTasks.length}</span>
                                                 </div>
-                                                <div className="lane-actions" style={{ display: 'flex', gap: 4 }}>
-                                                    <button className="btn-ghost" onClick={() => openEditCol(st)} style={{ padding: 4, height: 'auto', color: 'var(--text-secondary)' }} title="Editar Columna"><Edit2 size={14} /></button>
-                                                    <button className="btn-ghost" onClick={() => confirmDeleteCol(st.id)} style={{ padding: 4, height: 'auto', color: 'var(--text-secondary)' }} title="Eliminar Columna"><Trash2 size={14} /></button>
-                                                </div>
+                                                {(!isDemoMode || currentUser?.role === 'admin') && (
+                                                    <div className="lane-actions" style={{ display: 'flex', gap: 4 }}>
+                                                        <button className="btn-ghost" onClick={() => openEditCol(st)} style={{ padding: 4, height: 'auto', color: 'var(--text-secondary)' }} title="Editar Columna"><Edit2 size={14} /></button>
+                                                        <button className="btn-ghost" onClick={() => confirmDeleteCol(st.id)} style={{ padding: 4, height: 'auto', color: 'var(--text-secondary)' }} title="Eliminar Columna"><Trash2 size={14} /></button>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <Droppable droppableId={st.id}>
@@ -939,8 +1000,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                         )}
                                                         {provided.placeholder}
 
-                                                        {/* Ghost Button in 'Todo' or first column */}
-                                                        {index === 0 && (
+                                                        {index === 0 && (!isDemoMode || currentUser?.role === 'admin') && (
                                                             <button className="btn-ghost-add" onClick={() => {
                                                                 setEditingTask({ id: undefined, name: "", status: st.id, week: settings.weeks[0]?.id || "", owner: settings.owners[0] || "", type: "Feature" });
                                                                 setIsModalOpen(true);
@@ -955,9 +1015,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     );
                                 })}
 
-                                <div className="lane" style={{ minWidth: 100, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <button className="btn-ghost" onClick={openAddCol} style={{ fontSize: 24, opacity: 0.5 }}>➕</button>
-                                </div>
+                                {(!isDemoMode || currentUser?.role === 'admin') && (
+                                    <div className="lane" style={{ minWidth: 100, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <button className="btn-ghost" onClick={openAddCol} style={{ fontSize: 24, opacity: 0.5 }}>➕</button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -986,8 +1048,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                             <div className="tl-status-dot" style={{ background: taskStatus.color }}></div>
                                                             <div className="tl-task-name">{t.name}</div>
                                                             <div className="tl-actions" onClick={e => e.stopPropagation()}>
-                                                                <button className="btn-ghost-sm" onClick={() => duplicateTask(t)} title="Duplicar"><Copy size={14} /></button>
-                                                                <button className="btn-ghost-sm" onClick={() => openModal(t)} title="Editar"><Edit2 size={14} /></button>
+                                                                {(!isDemoMode || currentUser?.role === 'admin') && (
+                                                                    <>
+                                                                        <button className="btn-ghost-sm" onClick={() => duplicateTask(t)} title="Duplicar"><Copy size={14} /></button>
+                                                                        <button className="btn-ghost-sm" onClick={() => openModal(t)} title="Editar"><Edit2 size={14} /></button>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <div className="tl-card-meta">
@@ -1144,8 +1210,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 </div>
                             </div>
                             <div className="modal-footer">
-                                <button className="btn-ghost" style={{ color: "var(--danger)" }} onClick={requestDeleteTask}>Eliminar</button>
-                                <button className="btn-primary" onClick={saveTask}>Guardar Tarea</button>
+                                {(!isDemoMode || currentUser?.role === 'admin') && (
+                                    <>
+                                        <button className="btn-ghost" style={{ color: "var(--danger)" }} onClick={requestDeleteTask}>Eliminar</button>
+                                        <button className="btn-primary" onClick={saveTask}>Guardar Tarea</button>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1283,8 +1353,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         </div>
                     </div>
                 )}
-
             </main>
+
+            {showTour && <UserTour steps={TOUR_STEPS} onComplete={handleTourComplete} />}
 
             <style jsx global>{`
                 /* PREMIUM UI UPGRADE - GLOBAL SCOPE FOR HEADER AREA */
