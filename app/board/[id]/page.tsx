@@ -11,7 +11,7 @@ import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, La
 import UserTour from "@/components/UserTour";
 
 interface Task {
-    id: number;
+    id: string | number;
     week: string;
     name: string;
     status: string;
@@ -522,12 +522,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         if (!destination) return;
         if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-        const taskId = parseInt(draggableId);
+        const taskId = draggableId;
         const newStatus = destination.droppableId;
 
         // Optimistic Update
         const originalTasks = [...tasks];
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+        setTasks(prev => prev.map(t => t.id.toString() === taskId ? { ...t, status: newStatus } : t));
 
         // API Call
         try {
@@ -812,8 +812,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="desktop-actions">
                             <div className="flex -space-x-2 hide-mobile">
                                 {availableUsers.slice(0, 3).map((u, i) => (
-                                    <div key={i} title={u.name} style={{ width: 28, height: 28, borderRadius: '50%', background: `hsl(${i * 60}, 70%, 50%)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, border: '2px solid white' }}>
-                                        {u.name.substring(0, 2).toUpperCase()}
+                                    <div key={i} title={u.name || u.email} style={{ width: 28, height: 28, borderRadius: '50%', background: `hsl(${i * 60}, 70%, 50%)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, border: '2px solid white' }}>
+                                        {(u.name || u.email || "??").substring(0, 2).toUpperCase()}
                                     </div>
                                 ))}
                             </div>
@@ -1714,7 +1714,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                     <input
                                                         className="input-glass"
                                                         readOnly
-                                                        value={`${window.location.origin}/public/board/${publicToken}`}
+                                                        value={typeof window !== 'undefined' ? `${window.location.origin}/public/board/${publicToken}` : ''}
                                                         style={{ fontSize: 12, color: 'var(--text-dim)' }}
                                                     />
                                                     <button className="btn-primary" onClick={copyPublicLink} style={{ padding: '0 12px' }}>
