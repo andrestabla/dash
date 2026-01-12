@@ -462,7 +462,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         fetch(`/api/tasks?dashboardId=${dashboardId}`)
             .then(res => res.json())
             .then(data => {
-                if (Array.isArray(data)) setTasks(data);
+                if (Array.isArray(data)) setTasks(data.filter(t => t && t.id));
             })
             .catch(err => console.error("Failed to load tasks", err));
 
@@ -527,7 +527,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
         // Optimistic Update
         const originalTasks = [...tasks];
-        setTasks(prev => prev.map(t => t.id.toString() === taskId ? { ...t, status: newStatus } : t));
+        setTasks(prev => prev.map(t => String(t?.id) === taskId ? { ...t, status: newStatus } : t));
 
         // API Call
         try {
@@ -874,7 +874,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             onChange={(e) => setFilters({ ...filters, week: e.target.value })}
                         >
                             <option value="">📅 Semanas</option>
-                            {settings.weeks.map((w) => (
+                            {(settings?.weeks || []).map((w) => (
                                 <option key={w.id} value={w.id}>
                                     {w.name}
                                 </option>
@@ -931,7 +931,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                 )}
                                             </div>
 
-                                            <Droppable droppableId={st.id}>
+                                            <Droppable key={st.id || index} droppableId={String(st.id || index)}>
                                                 {(provided, snapshot) => (
                                                     <div
                                                         ref={provided.innerRef}
@@ -954,7 +954,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                             </div>
                                                         ) : (
                                                             colTasks.map((t, index) => (
-                                                                <Draggable key={t.id} draggableId={t.id.toString()} index={index}>
+                                                                <Draggable key={t.id || index} draggableId={String(t.id || index)} index={index}>
                                                                     {(provided, snapshot) => (
                                                                         <div
                                                                             ref={provided.innerRef}
@@ -1029,8 +1029,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {activeTab === "timeline" && (
                     <div className="view-section active animate-fade-in">
                         <div className="timeline-container">
-                            {settings.weeks.map(w => {
-                                const weekTasks = filteredTasks.filter(t => t.week === w.id);
+                            {(settings?.weeks || []).map(w => {
+                                const weekTasks = (filteredTasks || []).filter(t => t?.week === w?.id);
                                 if (weekTasks.length === 0) return null;
                                 return (
                                     <div key={w.id} className="tl-week-group">
@@ -1748,30 +1748,30 @@ function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings:
         return acc + (st?.percentage || 0);
     }, 0) / totalTasks);
 
-    const weeklyData = settings.weeks.map(w => {
-        const weekTasks = tasks.filter(t => t.week === w.id);
-        const done = weekTasks.filter(t => t.status === endStatusId).length;
+    const weeklyData = (settings?.weeks || []).map(w => {
+        const weekTasks = (tasks || []).filter(t => t?.week === w?.id);
+        const done = weekTasks.filter(t => t?.status === endStatusId).length;
         const total = weekTasks.length;
         // Weighted percent for the week
         const weightedSum = weekTasks.reduce((acc, t) => {
-            const st = statuses.find(s => s.id === t.status);
+            const st = statuses.find(s => s.id === t?.status);
             return acc + (st?.percentage || 0);
         }, 0);
         const percent = total === 0 ? 0 : Math.round(weightedSum / total);
 
-        return { name: w.name.split(' · ')[0], total, done, percent };
+        return { name: (w?.name || "Semana").split(' · ')[0], total, done, percent };
     });
 
-    const workloadData = settings.owners.map(o => {
-        const active = tasks.filter(t => t.owner === o && t.status !== endStatusId).length;
-        return { name: o.split(' (')[0], value: active };
+    const workloadData = (settings?.owners || []).map(o => {
+        const active = (tasks || []).filter(t => t?.owner === o && t?.status !== endStatusId).length;
+        return { name: String(o || "Universal").split(' (')[0], value: active };
     }).sort((a, b) => b.value - a.value);
 
-    const statusData = statuses.map(s => ({ ...s, count: tasks.filter(t => t.status === s.id).length }));
-    const gateData = settings.gates.map(g => {
-        const gateTasks = tasks.filter(t => t.gate === g);
-        const isClosed = gateTasks.length > 0 && gateTasks.every(t => t.status === endStatusId);
-        return { name: g, total: gateTasks.length, closed: isClosed };
+    const statusData = (statuses || []).map(s => ({ ...s, count: (tasks || []).filter(t => t?.status === s?.id).length }));
+    const gateData = (settings?.gates || []).map(g => {
+        const gateTasks = (tasks || []).filter(t => t?.gate === g);
+        const isClosed = gateTasks.length > 0 && gateTasks.every(t => t?.status === endStatusId);
+        return { name: String(g), total: gateTasks.length, closed: isClosed };
     });
 
     return (
