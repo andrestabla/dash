@@ -90,6 +90,30 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [inviteUserId, setInviteUserId] = useState("");
     const [copied, setCopied] = useState(false);
 
+    // Column Editing (moved from line 325)
+    const [isColModalOpen, setIsColModalOpen] = useState(false);
+    const [newColName, setNewColName] = useState("");
+    const [newColColor, setNewColColor] = useState("#64748b");
+    const [newColPercent, setNewColPercent] = useState<number>(0);
+    const [editingColId, setEditingColId] = useState<string | null>(null);
+
+    // Dashboard Settings (moved from line 331)
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [editSettings, setEditSettings] = useState({
+        name: "",
+        description: "",
+        icon: "🚀",
+        weekCount: 8,
+        owners: "",
+        gates: "",
+        types: "",
+        start_date: ""
+    });
+    const [tempStatuses, setTempStatuses] = useState<StatusColumn[]>([]);
+
+    // Access State (moved from line 430)
+    const [accessDenied, setAccessDenied] = useState(false);
+
     // Fetch Share Data
     const fetchShareData = async () => {
         try {
@@ -321,28 +345,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         }
     };
 
-    // Column Editing
-    const [isColModalOpen, setIsColModalOpen] = useState(false);
-    const [newColName, setNewColName] = useState("");
-    const [newColColor, setNewColColor] = useState("#64748b");
-    const [newColPercent, setNewColPercent] = useState<number>(0);
-
-    // Dashboard Settings
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [editSettings, setEditSettings] = useState({
-        name: "",
-        description: "",
-        icon: "🚀",
-        weekCount: 8,
-
-        owners: "",
-        gates: "",
-        types: "",
-        start_date: ""
-    });
-
-    // Temp statuses for settings modal
-    const [tempStatuses, setTempStatuses] = useState<StatusColumn[]>([]);
+    // (Hooks moved to top of component)
 
     const openSettings = () => {
         if (!settings) return;
@@ -426,9 +429,6 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         }
     };
 
-    // Access State
-    const [accessDenied, setAccessDenied] = useState(false);
-
     // Load Data
     useEffect(() => {
         if (!dashboardId) return;
@@ -476,27 +476,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
     }, [dashboardId]);
 
-    if (accessDenied) {
-        return (
-            <div style={{ padding: 40, textAlign: 'center', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: 64, marginBottom: 20 }}>🚫</div>
-                <h1 style={{ marginBottom: 10 }}>Acceso Denegado</h1>
-                <p style={{ color: 'var(--text-dim)', marginBottom: 20 }}>No tienes permisos para ver este tablero.</p>
-                <Link href="/workspace" className="btn-primary">Volver al Inicio</Link>
-            </div>
-        );
-    }
-
+    // Memoized values (must be before early returns)
     const statuses = useMemo(() => {
         return settings?.statuses || DEFAULT_STATUSES;
     }, [settings]);
-
-    const toggleTheme = () => {
-        const current = localStorage.getItem("theme");
-        const next = current === "dark" ? "light" : "dark";
-        localStorage.setItem("theme", next);
-        document.documentElement.classList.toggle("dark", next === "dark");
-    };
 
     const filteredTasks = useMemo(() => {
         return tasks.filter((t) => {
@@ -510,6 +493,24 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             return true;
         });
     }, [tasks, filters]);
+
+    const toggleTheme = () => {
+        const current = localStorage.getItem("theme");
+        const next = current === "dark" ? "light" : "dark";
+        localStorage.setItem("theme", next);
+        document.documentElement.classList.toggle("dark", next === "dark");
+    };
+
+    if (accessDenied) {
+        return (
+            <div style={{ padding: 40, textAlign: 'center', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ fontSize: 64, marginBottom: 20 }}>🚫</div>
+                <h1 style={{ marginBottom: 10 }}>Acceso Denegado</h1>
+                <p style={{ color: 'var(--text-dim)', marginBottom: 20 }}>No tienes permisos para ver este tablero.</p>
+                <Link href="/workspace" className="btn-primary">Volver al Inicio</Link>
+            </div>
+        );
+    }
 
     // --- DRAG AND DROP ---
     const onDragEnd = async (result: DropResult) => {
@@ -661,7 +662,6 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     };
 
     // COLUMN MANAGEMENT
-    const [editingColId, setEditingColId] = useState<string | null>(null);
 
     const openAddCol = () => {
         setEditingColId(null);
