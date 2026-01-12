@@ -10,7 +10,7 @@ ALTER TABLE folders ADD COLUMN IF NOT EXISTS public_token UUID;
 
 -- 2. Create 'dashboards' table
 CREATE TABLE IF NOT EXISTS dashboards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id VARCHAR(255) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     settings JSONB DEFAULT '{}'::jsonb,
@@ -20,9 +20,12 @@ CREATE TABLE IF NOT EXISTS dashboards (
     end_date DATE,
     is_public BOOLEAN DEFAULT FALSE,
     public_token UUID,
+    is_demo BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS is_demo BOOLEAN DEFAULT FALSE;
 
 -- 3. Data migration
 DO $$ 
@@ -38,7 +41,7 @@ END $$;
 -- 4. Create dashboard_user_permissions (NO strict FKs due to type mismatch)
 CREATE TABLE IF NOT EXISTS dashboard_user_permissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    dashboard_id UUID NOT NULL,
+    dashboard_id VARCHAR(255) NOT NULL,
     user_id VARCHAR(255) NOT NULL,
     granted_by VARCHAR(255),
     role VARCHAR(50) DEFAULT 'viewer',
@@ -48,8 +51,8 @@ CREATE TABLE IF NOT EXISTS dashboard_user_permissions (
 
 -- 5. Create core tables if missing
 CREATE TABLE IF NOT EXISTS tasks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    dashboard_id UUID NOT NULL,
+    id VARCHAR(255) PRIMARY KEY,
+    dashboard_id VARCHAR(255) NOT NULL,
     name VARCHAR(500) NOT NULL,
     description TEXT,
     status VARCHAR(100),

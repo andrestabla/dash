@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
+export const revalidate = 0; // Disable caching
+
 export async function GET() {
     try {
         const client = await pool.connect();
