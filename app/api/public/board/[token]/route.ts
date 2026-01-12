@@ -31,7 +31,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
 
         // 3. Fetch Comments for these tasks
         const commentsRes = await client.query(`
-            SELECT * FROM task_comments 
+            SELECT * FROM comments 
             WHERE task_id IN (SELECT id FROM tasks WHERE dashboard_id = $1)
             ORDER BY created_at ASC
         `, [dashboard.id]);
