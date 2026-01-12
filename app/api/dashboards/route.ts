@@ -18,7 +18,7 @@ export async function GET() {
         } else {
             query = `
                 SELECT d.* FROM dashboards d
-                LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id
+                LEFT JOIN dashboard_user_permissions dc ON d.id = dc.dashboard_id
                 WHERE d.owner_id = $1 
                 OR dc.user_id = $1
                 OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
@@ -135,7 +135,7 @@ export async function PUT(request: Request) {
         if (!isOwner && !isAdmin) {
             // Check direct dashboard collaboration
             const collRes = await client.query(
-                'SELECT id FROM dashboard_collaborators WHERE dashboard_id = $1 AND user_id = $2',
+                'SELECT id FROM dashboard_user_permissions WHERE dashboard_id = $1 AND user_id = $2',
                 [id, session.id]
             );
             isCollaborator = collRes.rows.length > 0;
