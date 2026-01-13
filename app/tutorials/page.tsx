@@ -184,7 +184,7 @@ export default function TutorialsPage() {
                             </p>
                             <div className="flex gap-4 flex-wrap">
                                 <Link
-                                    href="/public/board/e8b115ee-c3b1-4d6a-b32c-68b30fa2dc5a"
+                                    href="/public/board/d1063b8a-7c87-4db4-9f8d-8c375fe6794d"
                                     target="_blank"
                                     className="px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20"
                                 >
