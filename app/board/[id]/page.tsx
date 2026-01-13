@@ -578,6 +578,17 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     };
 
     // TASK MANAGEMENT
+    const uniqueTaskAssignees = useMemo(() => {
+        const owners = new Set<string>();
+        tasks.forEach(t => {
+            if (t.owner) owners.add(t.owner);
+            if (t.assignees) {
+                t.assignees.forEach(a => owners.add(a.name));
+            }
+        });
+        return Array.from(owners).sort();
+    }, [tasks]);
+
     const openModal = (task?: Task) => {
         if (!settings) return;
         setEditingTask(
@@ -894,18 +905,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
                         >
                             <option value="">👤 Todos</option>
-                            <optgroup label="Usuarios del Sistema">
-                                {availableUsers.map(u => (
-                                    <option key={u.id} value={u.name}>{u.name}</option>
-                                ))}
-                            </optgroup>
-                            {settings.owners && settings.owners.length > 0 && (
-                                <optgroup label="Manual (Legacy)">
-                                    {settings.owners.map(o => (
-                                        <option key={o} value={o}>{o}</option>
-                                    ))}
-                                </optgroup>
-                            )}
+                            {uniqueTaskAssignees.map(o => (
+                                <option key={o} value={o}>{o}</option>
+                            ))}
                         </select>
                     </div>
 
