@@ -21,8 +21,7 @@ import {
     ArrowLeft,
     Hash,
     MessageSquare,
-    DoorOpen,
-    Check
+    DoorOpen
 } from 'lucide-react';
 import UserTour from "@/components/UserTour";
 
@@ -80,6 +79,9 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     const [isTourOpen, setIsTourOpen] = useState(true);
 
     useEffect(() => {
+        // Enforce light mode cleanup on mount
+        document.documentElement.classList.remove('dark');
+
         if (!token) return;
 
         fetch(`/api/public/board/${token}`)
@@ -145,10 +147,6 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
         return Math.round((doneTasks / tasks.length) * 100);
     };
 
-    const toggleTheme = () => {
-        document.documentElement.classList.toggle('dark');
-    };
-
     // TOUR STEPS
     const tourSteps = [
         {
@@ -179,7 +177,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
         );
@@ -187,13 +185,13 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
 
     if (error) {
         return (
-            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-200 dark:border-slate-700">
-                    <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6">
-                        <LockKeyhole className="h-8 w-8 text-red-600 dark:text-red-400" />
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-200">
+                    <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                        <LockKeyhole className="h-8 w-8 text-red-600" />
                     </div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Acceso Restringido</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mb-6">{error}</p>
+                    <h1 className="text-2xl font-bold text-slate-900 mb-2">Acceso Restringido</h1>
+                    <p className="text-slate-600 mb-6">{error}</p>
                     <Link href="/" className="inline-flex items-center justify-center w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all">
                         Volver al Inicio
                     </Link>
@@ -210,42 +208,40 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                 {statuses.map((st: StatusColumn) => {
                     const colTasks = filteredTasks.filter((t: Task) => t.status === st.id);
                     return (
-                        <div key={st.id} className="lane w-[320px] flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700" style={{ borderTop: `4px solid ${st.color}` }}>
-                            <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                        <div key={st.id} className="lane w-[320px] flex flex-col bg-slate-50 rounded-2xl shadow-sm border border-slate-200" style={{ borderTop: `4px solid ${st.color}` }}>
+                            <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-white rounded-t-2xl">
                                 <div className="flex items-center gap-3">
-                                    <span className="font-bold text-sm uppercase text-slate-700 dark:text-slate-200">{st.name}</span>
-                                    <span className="px-2.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300">{colTasks.length}</span>
+                                    <span className="font-bold text-sm uppercase text-slate-700">{st.name}</span>
+                                    <span className="px-2.5 py-0.5 bg-slate-100 rounded-full text-xs font-bold text-slate-600 shadow-sm border border-slate-200">{colTasks.length}</span>
                                 </div>
                                 <button disabled className="text-slate-400 hover:text-blue-500 transition-colors cursor-not-allowed">
                                     <Plus size={18} />
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 max-h-[calc(100vh-250px)]">
+                            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 max-h-[calc(100vh-250px)] bg-slate-50/50">
                                 {colTasks.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center h-24 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 text-sm italic">
+                                    <div className="flex flex-col items-center justify-center h-24 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm italic m-2">
                                         No hay tareas aquí.
                                     </div>
                                 ) : (
                                     colTasks.map((t: Task) => (
                                         <div
                                             key={t.id}
-                                            className={`kanban-card p-4 bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 cursor-pointer transition-all hover:shadow-md hover:border-blue-400 relative overflow-hidden group ${t.prio === 'high' ? 'border-l-4 border-red-500' : t.prio === 'med' ? 'border-l-4 border-amber-500' : 'border-l-4 border-blue-500'}`}
+                                            className={`kanban-card p-4 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer transition-all hover:shadow-md hover:border-blue-400 relative overflow-hidden group ${t.prio === 'high' ? 'border-l-4 border-red-500' : t.prio === 'med' ? 'border-l-4 border-amber-500' : 'border-l-4 border-blue-500'}`}
                                             onClick={() => setSelectedTask(t)}
                                         >
-                                            <h4 className="font-semibold text-slate-800 dark:text-slate-100 mb-2 leading-tight">{t.name}</h4>
-                                            <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+                                            <h4 className="font-semibold text-slate-800 mb-2 leading-tight pr-2">{t.name}</h4>
+                                            <div className="flex justify-between items-center text-xs text-slate-500 mt-3">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs font-medium">{t.week}</span>
-                                                    {t.gate && <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs font-medium">⛩️ {t.gate}</span>}
+                                                    <span className="px-2 py-0.5 bg-slate-100 rounded text-[11px] font-semibold text-slate-600 border border-slate-200">{t.week}</span>
+                                                    {t.gate && <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-[11px] font-semibold border border-purple-100">⛩️ {t.gate}</span>}
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="flex items-center gap-1">
-                                                        <User size={14} /> {t.owner}
-                                                    </span>
-                                                    {t.prio === 'high' && <span className="text-red-500">🔴</span>}
-                                                    {t.prio === 'med' && <span className="text-amber-500">🟡</span>}
-                                                    {t.prio === 'low' && <span className="text-blue-500">🟢</span>}
+                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-1.5 py-0.5 rounded-full border border-slate-100">
+                                                        <User size={12} className="text-slate-400" />
+                                                        <span className="text-[11px] font-medium text-slate-600 truncate max-w-[60px]">{t.owner.split(' ')[0]}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -260,18 +256,18 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     );
 
     const renderListView = () => (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
             <table className="w-full table-auto">
-                <thead className="bg-slate-50 dark:bg-slate-700/50">
+                <thead className="bg-slate-50">
                     <tr>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Tarea</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Semana</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Responsable</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Estado</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Prioridad</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Tarea</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Semana</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Responsable</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Prioridad</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                <tbody className="divide-y divide-slate-200">
                     {filteredTasks.length === 0 ? (
                         <tr>
                             <td colSpan={5} className="text-center py-10 text-slate-400 italic">No se encontraron tareas con los filtros aplicados.</td>
@@ -280,18 +276,18 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                         filteredTasks.map((t: Task) => (
                             <tr
                                 key={t.id}
-                                className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer"
+                                className="bg-white hover:bg-slate-50 transition-colors cursor-pointer"
                                 onClick={() => setSelectedTask(t)}
                             >
                                 <td className="px-6 py-4">
-                                    <div className="font-semibold text-slate-800 dark:text-slate-100">{t.name}</div>
-                                    {t.gate && <span className="mt-1 inline-flex px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs font-medium">⛩️ {t.gate}</span>}
+                                    <div className="font-semibold text-slate-800">{t.name}</div>
+                                    {t.gate && <span className="mt-1 inline-flex px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs font-medium border border-purple-100">⛩️ {t.gate}</span>}
                                 </td>
                                 <td className="px-6 py-4">
-                                    <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs font-medium text-slate-600 dark:text-slate-300">{t.week}</span>
+                                    <span className="px-2 py-0.5 bg-slate-100 rounded text-xs font-medium text-slate-600 border border-slate-200">{t.week}</span>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                                    <div className="flex items-center gap-2 text-slate-700">
                                         <User size={16} className="text-slate-400" /> {t.owner}
                                     </div>
                                 </td>
@@ -307,7 +303,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                     </span>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                                    <div className="flex items-center gap-2 text-sm text-slate-700">
                                         {t.prio === 'high' && <><span className="text-red-500">🔴</span> Alta</>}
                                         {t.prio === 'med' && <><span className="text-amber-500">🟡</span> Media</>}
                                         {t.prio === 'low' && <><span className="text-blue-500">🟢</span> Baja</>}
@@ -325,19 +321,19 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
         <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Status Distribution */}
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-5">Distribución por Estado</h3>
+                <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                    <h3 className="text-lg font-bold text-slate-900 mb-5">Distribución por Estado</h3>
                     <div className="space-y-4">
                         {statuses.map((st: StatusColumn) => {
                             const count = tasks.filter((t: Task) => t.status === st.id).length;
                             const pct = tasks.length ? (count / tasks.length) * 100 : 0;
                             return (
                                 <div key={st.id}>
-                                    <div className="flex justify-between items-center mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                    <div className="flex justify-between items-center mb-2 text-sm font-medium text-slate-700">
                                         <span>{st.name}</span>
                                         <span>{count} ({pct.toFixed(0)}%)</span>
                                     </div>
-                                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2">
+                                    <div className="w-full bg-slate-100 rounded-full h-2">
                                         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: st.color }}></div>
                                     </div>
                                 </div>
@@ -347,8 +343,8 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                 </div>
 
                 {/* Priorities */}
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-5">Prioridades</h3>
+                <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                    <h3 className="text-lg font-bold text-slate-900 mb-5">Prioridades</h3>
                     <div className="flex justify-around items-center h-full">
                         {[
                             { label: 'Alta', key: 'high', color: '#ef4444', emoji: '🔴' },
@@ -359,8 +355,8 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                             return (
                                 <div key={p.key} className="text-center">
                                     <div className="text-4xl mb-2">{p.emoji}</div>
-                                    <div className="text-3xl font-bold text-slate-900 dark:text-white">{count}</div>
-                                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium">{p.label}</div>
+                                    <div className="text-3xl font-bold text-slate-900">{count}</div>
+                                    <div className="text-sm text-slate-500 font-medium">{p.label}</div>
                                 </div>
                             );
                         })}
@@ -368,14 +364,14 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                 </div>
 
                 {/* Task Types */}
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-5">Tipos de Tarea</h3>
+                <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                    <h3 className="text-lg font-bold text-slate-900 mb-5">Tipos de Tarea</h3>
                     <div className="space-y-3">
                         {settings?.types.map(type => {
                             const count = tasks.filter(t => t.type === type).length;
                             const pct = tasks.length ? (count / tasks.length) * 100 : 0;
                             return (
-                                <div key={type} className="flex justify-between items-center text-sm text-slate-700 dark:text-slate-300">
+                                <div key={type} className="flex justify-between items-center text-sm text-slate-700">
                                     <span>{type}</span>
                                     <span className="font-semibold">{count} ({pct.toFixed(0)}%)</span>
                                 </div>
@@ -386,22 +382,22 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             </div>
 
             {/* Owner Summary */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-5">Resumen por Responsable</h3>
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                <h3 className="text-lg font-bold text-slate-900 mb-5">Resumen por Responsable</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {settings?.owners.map((owner: string) => {
                         const count = tasks.filter((t: Task) => t.owner === owner).length;
                         const done = tasks.filter((t: Task) => t.owner === owner && t.status === 'done').length;
                         const pct = count ? Math.round((done / count) * 100) : 0;
                         return (
-                            <div key={owner} className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                                <div className="font-bold text-slate-900 dark:text-white mb-1">{owner}</div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400 mb-3">{count} tareas asignadas</div>
-                                <div className="flex justify-between items-center text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            <div key={owner} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                <div className="font-bold text-slate-900 mb-1">{owner}</div>
+                                <div className="text-xs text-slate-500 mb-3">{count} tareas asignadas</div>
+                                <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1">
                                     <span>Progreso</span>
                                     <span>{pct}%</span>
                                 </div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                                <div className="w-full bg-slate-200 rounded-full h-1.5">
                                     <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }}></div>
                                 </div>
                             </div>
@@ -413,46 +409,36 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     );
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col font-sans transition-colors duration-300 text-slate-900 dark:text-white">
+        <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
             {isTourOpen && <UserTour steps={tourSteps} onComplete={() => setIsTourOpen(false)} />}
 
             {/* Navbar */}
-            <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-sm transition-colors duration-300">
+            <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
                 <div className="max-w-[1800px] mx-auto px-4 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link href="/" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-600 dark:text-slate-400">
+                        <Link href="/" className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
                             <ArrowLeft size={20} />
                         </Link>
                         <div>
                             <div className="flex items-center gap-3">
-                                <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                                     {settings?.icon || "📊"} {dashboardName}
                                 </h1>
                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${calculateProgress() === 100
-                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-blue-100 text-blue-700'
                                     }`}>
                                     {calculateProgress()}% Completado
                                 </span>
-                                <span className="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 px-3 py-1 rounded-full text-xs font-semibold border border-blue-100 dark:border-blue-800 flex items-center gap-1">
-                                    <LockKeyhole size={12} /> MODO LECTURA
+                                <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold border border-blue-100 flex items-center gap-1">
+                                    <LockKeyhole size={12} /> MODO LECTURA - VISTA PÚBLICA
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide mt-0.5 uppercase">TABLERO DE TRABAJO</p>
+                            <p className="text-xs text-slate-500 font-medium tracking-wide mt-0.5 uppercase">SOLO LECTURA • DASH DEMO</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* Theme Toggle */}
-                        <button
-                            onClick={toggleTheme}
-                            className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-all"
-                            title="Cambiar tema"
-                        >
-                            <span className="dark:hidden">🌙</span>
-                            <span className="hidden dark:inline">☀️</span>
-                        </button>
-
                         <Link
                             href="/register"
                             className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2"
@@ -465,7 +451,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             </header>
 
             {/* Toolbar */}
-            <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 py-4 px-4 sticky top-16 z-20 transition-colors duration-300">
+            <div className="bg-white border-b border-slate-200 py-4 px-4 sticky top-16 z-20">
                 <div className="max-w-[1800px] mx-auto flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                     <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
                         <button
@@ -474,11 +460,11 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                         >
                             <Plus size={18} /> Nueva Tarea
                         </button>
-                        <button disabled className="text-slate-400 dark:text-slate-500 px-4 py-2.5 bg-slate-100 dark:bg-slate-800/50 rounded-xl font-medium border border-slate-200 dark:border-slate-700 flex items-center gap-2 cursor-not-allowed">
+                        <button disabled className="text-slate-400 px-4 py-2.5 bg-slate-100 rounded-xl font-medium border border-slate-200 flex items-center gap-2 cursor-not-allowed">
                             <Columns size={18} /> Nueva Columna
                         </button>
 
-                        <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2 hidden lg:block"></div>
+                        <div className="h-8 w-px bg-slate-200 mx-2 hidden lg:block"></div>
 
                         {/* Search */}
                         <div className="relative group flex-1 lg:w-64">
@@ -488,7 +474,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                 placeholder="Buscar..."
                                 value={filters.search}
                                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all dark:text-white"
+                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900"
                             />
                         </div>
 
@@ -496,7 +482,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                         <select
                             value={filters.week}
                             onChange={(e) => setFilters({ ...filters, week: e.target.value })}
-                            className="px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium hover:border-blue-300 dark:hover:border-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white cursor-pointer"
+                            className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium hover:border-blue-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 cursor-pointer"
                         >
                             <option value="">📅 Semanas</option>
                             {settings?.weeks.map(w => (
@@ -507,7 +493,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                         <select
                             value={filters.owner}
                             onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
-                            className="px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium hover:border-blue-300 dark:hover:border-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white cursor-pointer"
+                            className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium hover:border-blue-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 cursor-pointer"
                         >
                             <option value="">👤 Todos</option>
                             {settings?.owners.map(o => (
@@ -517,12 +503,12 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                     </div>
 
                     {/* View Toggles */}
-                    <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                         <button
                             onClick={() => setActiveTab("kanban")}
                             className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "kanban"
-                                ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm"
-                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                ? "bg-white text-blue-600 shadow-sm"
+                                : "text-slate-500 hover:text-slate-700"
                                 }`}
                         >
                             <LayoutGrid size={16} /> Tablero
@@ -530,8 +516,8 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                         <button
                             onClick={() => setActiveTab("list")}
                             className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "list"
-                                ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm"
-                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                ? "bg-white text-blue-600 shadow-sm"
+                                : "text-slate-500 hover:text-slate-700"
                                 }`}
                         >
                             <List size={16} /> Lista
@@ -539,8 +525,8 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                         <button
                             onClick={() => setActiveTab("data")}
                             className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "data"
-                                ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm"
-                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                ? "bg-white text-blue-600 shadow-sm"
+                                : "text-slate-500 hover:text-slate-700"
                                 }`}
                         >
                             <BarChart2 size={16} /> Datos
@@ -550,7 +536,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             </div>
 
             {/* Content */}
-            <main className="flex-1 overflow-x-hidden">
+            <main className="flex-1 overflow-x-hidden bg-slate-50">
                 <div className="h-full p-6 max-w-[1800px] mx-auto min-h-[calc(100vh-200px)]">
                     {activeTab === "kanban" && renderKanban()}
                     {activeTab === "list" && renderListView()}
@@ -565,26 +551,26 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
                         onClick={() => setSelectedTask(null)}
                     />
-                    <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-slate-200">
 
                         {/* Modal Header */}
-                        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start bg-slate-50/50 dark:bg-slate-900/50">
+                        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
                             <div>
                                 <div className="flex items-center gap-3 mb-3">
-                                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-bold uppercase tracking-wider rounded-full">
+                                    <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-wider rounded-full">
                                         {selectedTask.type}
                                     </span>
                                     <span className="text-slate-400 text-sm font-mono flex items-center gap-1">
                                         <Hash size={14} /> ID: {selectedTask.id}
                                     </span>
                                 </div>
-                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">
+                                <h2 className="text-2xl font-bold text-slate-900 leading-tight">
                                     {selectedTask.name}
                                 </h2>
                             </div>
                             <button
                                 onClick={() => setSelectedTask(null)}
-                                className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600"
                             >
                                 <X size={24} />
                             </button>
@@ -597,30 +583,30 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                 {/* Left Column: Description & Metadata */}
                                 <div className="lg:col-span-2 space-y-8">
                                     {/* Status Bar */}
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-wrap gap-6">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-wrap gap-6">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-slate-500 dark:text-slate-400">
+                                            <div className="p-2 bg-white rounded-lg shadow-sm text-slate-500">
                                                 <Calendar size={18} />
                                             </div>
                                             <div>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">Semana</p>
-                                                <p className="font-semibold text-slate-900 dark:text-white">{settings?.weeks.find(w => w.id === selectedTask.week)?.name || selectedTask.week}</p>
+                                                <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Semana</p>
+                                                <p className="font-semibold text-slate-900">{settings?.weeks.find(w => w.id === selectedTask.week)?.name || selectedTask.week}</p>
                                             </div>
                                         </div>
 
-                                        <div className="w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+                                        <div className="w-px bg-slate-200 hidden sm:block"></div>
 
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-slate-500 dark:text-slate-400">
+                                            <div className="p-2 bg-white rounded-lg shadow-sm text-slate-500">
                                                 <User size={18} />
                                             </div>
                                             <div>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">Responsable</p>
+                                                <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Responsable</p>
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-[10px] text-white font-bold">
                                                         {selectedTask.owner.charAt(0)}
                                                     </div>
-                                                    <p className="font-semibold text-slate-900 dark:text-white">{selectedTask.owner}</p>
+                                                    <p className="font-semibold text-slate-900">{selectedTask.owner}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -628,17 +614,17 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
 
                                     {/* Description */}
                                     <div>
-                                        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
                                             <Info size={16} className="text-blue-500" /> Descripción
                                         </h3>
-                                        <div className="bg-slate-50 dark:bg-slate-800/30 p-6 rounded-2xl border border-slate-100 dark:border-slate-800/50 text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 text-slate-700 leading-relaxed whitespace-pre-wrap">
                                             {selectedTask.desc ? renderContentWithLinks(selectedTask.desc) : "Sin descripción."}
                                         </div>
                                     </div>
 
                                     {/* Discussion / Comments */}
                                     <div>
-                                        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
                                             <MessageSquare size={16} className="text-purple-500" /> Discusión y Actualizaciones
                                         </h3>
                                         <div className="space-y-4">
@@ -647,13 +633,13 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                                     .filter(c => String(c.task_id) === String(selectedTask.id))
                                                     .map((comment) => (
                                                         <div key={comment.id} className="flex gap-4 group">
-                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-xs text-white font-bold shrink-0 shadow-sm border-2 border-white dark:border-slate-800">
+                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-xs text-white font-bold shrink-0 shadow-sm border-2 border-white">
                                                                 {comment.user_name ? comment.user_name.charAt(0).toUpperCase() : '?'}
                                                             </div>
                                                             <div className="flex-1">
-                                                                <div className="bg-slate-100 dark:bg-slate-800 px-5 py-3 rounded-2xl rounded-tl-none text-sm text-slate-700 dark:text-slate-300 shadow-sm border border-slate-200/50 dark:border-slate-700">
+                                                                <div className="bg-slate-100 px-5 py-3 rounded-2xl rounded-tl-none text-sm text-slate-700 shadow-sm border border-slate-200/50">
                                                                     <div className="flex justify-between items-center mb-1">
-                                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{comment.user_name}</span>
+                                                                        <span className="font-bold text-slate-800 text-xs">{comment.user_name}</span>
                                                                         <span className="text-[10px] text-slate-400">
                                                                             {new Date(comment.created_at).toLocaleString()}
                                                                         </span>
@@ -664,7 +650,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                                         </div>
                                                     ))
                                             ) : (
-                                                <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                                                <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                                                     <p className="text-slate-400 text-sm">No hay comentarios en esta tarea.</p>
                                                 </div>
                                             )}
@@ -674,12 +660,12 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
 
                                 {/* Right Column: Attributes */}
                                 <div className="space-y-6">
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 dark:border-slate-700 pb-2">Detalles</h3>
+                                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-sm">
+                                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Detalles</h3>
 
                                         <div className="space-y-5">
                                             <div>
-                                                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Estado Actual</label>
+                                                <label className="text-xs text-slate-500 font-medium mb-1.5 block">Estado Actual</label>
                                                 <div
                                                     className="px-3 py-2 rounded-lg text-sm font-bold border inline-block w-full"
                                                     style={{
@@ -693,10 +679,10 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                             </div>
 
                                             <div>
-                                                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block flex items-center gap-1"><Flag size={12} /> Prioridad</label>
-                                                <div className={`px-3 py-2 rounded-lg text-sm font-bold border flex items-center gap-2 ${selectedTask.prio === 'high' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/50' :
-                                                        selectedTask.prio === 'med' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/50' :
-                                                            'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/50'
+                                                <label className="text-xs text-slate-500 font-medium mb-1.5 block flex items-center gap-1"><Flag size={12} /> Prioridad</label>
+                                                <div className={`px-3 py-2 rounded-lg text-sm font-bold border flex items-center gap-2 ${selectedTask.prio === 'high' ? 'bg-red-50 text-red-700 border-red-200' :
+                                                        selectedTask.prio === 'med' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                            'bg-blue-50 text-blue-700 border-blue-200'
                                                     }`}>
                                                     <div className={`w-2 h-2 rounded-full ${selectedTask.prio === 'high' ? 'bg-red-500' :
                                                             selectedTask.prio === 'med' ? 'bg-amber-500' :
@@ -707,16 +693,16 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                             </div>
 
                                             <div>
-                                                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block flex items-center gap-1"><DoorOpen size={12} /> Gate (Fase)</label>
-                                                <div className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 font-medium">
+                                                <label className="text-xs text-slate-500 font-medium mb-1.5 block flex items-center gap-1"><DoorOpen size={12} /> Gate (Fase)</label>
+                                                <div className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 font-medium">
                                                     {selectedTask.gate || "N/A"}
                                                 </div>
                                             </div>
 
                                             {selectedTask.due && (
                                                 <div>
-                                                    <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block flex items-center gap-1"><Calendar size={12} /> Fecha Límite</label>
-                                                    <div className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 font-medium">
+                                                    <label className="text-xs text-slate-500 font-medium mb-1.5 block flex items-center gap-1"><Calendar size={12} /> Fecha Límite</label>
+                                                    <div className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 font-medium">
                                                         {new Date(selectedTask.due).toLocaleDateString()}
                                                     </div>
                                                 </div>
@@ -724,8 +710,8 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                         </div>
                                     </div>
 
-                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
-                                        <p className="text-xs text-blue-600 dark:text-blue-300 leading-relaxed text-center">
+                                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                        <p className="text-xs text-blue-600 leading-relaxed text-center">
                                             🔒 Esta vista es de solo lectura. Únete a Dash para gestionar tus propios proyectos.
                                         </p>
                                     </div>
@@ -738,4 +724,3 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
         </div>
     );
 }
-
