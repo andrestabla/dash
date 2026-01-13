@@ -95,7 +95,7 @@ export async function PUT(request: Request) {
                             `INSERT INTO dashboard_user_permissions (dashboard_id, user_id, granted_by, role)
                              VALUES ($1, $2, $3, 'viewer')
                              ON CONFLICT (dashboard_id, user_id) DO NOTHING`,
-                            [id, userId, (session.user as any)?.id || null]
+                            [id, userId, (session as any).id || null]
                         );
                     }
                 }
