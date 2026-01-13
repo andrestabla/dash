@@ -144,7 +144,21 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read) WHERE is_read = FALSE;
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);
 
--- 9. SYSTEM_SETTINGS TABLE
+-- 9. TASK_ASSIGNEES TABLE
+-- Multiple assignees for tasks
+CREATE TABLE IF NOT EXISTS task_assignees (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id VARCHAR REFERENCES tasks(id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_task_assignee UNIQUE (task_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_assignees_task ON task_assignees(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_assignees_user ON task_assignees(user_id);
+
+-- 10. SYSTEM_SETTINGS TABLE
 -- Application-wide settings
 CREATE TABLE IF NOT EXISTS system_settings (
     key VARCHAR(100) PRIMARY KEY,
