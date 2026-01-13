@@ -22,7 +22,6 @@ export async function GET() {
                 WHERE d.owner_id = $1 
                 OR dc.user_id = $1
                 OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
-                OR d.is_demo = TRUE
                 GROUP BY d.id
                 ORDER BY d.created_at DESC
             `;
