@@ -1836,10 +1836,30 @@ function AnalyticsView({ tasks, settings, statuses }: { tasks: Task[], settings:
         return { name: (w?.name || "Semana").split(' · ')[0], total, done, percent };
     });
 
-    const workloadData = (settings?.owners || []).map(o => {
-        const active = (tasks || []).filter(t => t?.owner === o && t?.status !== endStatusId).length;
-        return { name: String(o || "Universal").split(' (')[0], value: active };
-    }).sort((a, b) => b.value - a.value);
+    const workloadData = useMemo(() => {
+        const assignments = new Map<string, number>();
+
+        // Initialize with settings owners to ensure they appear even if 0
+        (settings?.owners || []).forEach(o => assignments.set(o, 0));
+
+        (tasks || []).forEach(t => {
+            if (t.status === endStatusId) return; // Skip done tasks
+
+            if (t.assignees && t.assignees.length > 0) {
+                t.assignees.forEach((a: any) => {
+                    // Clean name
+                    const cleanName = a.name;
+                    assignments.set(cleanName, (assignments.get(cleanName) || 0) + 1);
+                });
+            } else if (t.owner) {
+                assignments.set(t.owner, (assignments.get(t.owner) || 0) + 1);
+            }
+        });
+
+        return Array.from(assignments.entries())
+            .map(([name, value]) => ({ name: name.split(' (')[0], value }))
+            .sort((a, b) => b.value - a.value);
+    }, [tasks, settings, endStatusId]);
 
     const statusData = (statuses || []).map(s => ({ ...s, count: (tasks || []).filter(t => t?.status === s?.id).length }));
     const gateData = (settings?.gates || []).map(g => {

@@ -328,8 +328,11 @@ export default function FolderAnalyticsPage() {
                 if (name !== filters.status) return false;
             }
 
-            // Owner
-            if (filters.owner !== 'all' && t.owner !== filters.owner) return false;
+            // Owner - CHECK ASSIGNEES
+            if (filters.owner !== 'all') {
+                const hasAssignee = t.assignees?.some((a: any) => a.name === filters.owner) || t.owner === filters.owner;
+                if (!hasAssignee) return false;
+            }
 
             // Type
             if (filters.type !== 'all' && t.type !== filters.type) return false;
@@ -378,7 +381,16 @@ export default function FolderAnalyticsPage() {
         });
         return [...s];
     }, [tasksInSelectedDashboard, availableDashboards]);
-    const uniqueOwners = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.owner).filter(Boolean))], [tasksInSelectedDashboard]);
+    const uniqueOwners = useMemo(() => {
+        const owners = new Set<string>();
+        tasksInSelectedDashboard.forEach(t => {
+            if (t.owner) owners.add(t.owner);
+            if (t.assignees && Array.isArray(t.assignees)) {
+                t.assignees.forEach((a: any) => owners.add(a.name));
+            }
+        });
+        return Array.from(owners);
+    }, [tasksInSelectedDashboard]);
     const uniqueTypes = useMemo(() => [...new Set(tasksInSelectedDashboard.map(t => t.type).filter(Boolean))], [tasksInSelectedDashboard]);
 
     // Tasks dropdown options also filtered by project
@@ -637,10 +649,27 @@ export default function FolderAnalyticsPage() {
                     <div className="glass-panel" style={{ padding: 24 }}>
                         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Carga de Trabajo (Top 10)</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {Array.from(new Set(filteredTasks.map(t => t.owner))).slice(0, 10).map(o => {
-                                const count = filteredTasks.filter(t => t.owner === o).length;
-                                const max = Math.max(...Array.from(new Set(filteredTasks.map(t => t.owner))).map(ow => filteredTasks.filter(t => t.owner === ow).length));
-                                return (
+                            {(() => {
+                                // Calculate workload based on assignees
+                                const workloadMap = new Map<string, number>();
+                                filteredTasks.forEach(t => {
+                                    // If task has assignees, credit each one. If not, credit owner (legacy/fallback)
+                                    if (t.assignees && t.assignees.length > 0) {
+                                        t.assignees.forEach((a: any) => {
+                                            workloadMap.set(a.name, (workloadMap.get(a.name) || 0) + 1);
+                                        });
+                                    } else if (t.owner) {
+                                        workloadMap.set(t.owner, (workloadMap.get(t.owner) || 0) + 1);
+                                    }
+                                });
+
+                                const sortedWorkload = Array.from(workloadMap.entries())
+                                    .sort((a, b) => b[1] - a[1])
+                                    .slice(0, 10);
+
+                                const max = sortedWorkload.length > 0 ? sortedWorkload[0][1] : 1;
+
+                                return sortedWorkload.map(([o, count]) => (
                                     <div key={o} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                         <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-gradient)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
                                             {o?.substring(0, 2).toUpperCase()}
@@ -655,8 +684,8 @@ export default function FolderAnalyticsPage() {
                                             </div>
                                         </div>
                                     </div>
-                                )
-                            })}
+                                ));
+                            })()}
                         </div>
                     </div>
                 </div>
