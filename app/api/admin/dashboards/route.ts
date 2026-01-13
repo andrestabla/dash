@@ -48,6 +48,7 @@ export async function PUT(request: Request) {
 
     try {
         const body = await request.json();
+
         const { id, name, description, owners, sendInvite } = body; // owners is string[] of emails
 
         if (!id || !name) return NextResponse.json({ error: 'ID and Name required' }, { status: 400 });
@@ -76,6 +77,7 @@ export async function PUT(request: Request) {
                 const emailsToAdd = owners.filter(email => !currentEmails.includes(email));
                 const emailsToRemove = currentEmails.filter(email => !owners.includes(email));
 
+
                 // Remove permissions for users no longer in the list
                 if (emailsToRemove.length > 0) {
                     await client.query(
@@ -91,12 +93,16 @@ export async function PUT(request: Request) {
                     const userRes = await client.query('SELECT id FROM users WHERE email = $1', [email]);
                     if (userRes.rows.length > 0) {
                         const userId = userRes.rows[0].id;
+                        const grantedBy = (session as any).id || null;
+
                         await client.query(
                             `INSERT INTO dashboard_user_permissions (dashboard_id, user_id, granted_by, role)
                              VALUES ($1, $2, $3, 'viewer')
                              ON CONFLICT (dashboard_id, user_id) DO NOTHING`,
-                            [id, userId, (session as any).id || null]
+                            [id, userId, grantedBy]
                         );
+                    } else {
+                        console.warn(`[AdminDashboard] User not found for email: ${email}`);
                     }
                 }
             }
@@ -106,40 +112,45 @@ export async function PUT(request: Request) {
 
             // 3. Send Invites
             if (sendInvite && owners && owners.length > 0) {
-                const origin = request.headers.get('origin') || `https://${request.headers.get('host')}`;
-                const base = process.env.NEXT_PUBLIC_APP_URL || origin || 'https://misproyectos.com.co';
-                const { sendEmail } = await import('@/lib/email');
-                const subject = `Invitación a colaborar: ${name}`;
-                const link = `${base}/board/${id}`;
+                try {
+                    const origin = request.headers.get('origin') || `https://${request.headers.get('host')}`;
+                    const base = process.env.NEXT_PUBLIC_APP_URL || origin || 'https://misproyectos.com.co';
+                    const { sendEmail } = await import('@/lib/email');
+                    const subject = `Invitación a colaborar: ${name}`;
+                    const link = `${base}/board/${id}`;
 
-                // We'll fire these in parallel
-                const emailPromises = owners.map(async (email: string) => {
-                    const html = `
-                        <div style="font-family: sans-serif; color: #333;">
-                            <h2>¡Te han invitado a un Tablero! 📊</h2>
-                            <p>Has sido adicionado como colaborador en el tablero <b>"${name}"</b>.</p>
-                            <p>Haz clic abajo para acceder:</p>
-                            <br/>
-                            <a href="${link}" style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;">
-                                Ir al Tablero
-                            </a>
-                        </div>
-                    `;
-                    await sendEmail(email, subject, html);
-                });
+                    // We'll fire these in parallel
+                    const emailPromises = owners.map(async (email: string) => {
+                        const html = `
+                            <div style="font-family: sans-serif; color: #333;">
+                                <h2>¡Te han invitado a un Tablero! 📊</h2>
+                                <p>Has sido adicionado como colaborador en el tablero <b>"${name}"</b>.</p>
+                                <p>Haz clic abajo para acceder:</p>
+                                <br/>
+                                <a href="${link}" style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;">
+                                    Ir al Tablero
+                                </a>
+                            </div>
+                        `;
+                        await sendEmail(email, subject, html);
+                    });
 
-                await Promise.allSettled(emailPromises);
+                    await Promise.allSettled(emailPromises);
+                } catch (emailErr) {
+                    console.error('[AdminDashboard] Email sending failed (non-blocking):', emailErr);
+                }
             }
 
             return NextResponse.json({ success: true });
         } catch (error) {
             await client.query('ROLLBACK');
             client.release();
+            console.error('[AdminDashboard] Transaction Failed:', error);
             throw error;
         }
-    } catch (error) {
-        console.error('Error updating dashboard:', error);
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    } catch (error: any) {
+        console.error('[AdminDashboard] Top-level Error:', error);
+        return NextResponse.json({ error: 'Failed', detail: error.message }, { status: 500 });
     }
 }
 
