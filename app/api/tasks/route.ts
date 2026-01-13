@@ -102,6 +102,31 @@ export async function GET(request: Request) {
             ...row,
             id: row.id
         }));
+
+        // Fetch assignees for these tasks
+        const taskIds = tasks.map(t => t.id);
+        if (taskIds.length > 0) {
+            const placeholders = taskIds.map((_, i) => `$${i + 1}`).join(',');
+            const assigneesRes = await client.query(
+                `SELECT task_id, name, user_id FROM task_assignees WHERE task_id IN (${placeholders})`,
+                taskIds
+            );
+
+            const assigneesMap: Record<string, any[]> = {};
+            assigneesRes.rows.forEach(row => {
+                if (!assigneesMap[row.task_id]) assigneesMap[row.task_id] = [];
+                assigneesMap[row.task_id].push({ name: row.name, id: row.user_id });
+            });
+
+            tasks.forEach((t: any) => {
+                t.assignees = assigneesMap[t.id] || [];
+                // Fallback for legacy owner if no assignees in table
+                if (t.assignees.length === 0 && t.owner) {
+                    t.assignees = [{ name: t.owner }];
+                }
+            });
+        }
+
         client.release();
 
         return NextResponse.json(tasks);
@@ -117,7 +142,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { id, week, name, status, owner, type, prio, gate, due, desc, dashboard_id } = body;
+        const { id, week, name, status, owner, type, prio, gate, due, desc, dashboard_id, assignees } = body;
 
         if (!dashboard_id) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
 
@@ -139,29 +164,65 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
-        const query = `
-      INSERT INTO tasks (id, week, name, status, owner, type, prio, gate, due, description, dashboard_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      ON CONFLICT (id) DO UPDATE SET
-        week = EXCLUDED.week,
-        name = EXCLUDED.name,
-        status = EXCLUDED.status,
-        owner = EXCLUDED.owner,
-        type = EXCLUDED.type,
-        prio = EXCLUDED.prio,
-        gate = EXCLUDED.gate,
-        due = EXCLUDED.due,
-        description = EXCLUDED.description,
-        dashboard_id = EXCLUDED.dashboard_id
-    `;
+        try {
+            await client.query('BEGIN');
 
-        await client.query(query, [id, week, name, status, owner, type, prio, gate, due, desc, dashboard_id]);
-        client.release();
+            // Determine primary owner for legacy support
+            let primaryOwner = owner;
+            if (assignees && Array.isArray(assignees) && assignees.length > 0) {
+                primaryOwner = typeof assignees[0] === 'string' ? assignees[0] : assignees[0].name;
+            }
 
-        return NextResponse.json({ message: 'Task saved' }, { status: 201 });
+            const query = `
+              INSERT INTO tasks (id, week, name, status, owner, type, prio, gate, due, description, dashboard_id)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+              ON CONFLICT (id) DO UPDATE SET
+                week = EXCLUDED.week,
+                name = EXCLUDED.name,
+                status = EXCLUDED.status,
+                owner = EXCLUDED.owner,
+                type = EXCLUDED.type,
+                prio = EXCLUDED.prio,
+                gate = EXCLUDED.gate,
+                due = EXCLUDED.due,
+                description = EXCLUDED.description,
+                dashboard_id = EXCLUDED.dashboard_id
+            `;
+
+            await client.query(query, [id, week, name, status, primaryOwner, type, prio, gate, due, desc, dashboard_id]);
+
+            // Handle Assignees
+            if (assignees && Array.isArray(assignees)) {
+                // Delete existing
+                await client.query('DELETE FROM task_assignees WHERE task_id = $1', [String(id)]);
+
+                // Insert new
+                for (const assignee of assignees) {
+                    const assigneeName = typeof assignee === 'string' ? assignee : assignee.name;
+                    const assigneeId = (typeof assignee === 'object' && assignee.id) ? assignee.id : null;
+
+                    if (assigneeName) {
+                        await client.query(
+                            'INSERT INTO task_assignees (task_id, name, user_id) VALUES ($1, $2, $3) ON CONFLICT (task_id, name) DO NOTHING',
+                            [String(id), assigneeName, assigneeId]
+                        );
+                    }
+                }
+            }
+
+            await client.query('COMMIT');
+            client.release();
+
+            return NextResponse.json({ message: 'Task saved' }, { status: 201 });
+        } catch (dbError) {
+            await client.query('ROLLBACK');
+            client.release();
+            console.error('Database Transaction Error:', dbError);
+            return NextResponse.json({ error: 'Failed to save task data' }, { status: 500 });
+        }
     } catch (error) {
-        console.error('Database Error:', error);
-        return NextResponse.json({ error: 'Failed to save task' }, { status: 500 });
+        console.error('Request Error:', error);
+        return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
     }
 }
 

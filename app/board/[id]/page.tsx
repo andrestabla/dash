@@ -16,6 +16,7 @@ interface Task {
     name: string;
     status: string;
     owner: string;
+    assignees?: { name: string; id?: string }[];
     type: string;
     prio: string;
     gate: string;
@@ -484,10 +485,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const filteredTasks = useMemo(() => {
         return tasks.filter((t) => {
             if (filters.week && t.week !== filters.week) return false;
-            if (filters.owner && t.owner !== filters.owner) return false;
+            if (filters.owner) {
+                const hasAssignee = t.assignees?.some(a => a.name === filters.owner) || t.owner === filters.owner;
+                if (!hasAssignee) return false;
+            }
             if (
                 filters.search &&
-                !((t.name + t.owner).toLowerCase().includes(filters.search.toLowerCase()))
+                !((t.name + t.owner + (t.assignees?.map(a => a.name).join(' ') || '')).toLowerCase().includes(filters.search.toLowerCase()))
             )
                 return false;
             return true;
@@ -577,13 +581,17 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const openModal = (task?: Task) => {
         if (!settings) return;
         setEditingTask(
-            task || {
+            task ? {
+                ...task,
+                assignees: task.assignees || (task.owner ? [{ name: task.owner }] : [])
+            } : {
                 status: statuses[0].id,
                 week: settings.weeks[0]?.id || "",
                 prio: "med",
                 gate: "",
                 type: settings.types[0] || "",
                 owner: settings.owners[0] || "",
+                assignees: [],
                 dashboard_id: dashboardId
             }
         );
@@ -985,7 +993,24 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                                                     <div className="btn-icon-hover" onClick={(e) => { e.stopPropagation(); duplicateTask(t); }} title="Duplicar Tarea">
                                                                                         <Copy size={14} />
                                                                                     </div>
-                                                                                    <div title={`Responsable: ${t.owner}`} style={{ fontSize: 14, cursor: 'help' }}>👤</div>
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', marginLeft: 4 }}>
+                                                                                        {t.assignees && t.assignees.length > 0 ? (
+                                                                                            <div className="flex -space-x-1">
+                                                                                                {t.assignees.slice(0, 3).map((a, i) => (
+                                                                                                    <div key={i} title={a.name} style={{ width: 22, height: 22, borderRadius: '50%', background: `hsl(${a.name.length * 30}, 70%, 50%)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, border: '2px solid var(--bg-card)', zIndex: 3 - i }}>
+                                                                                                        {a.name.substring(0, 2).toUpperCase()}
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                                {t.assignees.length > 3 && (
+                                                                                                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#94a3b8', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, border: '2px solid var(--bg-card)', zIndex: 0 }}>
+                                                                                                        +{t.assignees.length - 3}
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <div title={`Responsable: ${t.owner}`} style={{ fontSize: 14, cursor: 'help', opacity: 0.5 }}>👤</div>
+                                                                                        )}
+                                                                                    </div>
 
                                                                                     {/* Priority Icons with Tooltips */}
                                                                                     {t.prio === 'high' && <span title="Prioridad Alta" style={{ cursor: 'help' }}>🔴</span>}
@@ -1061,7 +1086,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                                 {taskStatus.name}
                                                             </div>
                                                             <div className="tl-meta-info">
-                                                                <Users size={12} /> <span>{t.owner.split(' (')[0]}</span>
+                                                                <Users size={12} />
+                                                                <span>
+                                                                    {t.assignees && t.assignees.length > 0
+                                                                        ? t.assignees.map(a => a.name.split(' (')[0]).join(', ')
+                                                                        : t.owner.split(' (')[0]}
+                                                                </span>
                                                             </div>
                                                             <div className="tl-meta-info">
                                                                 <div className={`type-tag ${t.type.toLowerCase().includes('feature') ? 'feature' : t.type.toLowerCase().includes('bug') ? 'bug' : 'other'}`}>
@@ -1105,24 +1135,68 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                 <div className="form-grid">
                                     <div className="form-group">
                                         <label className="form-label">Responsable</label>
-                                        <select
-                                            className="input-glass"
-                                            value={editingTask.owner}
-                                            onChange={(e) => setEditingTask({ ...editingTask, owner: e.target.value })}
-                                        >
-                                            <optgroup label="Usuarios del Sistema">
-                                                {availableUsers.map(u => (
-                                                    <option key={u.id} value={u.name}>{u.name}</option>
+                                        <div className="multi-select-container">
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8, minHeight: 28 }}>
+                                                {editingTask.assignees?.map((a, i) => (
+                                                    <span key={i} className="chip" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: 'var(--primary-light)', border: '1px solid var(--primary-border)', borderRadius: 12 }}>
+                                                        <span style={{ fontSize: 11, fontWeight: 600 }}>{a.name}</span>
+                                                        <button
+                                                            onClick={() => {
+                                                                const newAssignees = [...(editingTask.assignees || [])];
+                                                                newAssignees.splice(i, 1);
+                                                                setEditingTask({ ...editingTask, assignees: newAssignees });
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', opacity: 0.6 }}
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    </span>
                                                 ))}
-                                            </optgroup>
-                                            {settings.owners && settings.owners.length > 0 && (
-                                                <optgroup label="Manual (Legacy)">
-                                                    {settings.owners.map(o => (
-                                                        <option key={o} value={o}>{o}</option>
-                                                    ))}
-                                                </optgroup>
+                                                {(!editingTask.assignees || editingTask.assignees.length === 0) && (
+                                                    <span style={{ fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic', padding: '4px 0' }}>Sin responsables</span>
+                                                )}
+                                            </div>
+
+                                            {(!editingTask.assignees || editingTask.assignees.length < 5) && (
+                                                <select
+                                                    className="input-glass"
+                                                    value=""
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (!val) return;
+
+                                                        // Prevent duplicates
+                                                        if (editingTask.assignees?.some(a => a.name === val)) return;
+
+                                                        const userObj = availableUsers.find(u => u.name === val)
+                                                            ? { name: val, id: availableUsers.find(u => u.name === val)?.id }
+                                                            : { name: val };
+
+                                                        setEditingTask({
+                                                            ...editingTask,
+                                                            assignees: [...(editingTask.assignees || []), userObj]
+                                                        });
+                                                    }}
+                                                >
+                                                    <option value="">+ Añadir Responsable</option>
+                                                    <optgroup label="Usuarios del Sistema">
+                                                        {availableUsers.map(u => (
+                                                            <option key={u.id} value={u.name} disabled={editingTask.assignees?.some(a => a.name === u.name)}>{u.name}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                    {settings.owners && settings.owners.length > 0 && (
+                                                        <optgroup label="Manual (Legacy)">
+                                                            {settings.owners.map(o => (
+                                                                <option key={o} value={o} disabled={editingTask.assignees?.some(a => a.name === o)}>{o}</option>
+                                                            ))}
+                                                        </optgroup>
+                                                    )}
+                                                </select>
                                             )}
-                                        </select>
+                                            <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4, textAlign: 'right' }}>
+                                                {editingTask.assignees?.length || 0}/5 Responsables
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="form-group">
                                         <label className="form-label">Tipo</label>
