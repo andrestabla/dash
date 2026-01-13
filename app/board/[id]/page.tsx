@@ -894,11 +894,18 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                             onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
                         >
                             <option value="">👤 Todos</option>
-                            {settings.owners.map((o) => (
-                                <option key={o} value={o}>
-                                    {o}
-                                </option>
-                            ))}
+                            <optgroup label="Usuarios del Sistema">
+                                {availableUsers.map(u => (
+                                    <option key={u.id} value={u.name}>{u.name}</option>
+                                ))}
+                            </optgroup>
+                            {settings.owners && settings.owners.length > 0 && (
+                                <optgroup label="Manual (Legacy)">
+                                    {settings.owners.map(o => (
+                                        <option key={o} value={o}>{o}</option>
+                                    ))}
+                                </optgroup>
+                            )}
                         </select>
                     </div>
 
