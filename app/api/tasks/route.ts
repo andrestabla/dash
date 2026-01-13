@@ -100,7 +100,7 @@ export async function GET(request: Request) {
         const result = await client.query(query, params);
         const tasks = result.rows.map(row => ({
             ...row,
-            id: Number(row.id)
+            id: row.id
         }));
         client.release();
 
