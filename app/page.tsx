@@ -300,7 +300,9 @@ export default function LandingPage() {
               <p style={{ marginBottom: '32px', color: '#94a3b8' }}>
                 Si nuestra plataforma te ha sido útil, considera hacer una donación para ayudarnos a seguir mejorando.
               </p>
-              <div id="paypal-container-46PV99WC22VPQ" style={{ minHeight: '150px', display: 'flex', justifyContent: 'center', zIndex: 1, position: 'relative' }}></div>
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                <div id="paypal-container-46PV99WC22VPQ" style={{ minHeight: '150px', zIndex: 1, position: 'relative' }}></div>
+              </div>
             </div>
           </div>
         </div>
