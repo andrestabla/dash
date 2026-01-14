@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Gestión Metodológica · GOBERNANZA",
 };
 
+import SupportWidget from "@/components/SupportWidget"; // Added
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,6 +26,7 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             {children}
+            <SupportWidget />
           </ToastProvider>
         </ThemeProvider>
       </body>

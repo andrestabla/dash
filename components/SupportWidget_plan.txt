@@ -1,0 +1,25 @@
+
+// Logic for SupportWidget.tsx
+
+// 1. Check authentication (client-side via cookie check or passed prop?)
+//    Since it's a client component in RootLayout, we can check document.cookie for 'session'
+//    OR simpler: The widget is always mounted but returns null if path is public (/, /login, /register).
+//    This is cleaner than checking cookies which might be httpOnly.
+
+// 2. UI:
+//    - Fixed bottom-right button (MessageCircle or HelpCircle).
+//    - On click: toggle 'isOpen'.
+//    - Content:
+//      - Header: "Soporte"
+//      - Tab/List: "Preguntas Frecuentes"
+//        - Accordion items for 3-4 common questions.
+//      - Footer actions: "Reportar Problema" | "Sugerencia"
+//      - These actions open a secondary view or redirect to /help?
+
+// 3. Form Handling (Optional extra credit): 
+//    - If "Escalar" is clicked, show simple inputs (Business Impact, Description).
+//    - Send to an API/Email.
+
+// Plan:
+// Create `components/SupportWidget.tsx`
+// Add it to `app/layout.tsx` inside providers.
