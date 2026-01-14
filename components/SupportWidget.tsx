@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X, ChevronRight, AlertCircle, Lightbulb, Send } from "lucide-react";
+import { MessageCircle, X, AlertCircle, Lightbulb, Send } from "lucide-react";
 
 export default function SupportWidget() {
     const pathname = usePathname();
@@ -18,26 +18,38 @@ export default function SupportWidget() {
         '/register',
         '/donations',
         '/docs',
-        '/help' // Maybe show on help too? No, help page is specialized.
+        '/help'
     ].includes(pathname || '');
 
-    // Also check if it starts with /landing or similar if existent
-    // Simplistic check for now.
     if (isPublic) return null;
 
     const FAQS = [
         { q: "¿Cómo creo un nuevo proyecto?", a: "Ve al Workspace y haz clic en '+ Nuevo Proyecto'. Completa el asistente con nombre, fechas y equipo." },
         { q: "¿Cómo invito usuarios?", a: "En la configuración del tablero o carpeta, usa el botón 'Compartir' para agregar colaboradores por email." },
-        { q: "¿Qué son los 'Gates'?", a: "Son los hitos de control (Gate A, B, C...) que definen el progreso de tu metodología de gobernanza." }
+        { q: "¿Qué son los 'Gates'?", a: "Son los hitos de control (Gate A, B, C...) que definen el progreso de tu metodología de gobernanza." },
+        { q: "¿Cómo elimino mi cuenta?", a: "Ve a 'Mi Perfil' (clic en tu avatar/icono usuario) y baja hasta la 'Zona de Peligro' para encontrar la opción de eliminación." },
+        { q: "¿Aceptan otros medios de pago?", a: "Actualmente procesamos donaciones vía PayPal, que acepta saldo y tarjetas de crédito/débito internacionales." }
     ];
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Here we would effectively send to API
-        alert(`Gracias! Tu ${formType === 'issue' ? 'caso' : 'sugerencia'} ha sido enviada.`);
-        setMessage("");
-        setView('menu');
-        setIsOpen(false);
+        try {
+            const res = await fetch('/api/support', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: formType, message })
+            });
+            if (res.ok) {
+                alert(`Gracias! Tu ${formType === 'issue' ? 'caso' : 'sugerencia'} ha sido enviada. Nuestro equipo administrativo la revisará.`);
+                setMessage("");
+                setView('menu');
+                setIsOpen(false);
+            } else {
+                alert("Error al enviar. Intenta nuevamente.");
+            }
+        } catch {
+            alert("Error de conexión al enviar.");
+        }
     };
 
     return (
@@ -107,7 +119,7 @@ export default function SupportWidget() {
                                 {/* Actions */}
                                 <div>
                                     <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 12 }}>¿Necesitas más ayuda?</h4>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                                         <button
                                             onClick={() => { setFormType('issue'); setView('form'); }}
                                             className="btn-ghost"
@@ -125,6 +137,14 @@ export default function SupportWidget() {
                                             <span style={{ fontSize: 13, fontWeight: 600 }}>Sugerir Mejora</span>
                                         </button>
                                     </div>
+
+                                    <a
+                                        href="/tutorials"
+                                        className="btn-ghost"
+                                        style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: 8, border: '1px solid var(--border-dim)', background: 'var(--bg-card)', textDecoration: 'none' }}
+                                    >
+                                        <span style={{ fontSize: 16 }}>📚</span> <span style={{ fontSize: 14 }}>Ver Tutoriales y Guías</span>
+                                    </a>
                                 </div>
                             </>
                         ) : (
