@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from 'react';
-import Script from 'next/script';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -28,42 +26,12 @@ import {
   Globe,
   Lock,
   Search,
-  Plus,
-  Heart
+  Plus
 } from "lucide-react";
 
 export default function LandingPage() {
-  useEffect(() => {
-    if ((window as any).paypal) {
-      try {
-        const container = document.querySelector("#paypal-container-46PV99WC22VPQ");
-        if (container && container.innerHTML === "") {
-          (window as any).paypal.HostedButtons({
-            hostedButtonId: "46PV99WC22VPQ"
-          }).render("#paypal-container-46PV99WC22VPQ");
-        }
-      } catch (e) {
-        console.error("PayPal button render error", e);
-      }
-    }
-  }, []);
-
   return (
     <div className="landing-root">
-      <Script
-        src="https://www.paypal.com/sdk/js?client-id=BAAFPQ53fCUii64rB81xBDaF90__d0927m9zxq2uQL6X_7o66y3UK1YBc0RSc0gx70Qok9W8uS3OV53ybE&components=hosted-buttons&disable-funding=venmo&currency=USD"
-        onLoad={() => {
-          if ((window as any).paypal) {
-            try {
-              (window as any).paypal.HostedButtons({
-                hostedButtonId: "46PV99WC22VPQ"
-              }).render("#paypal-container-46PV99WC22VPQ");
-            } catch (e) {
-              console.error("PayPal render error:", e);
-            }
-          }
-        }}
-      />
       {/* NAVIGATION */}
       <nav className="landing-nav animate-fade-in">
         <div className="container">
@@ -76,7 +44,7 @@ export default function LandingPage() {
               <a href="#how-works">Cómo funciona</a>
               <a href="#benefits">Beneficios</a>
               <a href="#capabilities">Capacidades</a>
-              <a href="#donations">Donaciones</a>
+              <Link href="/donations">Donaciones</Link>
               <a href="#contact">Contacto</a>
             </div>
             <div className="nav-links" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
@@ -282,24 +250,6 @@ export default function LandingPage() {
               <div className="cap-icon-box orange"><ExternalLink /></div>
               <h4>Enlaces Públicos</h4>
               <p>Transparencia radical con clientes sin necesidad de registro.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* DONATIONS SECTION */}
-      <section className="section-padding" id="donations">
-        <div className="container">
-          <div className="cta-card glass-panel shadow-glow" style={{ padding: '60px', overflow: 'hidden' }}>
-            <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-              <div className="cap-icon-box blue" style={{ margin: '0 auto 24px' }}><Heart /></div>
-              <h2 style={{ fontSize: '36px', marginBottom: '16px' }}>Apóyanos</h2>
-              <p style={{ marginBottom: '32px', color: '#94a3b8' }}>
-                Si nuestra plataforma te ha sido útil, considera hacer una donación para ayudarnos a seguir mejorando.
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                <div id="paypal-container-46PV99WC22VPQ" style={{ minHeight: '150px', zIndex: 1, position: 'relative' }}></div>
-              </div>
             </div>
           </div>
         </div>
