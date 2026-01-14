@@ -12,6 +12,19 @@ export async function POST(request: Request) {
         if (!message) return NextResponse.json({ error: "Message required" }, { status: 400 });
 
         const client = await pool.connect();
+
+        // Ensure table exists (Lazy Init)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS support_tickets (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                type VARCHAR(50) NOT NULL,
+                message TEXT NOT NULL,
+                status VARCHAR(50) DEFAULT 'open',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+        `);
+
         await client.query(
             "INSERT INTO support_tickets (user_id, type, message) VALUES ($1, $2, $3)",
             [session.id, type, message]
