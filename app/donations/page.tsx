@@ -9,7 +9,7 @@ export default function DonationsPage() {
         <div className="min-h-screen bg-[#0f172a] text-white font-outfit flex flex-col">
             {/* PayPal SDK */}
             <Script
-                src="https://www.paypal.com/sdk/js?client-id=BAAFPQ53fCUii64rB81xBDaF90__d0927m9zxq2uQL6X_7o66y3UK1YBc0RSc0gx70Qok9W8uS3OV53ybE&components=hosted-buttons&disable-funding=venmo&currency=USD"
+                src="https://www.paypal.com/sdk/js?client-id=BAAFPQ53fCUii64rB81xBDaF90__d0927m9zxq2uQL6X_7o66y3UK1YBc0RSc0gx70Qok9W8uS3OV53ybE&components=hosted-buttons&disable-funding=venmo&currency=USD&locale=es_ES"
                 onLoad={() => {
                     if ((window as any).paypal) {
                         try {
