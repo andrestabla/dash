@@ -47,8 +47,8 @@ export default function DonationsPage() {
                         </p>
 
                         {/* PayPal Container */}
-                        <div className="flex justify-center w-full">
-                            <div id="paypal-container-46PV99WC22VPQ" className="relative z-10 min-h-[150px]"></div>
+                        <div className="w-full flex justify-center mt-6">
+                            <div id="paypal-container-46PV99WC22VPQ" className="relative z-10 w-full max-w-md min-h-[150px]"></div>
                         </div>
 
                         <p className="text-slate-600 text-sm mt-8">
