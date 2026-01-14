@@ -2,19 +2,43 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; // Added
 import { useTheme } from '@/components/ThemeProvider';
 import { useToast } from '@/components/ToastProvider';
 import { Shield } from 'lucide-react';
 import PrivacyPolicyModal from '@/components/PrivacyPolicyModal';
+import ConfirmModal from '@/components/ConfirmModal'; // Added
 
 export default function ProfilePage() {
     const { theme, toggleTheme } = useTheme();
     const { showToast } = useToast();
+    const router = useRouter(); // Added
 
     const [user, setUser] = useState({ name: '', email: '' });
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(true);
     const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false); // Added
+
+    const confirmDelete = () => setIsDeleteOpen(true);
+
+    const handleDeleteAccount = async () => {
+        try {
+            const res = await fetch('/api/users/delete', { method: 'DELETE' });
+            if (res.ok) {
+                // Clear any local storage if needed?
+                // Redirect to homepage or login
+                showToast("Cuenta eliminada correctamente.", "success");
+                router.push('/login');
+                router.refresh(); // Ensure auth state clears
+            } else {
+                throw new Error("Deletion failed");
+            }
+        } catch {
+            showToast("Error al eliminar la cuenta.", "error");
+            setIsDeleteOpen(false);
+        }
+    };
 
     useEffect(() => {
         fetch('/api/users/profile')
@@ -106,11 +130,42 @@ export default function ProfilePage() {
                         <button type="submit" className="btn-primary">Guardar Cambios</button>
                     </div>
                 </form>
+
+                {/* DANGER ZONE */}
+                <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid var(--border-dim)' }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', marginBottom: 16 }}>Zona de Peligro</h3>
+                    <div style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: 20, borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>Eliminar Cuenta</h4>
+                            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-dim)' }}>
+                                Esta acción es irreversible. Se borrarán todos tus datos.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={confirmDelete}
+                            className="btn-ghost"
+                            style={{ color: '#ef4444', borderColor: '#ef4444', border: '1px solid' }}
+                        >
+                            Eliminar Cuenta
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <PrivacyPolicyModal
                 isOpen={isPolicyModalOpen}
                 onClose={() => setIsPolicyModalOpen(false)}
+            />
+
+            <ConfirmModal
+                isOpen={isDeleteOpen}
+                title="¿Eliminar Cuenta permanentemente?"
+                message="Esta acción no se puede deshacer. Todos tus proyectos, tableros y datos personales serán eliminados de nuestros servidores inmediatamente."
+                confirmText="Sí, eliminar mi cuenta"
+                onConfirm={handleDeleteAccount}
+                onCancel={() => setIsDeleteOpen(false)}
+                isDestructive={true}
             />
         </div>
     );
