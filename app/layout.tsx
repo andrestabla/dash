@@ -6,6 +6,27 @@ import { ToastProvider } from "@/components/ToastProvider";
 export const metadata: Metadata = {
   title: "Project control · Algoritmo T",
   description: "Gestión Metodológica · GOBERNANZA",
+  icons: {
+    icon: '/logo.svg',
+    shortcut: '/logo.svg',
+    apple: '/logo.svg',
+    other: {
+      rel: 'apple-touch-icon-precomposed',
+      url: '/logo.svg',
+    },
+  },
+  openGraph: {
+    title: "Project control · Algoritmo T",
+    description: "Gestión Metodológica · GOBERNANZA",
+    siteName: "Project Control",
+    images: [{
+      url: '/logo.svg', // Ideally an image, but logo serves for now or user can update
+      width: 512,
+      height: 512,
+    }],
+    locale: 'es_ES',
+    type: 'website',
+  },
 };
 
 import SupportWidget from "@/components/SupportWidget"; // Added
