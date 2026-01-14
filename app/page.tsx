@@ -52,18 +52,15 @@ export default function LandingPage() {
     <div className="landing-root">
       <Script
         src="https://www.paypal.com/sdk/js?client-id=BAAFPQ53fCUii64rB81xBDaF90__d0927m9zxq2uQL6X_7o66y3UK1YBc0RSc0gx70Qok9W8uS3OV53ybE&components=hosted-buttons&disable-funding=venmo&currency=USD"
-        crossOrigin="anonymous"
-        strategy="afterInteractive"
         onLoad={() => {
           if ((window as any).paypal) {
             try {
-              const container = document.querySelector("#paypal-container-46PV99WC22VPQ");
-              if (container && container.innerHTML === "") {
-                (window as any).paypal.HostedButtons({
-                  hostedButtonId: "46PV99WC22VPQ"
-                }).render("#paypal-container-46PV99WC22VPQ");
-              }
-            } catch (e) { }
+              (window as any).paypal.HostedButtons({
+                hostedButtonId: "46PV99WC22VPQ"
+              }).render("#paypal-container-46PV99WC22VPQ");
+            } catch (e) {
+              console.error("PayPal render error:", e);
+            }
           }
         }}
       />
