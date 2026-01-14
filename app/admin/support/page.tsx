@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from '@/components/ToastProvider';
-import { MessageCircle, CheckCircle, AlertCircle, Clock, Info } from 'lucide-react';
+import { MessageCircle, CheckCircle, AlertCircle, Clock, Info, Reply, X, Send } from 'lucide-react';
 
 export default function AdminSupportPage() {
     const { showToast } = useToast();
     const [tickets, setTickets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Reply Modal State
+    const [replyingTicket, setReplyingTicket] = useState<any>(null);
+    const [replyMessage, setReplyMessage] = useState("");
+    const [sendingReply, setSendingReply] = useState(false);
 
     useEffect(() => {
         loadTickets();
@@ -40,6 +45,41 @@ export default function AdminSupportPage() {
             }
         } catch {
             showToast("Error al actualizar", "error");
+        }
+    };
+
+    const openReplyModal = (ticket: any) => {
+        setReplyingTicket(ticket);
+        // Pre-fill? No, empty message.
+        setReplyMessage(`Hola ${ticket.user_name || 'usuario'},\n\nRespecto a tu reporte: "${ticket.message.substring(0, 30)}..."\n\n`);
+    };
+
+    const sendReply = async () => {
+        if (!replyMessage) return;
+        setSendingReply(true);
+        try {
+            const res = await fetch('/api/support/reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ticketId: replyingTicket.id,
+                    to: replyingTicket.user_email,
+                    subject: `Respuesta a su ticket de soporte (${replyingTicket.type})`,
+                    message: replyMessage
+                })
+            });
+
+            if (res.ok) {
+                showToast("Respuesta enviada correctamente", "success");
+                setReplyingTicket(null);
+                setReplyMessage("");
+            } else {
+                showToast("Error al enviar respuesta", "error");
+            }
+        } catch {
+            showToast("Error de conexión", "error");
+        } finally {
+            setSendingReply(false);
         }
     };
 
@@ -104,22 +144,89 @@ export default function AdminSupportPage() {
                                     {t.status === 'closed' && <span style={{ color: 'var(--text-dim)', fontWeight: 600, fontSize: 13 }}>Cerrado</span>}
                                 </td>
                                 <td style={{ padding: 16, textAlign: 'right' }}>
-                                    <select
-                                        className="input-glass"
-                                        value={t.status}
-                                        onChange={(e) => updateStatus(t.id, e.target.value)}
-                                        style={{ fontSize: 13, padding: '4px 8px' }}
-                                    >
-                                        <option value="open">Abierto</option>
-                                        <option value="resolved">Resuelto</option>
-                                        <option value="closed">Cerrado</option>
-                                    </select>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                                        <select
+                                            className="input-glass"
+                                            value={t.status}
+                                            onChange={(e) => updateStatus(t.id, e.target.value)}
+                                            style={{ fontSize: 13, padding: '4px 8px', width: 'auto' }}
+                                        >
+                                            <option value="open">Abierto</option>
+                                            <option value="resolved">Resuelto</option>
+                                            <option value="closed">Cerrado</option>
+                                        </select>
+
+                                        {t.user_email && (
+                                            <button
+                                                onClick={() => openReplyModal(t)}
+                                                className="btn-ghost"
+                                                title="Responder por correo"
+                                                style={{ padding: 6, color: 'var(--primary)' }}
+                                            >
+                                                <Reply size={16} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+
+            {/* REPLY MODAL */}
+            {replyingTicket && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 100,
+                    background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div className="glass-panel animate-slide-up" style={{ width: 600, maxWidth: '90vw', background: 'var(--bg-card)', border: '1px solid var(--border-dim)', borderRadius: 24, padding: 32 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+                            <h3 style={{ margin: 0, fontSize: 20 }}>Responder a {replyingTicket.user_name}</h3>
+                            <button onClick={() => setReplyingTicket(null)} className="btn-ghost"><X size={20} /></button>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: 16 }}>
+                            <div>
+                                <label className="form-label" style={{ fontSize: 12 }}>PARA</label>
+                                <div className="input-glass" style={{ background: 'rgba(0,0,0,0.05)' }}>{replyingTicket.user_email}</div>
+                            </div>
+
+                            <div>
+                                <label className="form-label" style={{ fontSize: 12 }}>ASUNTO</label>
+                                <div className="input-glass" style={{ background: 'rgba(0,0,0,0.05)' }}>
+                                    Respuesta a su ticket de soporte ({replyingTicket.type})
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="form-label">MENSAJE</label>
+                                <textarea
+                                    className="input-glass"
+                                    rows={8}
+                                    autoFocus
+                                    value={replyMessage}
+                                    onChange={(e) => setReplyMessage(e.target.value)}
+                                    placeholder="Escribe tu respuesta aquí..."
+                                    style={{ width: '100%', resize: 'none' }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                            <button onClick={() => setReplyingTicket(null)} className="btn-ghost" disabled={sendingReply}>Cancelar</button>
+                            <button onClick={sendReply} className="btn-primary" disabled={sendingReply || !replyMessage}>
+                                {sendingReply ? 'Enviando...' : (
+                                    <>
+                                        <Send size={16} style={{ marginRight: 8 }} /> Enviar Respuesta
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
