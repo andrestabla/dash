@@ -20,10 +20,14 @@ export default function DashboardChat({ dashboardId, currentUser }: { dashboardI
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [recipients, setRecipients] = useState<{ id: string, name: string }[]>([]);
+    const [selectedRecipient, setSelectedRecipient] = useState<string>("none"); // none, all, userId
+    const [collaborators, setCollaborators] = useState<{ id: string, name: string }[]>([]);
 
     // Initial Fetch & Polling
     useEffect(() => {
         fetchMessages();
+        fetchCollaborators();
         const interval = setInterval(fetchMessages, 5000); // Poll every 5s
         return () => clearInterval(interval);
     }, [dashboardId]);
@@ -52,6 +56,20 @@ export default function DashboardChat({ dashboardId, currentUser }: { dashboardI
         }
     };
 
+    const fetchCollaborators = async () => {
+        try {
+            const res = await fetch(`/api/dashboards/${dashboardId}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'list_collaborators' })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setCollaborators(data.collaborators || []);
+            }
+        } catch (e) { console.error(e); }
+    };
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim()) return;
@@ -75,13 +93,19 @@ export default function DashboardChat({ dashboardId, currentUser }: { dashboardI
             const res = await fetch(`/api/dashboards/${dashboardId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: tempMsg.content })
+                body: JSON.stringify({
+                    content: tempMsg.content,
+                    notify: selectedRecipient
+                })
             });
 
             if (res.ok) {
                 const savedMsg = await res.json();
                 // Replace temp with real
                 setMessages(prev => prev.map(m => m.id === tempId ? savedMsg : m));
+                if (selectedRecipient !== 'none') {
+                    showToast("Mensaje enviado y notificado", "success");
+                }
             } else {
                 const errData = await res.json().catch(() => ({}));
                 console.error("Chat Error:", errData);
@@ -162,7 +186,22 @@ export default function DashboardChat({ dashboardId, currentUser }: { dashboardI
             </div>
 
             {/* Input Area */}
-            <form onSubmit={handleSendMessage} style={{ padding: 16, background: 'var(--bg-card)', borderTop: '1px solid var(--border-dim)', display: 'flex', gap: 12 }}>
+            <form onSubmit={handleSendMessage} style={{ padding: 16, background: 'var(--bg-card)', borderTop: '1px solid var(--border-dim)', display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Notificar:</span>
+                    <select
+                        value={selectedRecipient}
+                        onChange={(e) => setSelectedRecipient(e.target.value)}
+                        className="input-glass"
+                        style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, maxWidth: 120 }}
+                    >
+                        <option value="none">Nadie</option>
+                        <option value="all">🔔 Todos</option>
+                        {collaborators.filter(c => c.id !== currentUser.id).map(c => (
+                            <option key={c.id} value={c.id}>@{c.name}</option>
+                        ))}
+                    </select>
+                </div>
                 <input
                     type="text"
                     value={newMessage}

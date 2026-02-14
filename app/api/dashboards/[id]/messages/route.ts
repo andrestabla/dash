@@ -46,7 +46,7 @@ export async function POST(
     const { id: dashboardId } = await params;
 
     try {
-        const { content } = await request.json();
+        const { content, notify } = await request.json();
 
         if (!content || !content.trim()) {
             return NextResponse.json({ error: "Content required" }, { status: 400 });
@@ -63,6 +63,53 @@ export async function POST(
                 VALUES ($1, $2, $3)
                 RETURNING *
             `, [dashboardId, session.id, content]);
+
+            // Handle Notifications
+            if (notify && notify !== 'none') {
+                const { sendEmail } = await import('@/lib/email');
+
+                let recipients: string[] = [];
+
+                if (notify === 'all') {
+                    // Fetch all collaborators + Owner?
+                    // Fetch collaborators
+                    const collabRes = await client.query(`
+                        SELECT u.email 
+                        FROM dashboard_collaborators dc
+                        JOIN users u ON dc.user_id = u.id
+                        WHERE dc.dashboard_id = $1 AND u.id != $2
+                    `, [dashboardId, session.id]);
+                    recipients = collabRes.rows.map(r => r.email);
+
+                    // Also get owners from settings if not implicitly covered? 
+                    // Note: 'dashboard_collaborators' might not include the creator if not inserted there.
+                    // Ideally we should have the creator in collaborators too or fetch separate.
+                    // For MVP let's assume collaborators table is the source of truth for "active team".
+                } else {
+                    // Specific User
+                    const userRes = await client.query('SELECT email FROM users WHERE id = $1', [notify]);
+                    if (userRes.rows.length > 0) {
+                        recipients.push(userRes.rows[0].email);
+                    }
+                }
+
+                // Get Dashboard Name
+                const dashRes = await client.query('SELECT name FROM dashboards WHERE id = $1', [dashboardId]);
+                const dashName = dashRes.rows[0]?.name || "Tablero";
+
+                // Send Emails
+                const subject = `Nuevo mensaje en ${dashName}`;
+                const html = `
+                    <p><strong>${session.name || 'Un miembro'}</strong> escribió en el chat:</p>
+                    <blockquote style="border-left: 2px solid #ccc; padding-left: 10px; color: #555;">
+                        ${content}
+                    </blockquote>
+                    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/board/${dashboardId}">Ir al Tablero</a></p>
+                `;
+
+                // Send in parallel
+                Promise.allSettled(recipients.map(email => sendEmail(email, subject, html)));
+            }
 
             // Get user details for immediate frontend update without re-fetch
             const newMessage = res.rows[0];

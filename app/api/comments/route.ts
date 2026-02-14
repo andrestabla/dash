@@ -38,6 +38,71 @@ export async function POST(request: Request) {
             'INSERT INTO task_comments (task_id, user_email, user_name, content) VALUES ($1, $2, $3, $4) RETURNING *',
             [taskId, userEmail, userName || userEmail.split('@')[0], content]
         );
+
+        // --- NOTIFICATIONS ---
+        try {
+            const { sendEmail } = await import('@/lib/email');
+
+            // 1. Get Task details (Name & Dashboard ID)
+            const taskRes = await client.query('SELECT name, dashboard_id FROM tasks WHERE id = $1', [taskId]);
+            const taskName = taskRes.rows[0]?.name || 'Tarea';
+            const dashboardId = taskRes.rows[0]?.dashboard_id;
+
+            // 2. Identify Recipients
+            const recipientEmails = new Set<string>();
+
+            // A. Assignees
+            const assigneesRes = await client.query(`
+                SELECT u.email 
+                FROM task_assignees ta
+                JOIN users u ON ta.user_id = u.id
+                WHERE ta.task_id = $1
+            `, [taskId]);
+
+            assigneesRes.rows.forEach(r => recipientEmails.add(r.email));
+
+            // B. Mentions (@Name)
+            const mentions = content.match(/@([a-zA-Z0-9_ñÑ]+)/g);
+            if (mentions && dashboardId) {
+                for (const mention of mentions) {
+                    const namePart = mention.substring(1); // remove @
+                    // Search in dashboard collaborators/users
+                    // Simple match: Name starts with or contains
+                    const userMatch = await client.query(`
+                        SELECT u.email FROM users u
+                        JOIN dashboard_collaborators dc ON u.id = dc.user_id
+                        WHERE dc.dashboard_id = $1 AND u.name ILIKE $2
+                        LIMIT 1
+                     `, [dashboardId, `%${namePart}%`]);
+
+                    if (userMatch.rows.length > 0) {
+                        recipientEmails.add(userMatch.rows[0].email);
+                    }
+                }
+            }
+
+            // Remove sender from recipients
+            recipientEmails.delete(userEmail);
+
+            // 3. Send Emails
+            const subject = `Nuevo comentario en: ${taskName}`;
+            const html = `
+                <p><strong>${userName || 'Un usuario'}</strong> comentó en la tarea <strong>${taskName}</strong>:</p>
+                <blockquote style="border-left: 2px solid #ccc; padding-left: 10px; color: #555;">
+                    ${content}
+                </blockquote>
+                <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/board/${dashboardId}?taskId=${taskId}">Ver Tarea</a></p>
+            `;
+
+            Array.from(recipientEmails).forEach(email => {
+                sendEmail(email, subject, html);
+            });
+
+        } catch (notifError) {
+            console.error("Notification Error:", notifError);
+            // Don't fail the request if notification fails
+        }
+
         client.release();
 
         return NextResponse.json(result.rows[0], { status: 201 });

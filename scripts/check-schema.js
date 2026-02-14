@@ -10,23 +10,35 @@ async function checkSchema() {
     try {
         const client = await pool.connect();
 
-        const dashboardRes = await client.query(`
+        // Check tasks table
+        const tasksRes = await client.query(`
             SELECT column_name, data_type 
             FROM information_schema.columns 
-            WHERE table_name = 'dashboards' AND column_name = 'id';
+            WHERE table_name = 'tasks'
         `);
-        console.log('Dashboards ID type:', dashboardRes.rows[0]);
+        console.log("Tasks Table:", tasksRes.rows.map(r => r.column_name));
 
-        const userRes = await client.query(`
-            SELECT column_name, data_type 
-            FROM information_schema.columns 
-            WHERE table_name = 'users' AND column_name = 'id';
+        // Check for assignments table
+        const tablesRes = await client.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
         `);
-        console.log('Users ID type:', userRes.rows[0]);
+        const tables = tablesRes.rows.map(r => r.table_name);
+        console.log("Tables:", tables);
+
+        if (tables.includes('task_assignees')) {
+            const assigneesRes = await client.query(`
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'task_assignees'
+            `);
+            console.log("Task Assignees Table:", assigneesRes.rows.map(r => r.column_name));
+        }
 
         client.release();
     } catch (err) {
-        console.error('Error:', err.message);
+        console.error(err);
     } finally {
         await pool.end();
     }
