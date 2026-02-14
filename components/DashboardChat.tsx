@@ -83,10 +83,13 @@ export default function DashboardChat({ dashboardId, currentUser }: { dashboardI
                 // Replace temp with real
                 setMessages(prev => prev.map(m => m.id === tempId ? savedMsg : m));
             } else {
+                const errData = await res.json().catch(() => ({}));
+                console.error("Chat Error:", errData);
                 setMessages(prev => prev.filter(m => m.id !== tempId));
-                showToast("Error al enviar mensaje", "error");
+                showToast(errData.details || errData.error || "Error al enviar mensaje", "error");
             }
         } catch (err) {
+            console.error("Network Error:", err);
             setMessages(prev => prev.filter(m => m.id !== tempId));
             showToast("Error de conexión", "error");
         } finally {

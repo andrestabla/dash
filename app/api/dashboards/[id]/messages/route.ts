@@ -39,8 +39,8 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const session = await getSession() as any;
-    if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session || !session.id) {
+        return NextResponse.json({ error: 'Unauthorized: No session ID' }, { status: 401 });
     }
 
     const { id: dashboardId } = await params;
@@ -54,24 +54,27 @@ export async function POST(
 
         const client = await pool.connect();
 
-        // Optional: Check permissions (is user part of dashboard?)
-        // For now relying on basic auth session + knowledge of dashboard ID
+        try {
+            // Optional: Check permissions (is user part of dashboard?)
+            // For now relying on basic auth session + knowledge of dashboard ID
 
-        const res = await client.query(`
-            INSERT INTO dashboard_messages (dashboard_id, user_id, content)
-            VALUES ($1, $2, $3)
-            RETURNING *
-        `, [dashboardId, session.id]);
+            const res = await client.query(`
+                INSERT INTO dashboard_messages (dashboard_id, user_id, content)
+                VALUES ($1, $2, $3)
+                RETURNING *
+            `, [dashboardId, session.id, content]);
 
-        // Get user details for immediate frontend update without re-fetch
-        const newMessage = res.rows[0];
-        newMessage.user_name = session.name;
-        newMessage.user_email = session.email;
+            // Get user details for immediate frontend update without re-fetch
+            const newMessage = res.rows[0];
+            newMessage.user_name = session.name || session.email?.split('@')[0] || 'Usuario';
+            newMessage.user_email = session.email;
 
-        client.release();
-        return NextResponse.json(newMessage, { status: 201 });
-    } catch (error) {
+            return NextResponse.json(newMessage, { status: 201 });
+        } finally {
+            client.release();
+        }
+    } catch (error: any) {
         console.error("Chat post error:", error);
-        return NextResponse.json({ error: "Failed to post message" }, { status: 500 });
+        return NextResponse.json({ error: "Failed to post message", details: error.message }, { status: 500 });
     }
 }
