@@ -120,8 +120,8 @@ export async function POST(
                     footerText: "Dashboard App"
                 });
 
-                // Send in parallel
-                Promise.allSettled(recipients.map(email => sendEmail(email, subject, html)));
+                // Send in parallel and AWAIT to ensure Vercel doesn't kill the process
+                await Promise.allSettled(recipients.map(email => sendEmail(email, subject, html)));
             }
 
             // Get user details for immediate frontend update without re-fetch

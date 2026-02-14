@@ -101,9 +101,7 @@ export async function POST(request: Request) {
                 footerText: "Gestión de Tareas"
             });
 
-            Array.from(recipientEmails).forEach(email => {
-                sendEmail(email, subject, html);
-            });
+            await Promise.allSettled(Array.from(recipientEmails).map(email => sendEmail(email, subject, html)));
 
         } catch (notifError) {
             console.error("Notification Error:", notifError);
