@@ -1,9 +1,6 @@
-
 export const getBaseUrl = () => {
-    // Priority: Explicit App URL > NextAuth URL > Vercel URL > Localhost
-    return process.env.NEXT_PUBLIC_APP_URL || 
-           process.env.NEXTAUTH_URL || 
-           (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    // Force primary domain as requested by user
+    return 'https://misproyectos.com.co';
 };
 
 interface EmailTemplateProps {
@@ -23,7 +20,7 @@ export const generateEmailHtml = ({
     ctaText = "Ver en Tablero",
     footerText = "Dashboard App"
 }: EmailTemplateProps) => {
-    
+
     const primaryColor = "#3b82f6"; // Blue
     const backgroundColor = "#f3f4f6";
     const containerColor = "#ffffff";
