@@ -71,8 +71,7 @@ export async function POST(
                 let recipients: string[] = [];
 
                 if (notify === 'all') {
-                    // Fetch all collaborators + Owner?
-                    // Fetch collaborators
+                    // Fetch all collaborators
                     const collabRes = await client.query(`
                         SELECT u.email 
                         FROM dashboard_collaborators dc
@@ -81,10 +80,15 @@ export async function POST(
                     `, [dashboardId, session.id]);
                     recipients = collabRes.rows.map(r => r.email);
 
-                    // Also get owners from settings if not implicitly covered? 
-                    // Note: 'dashboard_collaborators' might not include the creator if not inserted there.
-                    // Ideally we should have the creator in collaborators too or fetch separate.
-                    // For MVP let's assume collaborators table is the source of truth for "active team".
+                    // Add owner if not present and not sender
+                    const ownerRes = await client.query('SELECT u.email, u.id FROM dashboards d JOIN users u ON d.owner_id = u.id WHERE d.id = $1', [dashboardId]);
+                    if (ownerRes.rows.length > 0) {
+                        const owner = ownerRes.rows[0];
+                        if (owner.id !== session.id && !recipients.includes(owner.email)) {
+                            recipients.push(owner.email);
+                        }
+                    }
+
                 } else {
                     // Specific User
                     const userRes = await client.query('SELECT email FROM users WHERE id = $1', [notify]);
@@ -98,14 +102,23 @@ export async function POST(
                 const dashName = dashRes.rows[0]?.name || "Tablero";
 
                 // Send Emails
-                const subject = `Nuevo mensaje en ${dashName}`;
-                const html = `
-                    <p><strong>${session.name || 'Un miembro'}</strong> escribió en el chat:</p>
-                    <blockquote style="border-left: 2px solid #ccc; padding-left: 10px; color: #555;">
-                        ${content}
-                    </blockquote>
-                    <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/board/${dashboardId}">Ir al Tablero</a></p>
-                `;
+                const { generateEmailHtml, getBaseUrl } = await import('@/lib/email-templates');
+                const baseUrl = getBaseUrl();
+                const link = `${baseUrl}/board/${dashboardId}`;
+                const subject = `💬 Nuevo mensaje en: ${dashName}`;
+
+                const html = generateEmailHtml({
+                    title: `Nuevo mensaje en ${dashName}`,
+                    previewText: `${session.name || 'Un miembro'} escribió en el chat.`,
+                    bodyContent: `
+                        <strong>${session.name || 'Un miembro'}</strong> escribió:
+                        <br/><br/>
+                        <blockquote>${content}</blockquote>
+                    `,
+                    ctaLink: link,
+                    ctaText: "Ir al Chat",
+                    footerText: "Dashboard App"
+                });
 
                 // Send in parallel
                 Promise.allSettled(recipients.map(email => sendEmail(email, subject, html)));

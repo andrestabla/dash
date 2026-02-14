@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         // --- NOTIFICATIONS ---
         try {
             const { sendEmail } = await import('@/lib/email');
+            const { generateEmailHtml, getBaseUrl } = await import('@/lib/email-templates');
 
             // 1. Get Task details (Name & Dashboard ID)
             const taskRes = await client.query('SELECT name, dashboard_id FROM tasks WHERE id = $1', [taskId]);
@@ -66,8 +67,6 @@ export async function POST(request: Request) {
             if (mentions && dashboardId) {
                 for (const mention of mentions) {
                     const namePart = mention.substring(1); // remove @
-                    // Search in dashboard collaborators/users
-                    // Simple match: Name starts with or contains
                     const userMatch = await client.query(`
                         SELECT u.email FROM users u
                         JOIN dashboard_collaborators dc ON u.id = dc.user_id
@@ -85,14 +84,22 @@ export async function POST(request: Request) {
             recipientEmails.delete(userEmail);
 
             // 3. Send Emails
-            const subject = `Nuevo comentario en: ${taskName}`;
-            const html = `
-                <p><strong>${userName || 'Un usuario'}</strong> comentó en la tarea <strong>${taskName}</strong>:</p>
-                <blockquote style="border-left: 2px solid #ccc; padding-left: 10px; color: #555;">
-                    ${content}
-                </blockquote>
-                <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/board/${dashboardId}?taskId=${taskId}">Ver Tarea</a></p>
-            `;
+            const subject = `💬 Nuevo comentario en: ${taskName}`;
+            const baseUrl = getBaseUrl();
+            const link = `${baseUrl}/board/${dashboardId}?taskId=${taskId}`;
+
+            const html = generateEmailHtml({
+                title: `Nuevo comentario en ${taskName}`,
+                previewText: `${userName || 'Un usuario'} comentó en la tarea.`,
+                bodyContent: `
+                    <strong>${userName || 'Un usuario'}</strong> escribió:
+                    <br/><br/>
+                    <blockquote>${content}</blockquote>
+                `,
+                ctaLink: link,
+                ctaText: "Ver Comentario",
+                footerText: "Gestión de Tareas"
+            });
 
             Array.from(recipientEmails).forEach(email => {
                 sendEmail(email, subject, html);
