@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, User, MessageCircle } from 'lucide-react';
 import { useToast } from '@/components/ToastProvider';
+import MentionInput from './MentionInput';
 
 interface Message {
     id: string;
@@ -202,23 +203,39 @@ export default function DashboardChat({ dashboardId, currentUser }: { dashboardI
                         ))}
                     </select>
                 </div>
-                <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Escribe un mensaje..."
-                    style={{
-                        flex: 1,
-                        padding: '12px 16px',
-                        borderRadius: 24,
-                        border: '1px solid var(--border-dim)',
-                        background: 'var(--bg-panel)',
-                        color: 'var(--text-main)',
-                        fontSize: 14,
-                        outline: 'none'
-                    }}
-                />
+
+                <div style={{ flex: 1 }}>
+                    <MentionInput
+                        value={newMessage}
+                        onChange={setNewMessage}
+                        onSend={() => {
+                            // Trigger submit manually since it's a form
+                            // But FormEvent requires an event. 
+                            // We can just call logic directly if we extract it, 
+                            // or create a synthetic event? 
+                            // Easier: Extract logic or just call button click?
+                            // Let's call the button.
+                            const btn = document.getElementById('chat-send-btn');
+                            if (btn) btn.click();
+                        }}
+                        placeholder="Escribe un mensaje... (@ para mencionar)"
+                        users={collaborators} // Pass all collaborators for mentions
+                        className="input-glass"
+                        style={{
+                            width: '100%',
+                            padding: '12px 16px',
+                            borderRadius: 24,
+                            border: '1px solid var(--border-dim)',
+                            background: 'var(--bg-panel)',
+                            color: 'var(--text-main)',
+                            fontSize: 14,
+                            outline: 'none'
+                        }}
+                    />
+                </div>
+
                 <button
+                    id="chat-send-btn"
                     type="submit"
                     disabled={!newMessage.trim() || sending}
                     className="shadow-glow hover-lift"

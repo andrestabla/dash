@@ -10,6 +10,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, LayoutGrid, ListTodo, BarChart3, BookOpen, Lock, MessageCircle } from 'lucide-react';
 import UserTour from "@/components/UserTour";
 import DashboardChat from "@/components/DashboardChat";
+import MentionInput from "@/components/MentionInput";
 
 interface Task {
     id: string | number;
@@ -1284,20 +1285,20 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
                                     {/* Add Comment */}
                                     <div style={{ display: 'flex', gap: 8 }}>
-                                        <textarea
-                                            value={newComment}
-                                            onChange={e => setNewComment(e.target.value)}
-                                            onKeyDown={e => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
+                                        <div style={{ flex: 1 }}>
+                                            <MentionInput
+                                                value={newComment}
+                                                onChange={setNewComment}
+                                                onSend={() => {
                                                     if (newComment.trim()) handleAddComment();
-                                                }
-                                            }}
-                                            placeholder="Escribe un comentario... (Enter para enviar)"
-                                            className="input-glass"
-                                            style={{ flex: 1, minHeight: 40, padding: 8, fontSize: 13 }}
-                                        />
-                                        <button className="btn-primary" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 'auto' }}>
+                                                }}
+                                                placeholder="Escribe un comentario... (@ para mencionar)"
+                                                users={collaborators}
+                                                className="input-glass"
+                                                style={{ minHeight: 40, padding: 8, fontSize: 13, width: '100%' }}
+                                            />
+                                        </div>
+                                        <button className="btn-primary" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 40, width: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <Send size={16} />
                                         </button>
                                     </div>

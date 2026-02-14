@@ -81,6 +81,11 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
                 FROM dashboard_collaborators dc
                 JOIN users u ON dc.user_id = u.id
                 WHERE dc.dashboard_id = $1
+                UNION
+                SELECT u.id, u.name, u.email, 'owner' as role
+                FROM dashboards d
+                JOIN users u ON d.owner_id = u.id
+                WHERE d.id = $1
             `, [dashboardId]);
             const tokenRes = await client.query('SELECT is_public, public_token FROM dashboards WHERE id = $1', [dashboardId]);
 
