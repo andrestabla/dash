@@ -192,7 +192,17 @@ function WorkspaceContent() {
 
 
 
-    const [sortOption, setSortOption] = useState<SortOption>('custom');
+    const [sortOption, setSortOption] = useState<SortOption>('date_new');
+
+    // Persistence for Sort Option
+    useEffect(() => {
+        const saved = localStorage.getItem('workspace_sort');
+        if (saved) setSortOption(saved as SortOption);
+    }, []);
+
+    useEffect(() => {
+        if (sortOption) localStorage.setItem('workspace_sort', sortOption);
+    }, [sortOption]);
 
     // --- COMPUTED ---
     const currentItems = useMemo(() => {
