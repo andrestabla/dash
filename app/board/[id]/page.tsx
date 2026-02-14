@@ -7,8 +7,9 @@ import { useToast } from "@/components/ToastProvider";
 
 import ConfirmModal from "@/components/ConfirmModal";
 
-import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, LayoutGrid, ListTodo, BarChart3, BookOpen, Lock } from 'lucide-react';
+import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, LayoutGrid, ListTodo, BarChart3, BookOpen, Lock, MessageCircle } from 'lucide-react';
 import UserTour from "@/components/UserTour";
+import DashboardChat from "@/components/DashboardChat";
 
 interface Task {
     id: string | number;
@@ -56,7 +57,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [settings, setSettings] = useState<BoardSettings | null>(null);
     const [dashboardName, setDashboardName] = useState("Roadmap");
-    const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics">("kanban");
+    const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics" | "chat">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [availableUsers, setAvailableUsers] = useState<{ id: string, name: string, email: string }[]>([]);
     const [projectEndDate, setProjectEndDate] = useState<string | null>(null);
@@ -921,6 +922,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         <div className={`tab ${activeTab === "analytics" ? "active" : ""}`} onClick={() => setActiveTab("analytics")}>
                             <BarChart3 size={16} /> <span>Datos</span>
                         </div>
+                        <div className={`tab ${activeTab === "chat" ? "active" : ""}`} onClick={() => setActiveTab("chat")}>
+                            <MessageCircle size={16} /> <span>Equipo</span>
+                        </div>
                     </div>
                 </div>
 
@@ -1122,6 +1126,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {/* ANALYTICS */}
                 {activeTab === "analytics" && settings && (
                     <AnalyticsView tasks={tasks} settings={settings} statuses={statuses} />
+                )}
+
+                {/* CHAT TAB */}
+                {activeTab === "chat" && (
+                    <div className="view-section active animate-fade-in" style={{ padding: '0 20px 20px 20px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+                        <DashboardChat dashboardId={dashboardId} currentUser={currentUser} />
+                    </div>
                 )}
 
                 {isModalOpen && settings && (

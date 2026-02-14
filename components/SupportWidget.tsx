@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X, AlertCircle, Lightbulb, Send } from "lucide-react";
+import { MessageCircle, X, AlertCircle, Lightbulb, Send, List } from "lucide-react";
 
 export default function SupportWidget() {
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
-    const [view, setView] = useState<'menu' | 'form'>('menu');
+    const [view, setView] = useState<'menu' | 'form' | 'tickets'>('menu');
     const [formType, setFormType] = useState<'issue' | 'idea'>('issue');
     const [message, setMessage] = useState("");
+    const [tickets, setTickets] = useState<any[]>([]);
+    const [loadingTickets, setLoadingTickets] = useState(false);
 
     // Hide on public pages
     const isPublic = [
@@ -31,6 +33,21 @@ export default function SupportWidget() {
         { q: "¿Aceptan otros medios de pago?", a: "Actualmente procesamos donaciones vía PayPal, que acepta saldo y tarjetas de crédito/débito internacionales." }
     ];
 
+    const loadTickets = async () => {
+        setLoadingTickets(true);
+        try {
+            const res = await fetch('/api/support/my-tickets');
+            if (res.ok) {
+                const data = await res.json();
+                setTickets(data);
+            }
+        } catch {
+            console.error("Failed to load tickets");
+        } finally {
+            setLoadingTickets(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -42,6 +59,7 @@ export default function SupportWidget() {
             if (res.ok) {
                 alert(`Gracias! Tu ${formType === 'issue' ? 'caso' : 'sugerencia'} ha sido enviada. Nuestro equipo administrativo la revisará.`);
                 setMessage("");
+                loadTickets(); // Refresh list
                 setView('menu');
                 setIsOpen(false);
             } else {
@@ -138,16 +156,25 @@ export default function SupportWidget() {
                                         </button>
                                     </div>
 
-                                    <a
-                                        href="/tutorials"
-                                        className="btn-ghost"
-                                        style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: 8, border: '1px solid var(--border-dim)', background: 'var(--bg-card)', textDecoration: 'none' }}
-                                    >
-                                        <span style={{ fontSize: 16 }}>📚</span> <span style={{ fontSize: 14 }}>Ver Tutoriales y Guías</span>
-                                    </a>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+                                        <a
+                                            href="/tutorials"
+                                            className="btn-ghost"
+                                            style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-card)', textDecoration: 'none', padding: 12 }}
+                                        >
+                                            <span style={{ fontSize: 16 }}>📚</span> <span style={{ fontSize: 13, fontWeight: 600 }}>Tutoriales y Guías</span>
+                                        </a>
+                                        <button
+                                            onClick={() => { setView('tickets'); loadTickets(); }}
+                                            className="btn-ghost"
+                                            style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-card)', padding: 12 }}
+                                        >
+                                            <List size={18} style={{ color: 'var(--primary)' }} /> <span style={{ fontSize: 13, fontWeight: 600 }}>Mis Solicitudes</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </>
-                        ) : (
+                        ) : view === 'form' ? (
                             <form onSubmit={handleSubmit} className="animate-fade-in">
                                 <button
                                     type="button"
@@ -181,6 +208,52 @@ export default function SupportWidget() {
                                     <Send size={16} style={{ marginRight: 8 }} /> Enviar
                                 </button>
                             </form>
+                        ) : (
+                            <div className="animate-fade-in">
+                                <button
+                                    type="button"
+                                    onClick={() => setView('menu')}
+                                    className="btn-ghost"
+                                    style={{ marginBottom: 16, padding: '0', fontSize: 13, color: 'var(--text-dim)' }}
+                                >
+                                    ← Volver
+                                </button>
+
+                                <h4 style={{ margin: '0 0 16px', fontSize: 16 }}>Mis Solicitudes</h4>
+
+                                {loadingTickets ? (
+                                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-dim)' }}>Cargando...</div>
+                                ) : tickets.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-dim)', fontSize: 13 }}>
+                                        No tienes solicitudes creadas todavía.
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        {tickets.map(t => (
+                                            <div key={t.id} style={{ padding: 12, background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-dim)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: t.type === 'issue' ? '#ef4444' : '#f59e0b' }}>
+                                                        {t.type === 'issue' ? 'Fallo' : 'Mejora'}
+                                                    </span>
+                                                    <span style={{
+                                                        fontSize: 10,
+                                                        fontWeight: 700,
+                                                        color: t.status === 'resolved' ? '#10b981' : (t.status === 'open' ? '#3b82f6' : 'var(--text-dim)')
+                                                    }}>
+                                                        {t.status.toUpperCase()}
+                                                    </span>
+                                                </div>
+                                                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.4, color: 'var(--text-main)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                    {t.message}
+                                                </p>
+                                                <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 8 }}>
+                                                    {new Date(t.created_at).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>

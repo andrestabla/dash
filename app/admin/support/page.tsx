@@ -102,13 +102,14 @@ export default function AdminSupportPage() {
                             <th style={{ padding: 16, textAlign: 'left', fontSize: 13, color: 'var(--text-dim)' }}>TIPO</th>
                             <th style={{ padding: 16, textAlign: 'left', fontSize: 13, color: 'var(--text-dim)' }}>MENSAJE</th>
                             <th style={{ padding: 16, textAlign: 'left', fontSize: 13, color: 'var(--text-dim)' }}>ESTADO</th>
+                            <th style={{ padding: 16, textAlign: 'left', fontSize: 13, color: 'var(--text-dim)' }}>ÚLTIMA ACTIVIDAD</th>
                             <th style={{ padding: 16, textAlign: 'right', fontSize: 13, color: 'var(--text-dim)' }}>ACCIONES</th>
                         </tr>
                     </thead>
                     <tbody>
                         {tickets.length === 0 && (
                             <tr>
-                                <td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)' }}>
+                                <td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)' }}>
                                     No hay tickets pendientes.
                                 </td>
                             </tr>
@@ -142,6 +143,9 @@ export default function AdminSupportPage() {
                                     {t.status === 'open' && <span style={{ color: '#3b82f6', fontWeight: 600, fontSize: 13 }}>Abierto</span>}
                                     {t.status === 'resolved' && <span style={{ color: '#10b981', fontWeight: 600, fontSize: 13 }}>Resuelto</span>}
                                     {t.status === 'closed' && <span style={{ color: 'var(--text-dim)', fontWeight: 600, fontSize: 13 }}>Cerrado</span>}
+                                </td>
+                                <td style={{ padding: 16, fontSize: 12, color: 'var(--text-dim)' }}>
+                                    {t.updated_at ? new Date(t.updated_at).toLocaleString() : new Date(t.created_at).toLocaleString()}
                                 </td>
                                 <td style={{ padding: 16, textAlign: 'right' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>

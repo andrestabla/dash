@@ -31,11 +31,13 @@ export async function POST(request: Request) {
         const success = await sendEmail(to, subject, html);
 
         if (success) {
-            // Update ticket status to resolved automatically? Optional.
-            // Let's just update the updated_at or log it. 
-            // For now, simple success is enough. 
-            // Maybe we mark it as 'resolved' if the admin wants, but let's leave that manual for now 
-            // or we could auto-resolve. Let's stick to just sending.
+            // Auto-resolve ticket
+            const client = await pool.connect();
+            await client.query(
+                "UPDATE support_tickets SET status = 'resolved' WHERE id = $1",
+                [ticketId]
+            );
+            client.release();
 
             return NextResponse.json({ success: true });
         } else {
