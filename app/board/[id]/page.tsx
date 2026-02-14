@@ -62,7 +62,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [availableUsers, setAvailableUsers] = useState<{ id: string, name: string, email: string }[]>([]);
     const [projectEndDate, setProjectEndDate] = useState<string | null>(null);
-    const [dashboardMeta, setDashboardMeta] = useState<{ description?: string, start_date?: string, end_date?: string, is_demo?: boolean }>({});
+    const [dashboardMeta, setDashboardMeta] = useState<{ description?: string, start_date?: string, end_date?: string, is_demo?: boolean, folder_id?: string }>({});
     const [isDemoMode, setIsDemoMode] = useState(false);
     const [showTour, setShowTour] = useState(false);
 
@@ -453,7 +453,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         description: data.description,
                         start_date: data.start_date,
                         end_date: data.end_date,
-                        is_demo: data.is_demo
+                        is_demo: data.is_demo,
+                        folder_id: data.folder_id
                     });
                     setIsDemoMode(data.is_demo === true);
                     if (data.end_date) setProjectEndDate(data.end_date.split('T')[0]);
@@ -787,7 +788,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             <header>
                 <div className="top-bar">
                     <div className="logo-area">
-                        <Link href="/workspace" className="btn-ghost" title="Volver al Workspace">
+                        <Link href={dashboardMeta.folder_id ? `/workspace?folderId=${dashboardMeta.folder_id}` : "/workspace"} className="btn-ghost" title="Volver">
                             <span style={{ fontSize: 24 }}>←</span>
                         </Link>
                         <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
 import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check, Share2, UserPlus, Mail, BookOpen, Heart } from "lucide-react";
@@ -78,7 +78,7 @@ const COLORS = [
     "#14b8a6"  // Teal
 ];
 
-export default function Workspace() {
+function WorkspaceContent() {
     const [dashboards, setDashboards] = useState<Dashboard[]>([]);
     const [folders, setFolders] = useState<Folder[]>([]);
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -89,7 +89,16 @@ export default function Workspace() {
     const [isMoving, setIsMoving] = useState<{ type: 'dashboard', id: string } | null>(null);
     const [wizardStep, setWizardStep] = useState(1);
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { showToast } = useToast();
+
+    // Handle deep linking to folder
+    useEffect(() => {
+        const folderParam = searchParams.get('folderId');
+        if (folderParam) {
+            setCurrentFolderId(folderParam);
+        }
+    }, [searchParams]);
 
     // Confirm Modal
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -1388,5 +1397,13 @@ export default function Workspace() {
                 </div>
             )}
         </div >
+    );
+}
+
+export default function Workspace() {
+    return (
+        <Suspense fallback={<div style={{ padding: 40, textAlign: 'center' }}>Cargando espacio de trabajo...</div>}>
+            <WorkspaceContent />
+        </Suspense>
     );
 }
