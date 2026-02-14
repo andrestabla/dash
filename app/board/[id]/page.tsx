@@ -1298,8 +1298,26 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                 style={{ minHeight: 40, padding: 8, fontSize: 13, width: '100%' }}
                                             />
                                         </div>
-                                        <button className="btn-primary" onClick={handleAddComment} disabled={!newComment.trim()} style={{ height: 40, width: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Send size={16} />
+                                        <button
+                                            onClick={handleAddComment}
+                                            disabled={!newComment.trim()}
+                                            className="shadow-glow hover-lift"
+                                            style={{
+                                                height: 40,
+                                                width: 40,
+                                                borderRadius: '50%',
+                                                background: 'var(--primary)',
+                                                color: 'white',
+                                                border: 'none',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                opacity: !newComment.trim() ? 0.5 : 1,
+                                                padding: 0
+                                            }}
+                                        >
+                                            <Send size={18} />
                                         </button>
                                     </div>
                                 </div>
