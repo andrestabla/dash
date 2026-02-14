@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
 import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check, Share2, UserPlus, Mail, BookOpen, Heart } from "lucide-react";
+import SortControl, { SortOption } from "@/components/SortControl";
 
 interface Dashboard {
     id: string;
@@ -182,12 +183,37 @@ export default function Workspace() {
 
 
 
+    const [sortOption, setSortOption] = useState<SortOption>('custom');
+
     // --- COMPUTED ---
     const currentItems = useMemo(() => {
-        const d = dashboards.filter(item => item.folder_id === currentFolderId);
-        const f = folders.filter(item => item.parent_id === currentFolderId);
-        return { dashboards: d, folders: f };
-    }, [dashboards, folders, currentFolderId]);
+        let d = dashboards.filter(item => item.folder_id === currentFolderId);
+        let f = folders.filter(item => item.parent_id === currentFolderId);
+
+        // Sorting Logic
+        const sortFn = (a: any, b: any) => {
+            switch (sortOption) {
+                case 'name_asc':
+                    return a.name.localeCompare(b.name);
+                case 'name_desc':
+                    return b.name.localeCompare(a.name);
+                case 'date_new':
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                case 'date_old':
+                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                case 'custom':
+                default:
+                    // Default to creation date desc for now, or specific ID order if implemented
+                    // Keeping 'custom' as 'date_new' behavior for consistent "default" view until manual ordering is added
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            }
+        };
+
+        return {
+            dashboards: d.sort(sortFn),
+            folders: f.sort(sortFn)
+        };
+    }, [dashboards, folders, currentFolderId, sortOption]);
 
     const breadcrumbs = useMemo(() => {
         const path = [{ id: null, name: 'Espacio de Trabajo' }];
@@ -552,14 +578,18 @@ export default function Workspace() {
                     {/* Main action row */}
                     <div className="workspace-actions">
                         {(currentItems.dashboards.length > 0 || currentItems.folders.length > 0) && (
-                            <button
-                                className="btn-ghost"
-                                onClick={() => router.push(`/folder/${currentFolderId}/analytics`)}
-                                title="Analítica Consolidada"
-                                style={{ display: 'flex', alignItems: 'center', gap: 8, borderColor: 'var(--primary)', color: 'var(--text-main)' }}
-                            >
-                                <Shield size={18} /> <span style={{ fontSize: 13 }}>Analítica Consolidada</span>
-                            </button>
+                            <>
+                                <SortControl value={sortOption} onChange={setSortOption} />
+                                <div style={{ width: 1, height: 24, background: 'var(--border-dim)', margin: '0 8px' }} />
+                                <button
+                                    className="btn-ghost"
+                                    onClick={() => router.push(`/folder/${currentFolderId}/analytics`)}
+                                    title="Analítica Consolidada"
+                                    style={{ display: 'flex', alignItems: 'center', gap: 8, borderColor: 'var(--primary)', color: 'var(--text-main)' }}
+                                >
+                                    <Shield size={18} /> <span style={{ fontSize: 13 }}>Analítica</span>
+                                </button>
+                            </>
                         )}
 
                         <button className="btn-ghost" onClick={() => setIsCreatingFolder(true)} title="Nueva Carpeta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
