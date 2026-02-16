@@ -478,6 +478,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             })
             .catch(err => console.error("Failed to load users", err));
 
+        // Fetch Collaborators for Mentions
+        fetchShareData();
+
     }, [dashboardId]);
 
     // Memoized values (must be before early returns)
