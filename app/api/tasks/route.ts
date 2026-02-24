@@ -173,28 +173,47 @@ export async function POST(request: Request) {
                 primaryOwner = typeof assignees[0] === 'string' ? assignees[0] : assignees[0].name;
             }
 
-            const query = `
-              INSERT INTO tasks (id, week, name, status, owner, type, prio, gate, due, description, dashboard_id)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-              ON CONFLICT (id) DO UPDATE SET
-                week = EXCLUDED.week,
-                name = EXCLUDED.name,
-                status = EXCLUDED.status,
-                owner = EXCLUDED.owner,
-                type = EXCLUDED.type,
-                prio = EXCLUDED.prio,
-                gate = EXCLUDED.gate,
-                due = EXCLUDED.due,
-                description = EXCLUDED.description,
-                dashboard_id = EXCLUDED.dashboard_id
-            `;
+            // Detect if this is an update (valid UUID) or a create (new / Date.now() style ID)
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const isValidUUID = id && uuidRegex.test(String(id));
 
-            await client.query(query, [id, week, name, status, primaryOwner, type, prio, gate, due, desc, dashboard_id]);
+            let savedTaskId: string;
+
+            if (isValidUUID) {
+                // UPDATE: upsert by UUID
+                const upsertQuery = `
+                  INSERT INTO tasks (id, week, name, status, owner, type, prio, gate, due, description, dashboard_id)
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                  ON CONFLICT (id) DO UPDATE SET
+                    week = EXCLUDED.week,
+                    name = EXCLUDED.name,
+                    status = EXCLUDED.status,
+                    owner = EXCLUDED.owner,
+                    type = EXCLUDED.type,
+                    prio = EXCLUDED.prio,
+                    gate = EXCLUDED.gate,
+                    due = EXCLUDED.due,
+                    description = EXCLUDED.description,
+                    dashboard_id = EXCLUDED.dashboard_id
+                  RETURNING id
+                `;
+                const res = await client.query(upsertQuery, [id, week, name, status, primaryOwner, type, prio, gate, due, desc, dashboard_id]);
+                savedTaskId = res.rows[0].id;
+            } else {
+                // CREATE: let the DB generate a proper UUID
+                const insertQuery = `
+                  INSERT INTO tasks (week, name, status, owner, type, prio, gate, due, description, dashboard_id)
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                  RETURNING id
+                `;
+                const res = await client.query(insertQuery, [week, name, status, primaryOwner, type, prio, gate, due, desc, dashboard_id]);
+                savedTaskId = res.rows[0].id;
+            }
 
             // Handle Assignees
             if (assignees && Array.isArray(assignees)) {
                 // Delete existing
-                await client.query('DELETE FROM task_assignees WHERE task_id = $1', [String(id)]);
+                await client.query('DELETE FROM task_assignees WHERE task_id = $1', [savedTaskId]);
 
                 // Insert new
                 for (const assignee of assignees) {
@@ -204,7 +223,7 @@ export async function POST(request: Request) {
                     if (assigneeName) {
                         await client.query(
                             'INSERT INTO task_assignees (task_id, name, user_id) VALUES ($1, $2, $3) ON CONFLICT (task_id, name) DO NOTHING',
-                            [String(id), assigneeName, assigneeId]
+                            [savedTaskId, assigneeName, assigneeId]
                         );
                     }
                 }
@@ -213,7 +232,7 @@ export async function POST(request: Request) {
             await client.query('COMMIT');
             client.release();
 
-            return NextResponse.json({ message: 'Task saved' }, { status: 201 });
+            return NextResponse.json({ message: 'Task saved', id: savedTaskId }, { status: 201 });
         } catch (dbError) {
             await client.query('ROLLBACK');
             client.release();

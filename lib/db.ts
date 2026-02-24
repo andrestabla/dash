@@ -12,7 +12,13 @@ if (!global.pool) {
         ssl: {
             rejectUnauthorized: false,
         },
-        connectionTimeoutMillis: 5000,
+        // Stability: tuned for 50 concurrent users via Neon pooler
+        max: 10,                        // Max logical connections (Neon pooler handles the rest)
+        min: 2,                         // Keep 2 warm connections
+        idleTimeoutMillis: 30000,       // Release idle connections after 30s
+        connectionTimeoutMillis: 10000,  // Fail fast if can't connect in 10s
+        maxUses: 7500,                  // Recycle connections after 7,500 queries
+        statement_timeout: 30000,       // Kill queries running > 30s
     });
 }
 pool = global.pool;

@@ -16,6 +16,22 @@ export async function GET(
     try {
         const client = await pool.connect();
 
+        // Check Permission
+        const accessQuery = session.role === 'admin'
+            ? 'SELECT id FROM dashboards WHERE id = $1'
+            : `SELECT d.id FROM dashboards d 
+               LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+               LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
+               WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)`;
+
+        const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
+        const accessCheck = await client.query(accessQuery, accessParams);
+
+        if (accessCheck.rows.length === 0) {
+            client.release();
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
+
         // Fetch messages with user details
         const res = await client.query(`
             SELECT m.*, u.name as user_name, u.email as user_email
@@ -55,8 +71,20 @@ export async function POST(
         const client = await pool.connect();
 
         try {
-            // Optional: Check permissions (is user part of dashboard?)
-            // For now relying on basic auth session + knowledge of dashboard ID
+            // Check permissions
+            const accessQuery = session.role === 'admin'
+                ? 'SELECT id FROM dashboards WHERE id = $1'
+                : `SELECT d.id FROM dashboards d 
+                   LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+                   LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
+                   WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)`;
+
+            const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
+            const accessCheck = await client.query(accessQuery, accessParams);
+
+            if (accessCheck.rows.length === 0) {
+                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            }
 
             const res = await client.query(`
                 INSERT INTO dashboard_messages (dashboard_id, user_id, content)

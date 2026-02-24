@@ -111,30 +111,38 @@ export async function DELETE(request: Request) {
         if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
 
         const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
 
-        // Check permission: Admin or Owner
-        const check = await client.query('SELECT owner_id FROM folders WHERE id = $1', [id]);
-        if (check.rows.length === 0) {
+            // Check permission: Admin or Owner
+            const check = await client.query('SELECT owner_id FROM folders WHERE id = $1', [id]);
+            if (check.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+            }
+
+            if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
+                await client.query('ROLLBACK');
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
+
+            // 1. Move subfolders to root
+            await client.query('UPDATE folders SET parent_id = NULL WHERE parent_id = $1', [id]);
+
+            // 2. Move dashboards to root
+            await client.query('UPDATE dashboards SET folder_id = NULL WHERE folder_id = $1', [id]);
+
+            // 3. Delete the folder
+            await client.query('DELETE FROM folders WHERE id = $1', [id]);
+
+            await client.query('COMMIT');
+            return NextResponse.json({ success: true });
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
             client.release();
-            return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
         }
-
-        if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
-            client.release();
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
-
-        // 1. Move subfolders to root
-        await client.query('UPDATE folders SET parent_id = NULL WHERE parent_id = $1', [id]);
-
-        // 2. Move dashboards to root
-        await client.query('UPDATE dashboards SET folder_id = NULL WHERE folder_id = $1', [id]);
-
-        // 3. Delete the folder
-        await client.query('DELETE FROM folders WHERE id = $1', [id]);
-
-        client.release();
-        return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Folder Delete error:", error);
         return NextResponse.json({ error: 'Failed to delete folder' }, { status: 500 });

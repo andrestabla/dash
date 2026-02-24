@@ -621,9 +621,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             return;
         }
 
+        const isNewTask = !editingTask.id;
+        // Use a temp ID for optimistic update on new tasks; will be replaced with server UUID
+        const tempId = isNewTask ? `temp-${Date.now()}` : editingTask.id;
+
         const newTask: Task = {
             ...(editingTask as Task),
-            id: editingTask.id || Date.now(),
+            id: tempId!,
             dashboard_id: dashboardId
         };
 
@@ -637,7 +641,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
         const originalTasks = [...tasks];
 
-        if (editingTask.id) {
+        if (!isNewTask) {
             setTasks(prev => prev.map(t => t.id === editingTask.id ? newTask : t));
         } else {
             setTasks(prev => [...prev, newTask]);
@@ -646,12 +650,25 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         setIsModalOpen(false);
 
         try {
-            await fetch('/api/tasks', {
+            const res = await fetch('/api/tasks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newTask)
             });
-            showToast("Tarea guardada", "success");
+
+            if (res.ok) {
+                const data = await res.json();
+                // Reconcile optimistic update: replace temp ID with real server UUID
+                if (isNewTask && data.id) {
+                    setTasks(prev => prev.map(t =>
+                        t.id === tempId ? { ...t, id: data.id } : t
+                    ));
+                }
+                showToast("Tarea guardada", "success");
+            } else {
+                setTasks(originalTasks);
+                showToast("Error al guardar", "error");
+            }
         } catch (err) {
             setTasks(originalTasks);
             showToast("Error al guardar", "error");
