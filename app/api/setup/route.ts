@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { getSession } from '@/lib/auth';
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const session = await getSession() as any;
+  if (!session || session.role !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
   const client = await pool.connect();
   const diagnostics: any = {};
 
