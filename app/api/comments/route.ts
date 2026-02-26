@@ -69,7 +69,7 @@ export async function POST(request: Request) {
                     const namePart = mention.substring(1); // remove @
                     const userMatch = await client.query(`
                         SELECT u.email FROM users u
-                        JOIN dashboard_collaborators dc ON u.id = dc.user_id
+                        JOIN dashboard_user_permissions dc ON u.id = dc.user_id
                         WHERE dc.dashboard_id = $1 AND u.name ILIKE $2
                         LIMIT 1
                      `, [dashboardId, `%${namePart}%`]);
