@@ -544,12 +544,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         try {
             const task = tasks.find(t => t.id === taskId);
             if (task && task.status !== newStatus) {
-                await fetch('/api/tasks', {
+                const res = await fetch('/api/tasks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...task, status: newStatus, dashboard_id: dashboardId })
                 });
-                // Silent success for DnD
+
+                if (!res.ok) {
+                    throw new Error('Failed to persist task move');
+                }
             }
         } catch (err) {
             setTasks(originalTasks);

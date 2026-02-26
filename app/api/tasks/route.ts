@@ -225,8 +225,10 @@ export async function POST(request: Request) {
                     const assigneeId = (typeof assignee === 'object' && assignee.id) ? assignee.id : null;
 
                     if (assigneeName) {
+                        // We delete all existing assignees earlier in the transaction,
+                        // so a plain insert is safe and avoids relying on a missing unique index.
                         await client.query(
-                            'INSERT INTO task_assignees (task_id, name, user_id) VALUES ($1, $2, $3) ON CONFLICT (task_id, name) DO NOTHING',
+                            'INSERT INTO task_assignees (task_id, name, user_id) VALUES ($1, $2, $3)',
                             [savedTaskId, assigneeName, assigneeId]
                         );
                     }
