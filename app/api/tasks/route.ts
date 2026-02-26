@@ -54,7 +54,7 @@ export async function GET(request: Request) {
                         SELECT f.id FROM folders f JOIN subfolders sf ON f.parent_id = sf.id
                     )
                     SELECT d.id FROM dashboards d 
-                    LEFT JOIN dashboard_collaborators dc ON d.id = dc.dashboard_id 
+                    LEFT JOIN dashboard_user_permissions dc ON d.id = dc.dashboard_id 
                     LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
                     WHERE d.folder_id IN (SELECT id FROM subfolders) 
                     AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)

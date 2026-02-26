@@ -538,7 +538,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
         // Optimistic Update
         const originalTasks = [...tasks];
-        setTasks(prev => prev.map(t => String(t?.id) === taskId ? { ...t, status: newStatus } : t));
+        setTasks(prev => prev.map(t => (t && String(t.id) === taskId) ? { ...t, status: newStatus } : t));
 
         // API Call
         try {
@@ -1029,7 +1029,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                                                         <Copy size={14} />
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', alignItems: 'center', marginLeft: 4 }}>
-                                                                                        {t.assignees && t.assignees.length > 0 ? (
+                                                                                        {t.assignees && Array.isArray(t.assignees) && t.assignees.length > 0 ? (
                                                                                             <div className="flex -space-x-1">
                                                                                                 {t.assignees.slice(0, 3).map((a, i) => (
                                                                                                     <div key={i} title={a.name} style={{ width: 22, height: 22, borderRadius: '50%', background: `hsl(${a.name.length * 30}, 70%, 50%)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, border: '2px solid var(--bg-card)', zIndex: 3 - i }}>
@@ -1123,9 +1123,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                             <div className="tl-meta-info">
                                                                 <Users size={12} />
                                                                 <span>
-                                                                    {t.assignees && t.assignees.length > 0
+                                                                    {t.assignees && Array.isArray(t.assignees) && t.assignees.length > 0
                                                                         ? t.assignees.map(a => a.name.split(' (')[0]).join(', ')
-                                                                        : t.owner.split(' (')[0]}
+                                                                        : (t.owner || '').split(' (')[0]}
                                                                 </span>
                                                             </div>
                                                             <div className="tl-meta-info">
@@ -1314,7 +1314,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                     if (newComment.trim()) handleAddComment();
                                                 }}
                                                 placeholder="Escribe un comentario... (@ para mencionar)"
-                                                users={collaborators}
+                                                users={collaborators || []}
                                                 className="input-glass"
                                                 style={{ minHeight: 40, padding: 8, fontSize: 13, width: '100%' }}
                                             />

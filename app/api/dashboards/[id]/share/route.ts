@@ -45,24 +45,18 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
         if (action === 'add_collaborator') {
             const { userId } = body;
-            // Check if already exists
+            // Check if already exists in new permissions table
             await client.query(`
-                INSERT INTO dashboard_collaborators (dashboard_id, user_id, role)
+                INSERT INTO dashboard_user_permissions (dashboard_id, user_id, role)
                 VALUES ($1, $2, 'viewer')
                 ON CONFLICT (dashboard_id, user_id) DO NOTHING
             `, [dashboardId, userId]);
 
             // Notify User
-            // Fetch User Email & Name
-            // const userRes = await client.query('SELECT email FROM users WHERE id = $1', [userId]);
-            // if (userRes.rows.length > 0) {
-            // await sendEmail(...) // Optional: Send email
-            // Create system notification
             await client.query(`
                     INSERT INTO notifications (user_id, title, message)
                     VALUES ($1, 'Nuevo Tablero Compartido', 'Has sido añadido como colaborador a un tablero.')
                  `, [userId]);
-            // }
 
             client.release();
             return NextResponse.json({ success: true });
@@ -70,17 +64,17 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
         if (action === 'remove_collaborator') {
             const { userId } = body;
-            await client.query('DELETE FROM dashboard_collaborators WHERE dashboard_id = $1 AND user_id = $2', [dashboardId, userId]);
+            await client.query('DELETE FROM dashboard_user_permissions WHERE dashboard_id = $1 AND user_id = $2', [dashboardId, userId]);
             client.release();
             return NextResponse.json({ success: true });
         }
 
         if (action === 'list_collaborators') {
             const res = await client.query(`
-                SELECT u.id, u.name, u.email, dc.role 
-                FROM dashboard_collaborators dc
-                JOIN users u ON dc.user_id = u.id
-                WHERE dc.dashboard_id = $1
+                SELECT u.id, u.name, u.email, dup.role 
+                FROM dashboard_user_permissions dup
+                JOIN users u ON dup.user_id = u.id
+                WHERE dup.dashboard_id = $1
                 UNION
                 SELECT u.id, u.name, u.email, 'owner' as role
                 FROM dashboards d
