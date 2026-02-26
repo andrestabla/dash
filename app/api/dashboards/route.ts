@@ -18,11 +18,9 @@ export async function GET() {
         } else {
             query = `
                 SELECT d.* FROM dashboards d
-                LEFT JOIN dashboard_user_permissions dc ON d.id = dc.dashboard_id
                 WHERE d.owner_id = $1 
-                OR dc.user_id = $1
+                OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $1)
                 OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
-                GROUP BY d.id
                 ORDER BY d.created_at DESC
             `;
             params = [session.id];

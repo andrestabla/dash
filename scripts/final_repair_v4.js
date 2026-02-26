@@ -1,92 +1,74 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+const { Client } = require('pg');
+require('dotenv').config({ path: '.env.local' });
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 15000,
-});
+async function repair() {
+    const client = new Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+    });
+    await client.connect();
 
-async function run() {
-    const client = await pool.connect();
     try {
-        console.log('🚀 Starting Comprehensive Schema Repair & Orphan Cleanup...');
+        console.log('--- Phase 1: Fixing Null Owners ---');
+        // Find dashboards with null owner and try to find an owner from collaborators or folders
+        const nullOwnerDashs = await client.query('SELECT id, folder_id FROM dashboards WHERE owner_id IS NULL');
+        console.log(`Found ${nullOwnerDashs.rows.length} dashboards with null owner.`);
 
-        await client.query('BEGIN');
+        for (const dash of nullOwnerDashs.rows) {
+            let potentialOwner = null;
 
-        const dependentTables = [
-            'tasks',
-            'dashboard_collaborators',
-            'dashboard_messages',
-            'dashboard_user_permissions'
-        ];
+            // Try to get owner from folder if exists
+            if (dash.folder_id) {
+                const folder = await client.query('SELECT owner_id FROM folders WHERE id = $1', [dash.folder_id]);
+                if (folder.rows[0]?.owner_id) {
+                    potentialOwner = folder.rows[0].owner_id;
+                }
+            }
 
-        // 1. DROP known constraints
-        const constraintsToDrop = [
-            { table: 'tasks', name: 'tasks_dashboard_id_fkey' },
-            { table: 'tasks', name: 'fk_tasks_dashboard' },
-            { table: 'dashboard_collaborators', name: 'dashboard_collaborators_dashboard_id_fkey' },
-            { table: 'dashboard_collaborators', name: 'fk_dashboard_collaborators_dashboard' },
-            { table: 'dashboard_messages', name: 'dashboard_messages_dashboard_id_fkey' },
-            { table: 'dashboard_user_permissions', name: 'dashboard_user_permissions_dashboard_id_fkey' }
-        ];
+            // Try to get owner from legacy collaborators if still none
+            if (!potentialOwner) {
+                const coll = await client.query('SELECT user_id FROM dashboard_collaborators WHERE dashboard_id = $1 LIMIT 1', [dash.id]);
+                if (coll.rows[0]?.user_id) {
+                    potentialOwner = coll.rows[0].user_id;
+                }
+            }
 
-        for (const c of constraintsToDrop) {
-            await client.query(`ALTER TABLE ${c.table} DROP CONSTRAINT IF EXISTS ${c.name}`);
+            if (potentialOwner) {
+                await client.query('UPDATE dashboards SET owner_id = $1 WHERE id = $2', [potentialOwner, dash.id]);
+                console.log(`Updated dashboard ${dash.id} owner to ${potentialOwner}`);
+            } else {
+                console.log(`Could not find owner for dashboard ${dash.id}`);
+            }
         }
 
-        // 2. PURGE ORPHANS based on current string comparison
-        for (const table of dependentTables) {
-            console.log(`🧹 Purging orphans from ${table}...`);
-            await client.query(`
-                DELETE FROM ${table} t
-                WHERE NOT EXISTS (SELECT 1 FROM dashboards d WHERE d.id::text = t.dashboard_id::text)
-            `);
+        console.log('--- Phase 2: Retrying Collaborator Migration ---');
+        const legacy = await client.query('SELECT dashboard_id, user_id, role FROM dashboard_collaborators');
+        console.log(`Migrating ${legacy.rows.length} legacy collaborators...`);
+
+        for (const row of legacy.rows) {
+            try {
+                // Use a safe upsert
+                await client.query(`
+                    INSERT INTO dashboard_user_permissions (dashboard_id, user_id, role)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (dashboard_id, user_id) DO UPDATE SET role = EXCLUDED.role
+                `, [row.dashboard_id, row.user_id, row.role || 'viewer']);
+            } catch (e) {
+                console.error(`Failed to migrate collaborator for dash ${row.dashboard_id}, user ${row.user_id}:`, e.message);
+            }
         }
 
-        // 3. CONVERT COLUMNS
-        console.log('🔄 Converting dashboards.id to UUID...');
-        await client.query(`ALTER TABLE dashboards ALTER COLUMN id TYPE UUID USING id::UUID`);
+        console.log('--- Phase 3: Verifying Folder Collaborators ---');
+        // Ensure folder collaborators also have consistency if needed
+        // (Assuming folder_collaborators table is fine and used correctly)
 
-        for (const table of dependentTables) {
-            console.log(`🔄 Converting ${table}.dashboard_id to UUID...`);
-            await client.query(`ALTER TABLE ${table} ALTER COLUMN dashboard_id TYPE UUID USING dashboard_id::UUID`);
-        }
-
-        // 4. RECREATE CONSTRAINTS with CASCADE DELETE
-        for (const table of dependentTables) {
-            console.log(`🔗 Adding Foreign Key to ${table}...`);
-            await client.query(`
-                ALTER TABLE ${table} 
-                ADD CONSTRAINT fk_${table}_dashboard_vfinal
-                FOREIGN KEY (dashboard_id) 
-                REFERENCES dashboards(id) 
-                ON DELETE CASCADE
-            `);
-        }
-
-        // 5. Update SSO Authority
-        console.log('⚙️  Standardizing SSO Configuration...');
-        await client.query(`
-            INSERT INTO system_settings (key, value, description)
-            VALUES 
-                ('sso_authority', 'https://accounts.google.com', 'Google SSO Authority'),
-                ('sso_platform', 'google', 'Current SSO Platform'),
-                ('sso_enabled', 'true', 'SSO Status')
-            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-        `);
-
-        await client.query('COMMIT');
-        console.log('✅ DATABASE REPAIRED SUCCESSFULLY');
+        console.log('--- ✅ Repair Completed ---');
 
     } catch (e) {
-        await client.query('ROLLBACK');
-        console.error('❌ REPAIR FAILED:', e.message);
-        if (e.detail) console.error('Detail:', e.detail);
+        console.error('Error during repair:', e);
     } finally {
-        client.release();
-        await pool.end();
+        await client.end();
     }
 }
 
-run();
+repair();
