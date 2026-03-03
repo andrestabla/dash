@@ -9,7 +9,7 @@ Branch: `codex/dash-setup`
 - Base de datos (Neon Postgres): **OK**
 - Seguridad de transporte (HSTS + headers base): **OK**
 - Capacidad concurrente observada en endpoint liviano (`/api/health`): **estable hasta 100 conexiones de prueba**
-- Riesgo residual principal: dependencia `xlsx` con advisories activos (sin fix automático en npm).
+- Dependencias productivas auditadas (`npm audit --omit=dev`): **0 vulnerabilidades activas**
 
 ## Validaciones Ejecutadas
 
@@ -92,26 +92,39 @@ Impacto:
 
 Resultado de `npm audit --omit=dev`:
 - Vulnerabilidades en `next` quedaron resueltas.
-- Queda 1 riesgo alto en `xlsx` (sin fix automático disponible).
+
+## 3) Hardening de exportaciones
+
+Archivo: `app/api/export/route.ts`
+
+Problemas detectados:
+- Dependencia `xlsx` vulnerable.
+- Endpoint de exportación sin control robusto de autorización por recurso.
+
+Correcciones:
+- Migración de exportación a CSV (`text/csv; charset=utf-8`) con escape seguro de campos.
+- Eliminación de `xlsx` del proyecto (`npm uninstall xlsx`).
+- Validación explícita de sesión y permisos por dashboard/carpeta antes de exportar.
+- Uso del pool central (`lib/db`) y eliminación de conexiones sueltas.
+
+Resultado:
+- `npm audit --omit=dev` queda en **0 vulnerabilidades** de producción.
+- Exportaciones quedan alineadas con contrato API para app móvil (descarga segura y controlada).
 
 ## Riesgos Residuales y Recomendaciones
 
-1. `xlsx` vulnerable en advisories públicos:
-- Mitigación inmediata: restringir exportación a datos internos ya confiables (ya ocurre en flujo actual).
-- Mitigación recomendada: migrar a librería alternativa o encapsular sanitización estricta y revisión de upstream.
-
-2. TLS laxo en algunos conectores (`rejectUnauthorized: false`):
+1. TLS laxo en algunos conectores (`rejectUnauthorized: false`):
 - Revisar y endurecer donde sea viable (DB/SMTP/export), especialmente en producción.
 
-3. CSP permite `'unsafe-inline'` y `'unsafe-eval'`:
+2. CSP permite `'unsafe-inline'` y `'unsafe-eval'`:
 - Mantener temporalmente por compatibilidad.
 - Plan recomendado: remover gradualmente con nonce/hash en scripts y sin `eval`.
 
-4. Tech debt de Next:
+3. Tech debt de Next:
 - Advertencia vigente: convención `middleware` deprecada en Next 16.
 - Migrar a `proxy.ts` en siguiente ciclo para alineación futura.
 
 ## Veredicto
 
 Sistema operativo en producción con salud **BUENA** para el tamaño actual.
-Con los cambios de este ciclo, quedó mejor preparado para app móvil (respuestas API semánticas) y más robusto en seguridad (upgrade de Next).
+Con los cambios de este ciclo, quedó mejor preparado para app móvil (respuestas API semánticas), exportaciones seguras y mejor postura de seguridad en dependencias.
