@@ -17,6 +17,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const path = request.nextUrl.pathname;
+    const isApiRoute = path.startsWith('/api/');
 
 
 
@@ -47,6 +48,9 @@ export async function middleware(request: NextRequest) {
 
     // Redirect to login if not authenticated for protected routes
     if (!verified && isProtected) {
+        if (isApiRoute) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         return NextResponse.redirect(new URL('/login', request.url));
     }
 
@@ -63,6 +67,9 @@ export async function middleware(request: NextRequest) {
         path === '/api/auth/logout';
 
     if (verified && !verified.accepted_privacy_policy && !isExemptFromPolicy && isProtected) {
+        if (isApiRoute) {
+            return NextResponse.json({ error: 'Privacy policy not accepted' }, { status: 403 });
+        }
         return NextResponse.redirect(new URL('/onboarding/privacy-policy', request.url));
     }
 
