@@ -540,6 +540,16 @@ export default function LandingPage() {
         /* Split Layout */
         .split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 100px; align-items: center; }
         .split-layout.reverse { grid-template-columns: 0.9fr 1.1fr; }
+        .visual-side,
+        .info-side {
+          width: 100%;
+          min-width: 0;
+        }
+        .concept-card {
+          width: 100%;
+          padding: 12px;
+          border-radius: 24px;
+        }
         .solution-list { list-style: none; padding: 0; margin-top: 40px; }
         .solution-list li { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; font-size: 17px; color: #cbd5e1; }
         .solution-list li strong { color: white; }
@@ -609,7 +619,16 @@ export default function LandingPage() {
            .hero-visual { margin-top: 60px; }
            .problem-grid { grid-template-columns: 1fr; }
            .split-layout { grid-template-columns: 1fr; gap: 60px; }
-           .split-layout :global(.visual-side) { order: 2; }
+           .split-layout.reverse { grid-template-columns: 1fr; }
+           .split-layout.reverse .info-side { order: 1; }
+           .split-layout.reverse .visual-side {
+             order: 2;
+             width: 100%;
+           }
+           .split-layout.reverse .concept-card {
+             max-width: 100%;
+             margin: 0;
+           }
            .pipeline-container { flex-direction: column; align-items: center; gap: 40px; }
            .p-arrow { display: none; }
            .benefit-card { grid-template-columns: 1fr; }
@@ -662,6 +681,10 @@ export default function LandingPage() {
              font-size: 12px;
              padding: 8px 12px;
              justify-content: center;
+           }
+           .concept-card {
+             padding: 8px;
+             border-radius: 16px;
            }
            .hero-title,
            .hero-subtitle,
