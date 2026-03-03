@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e:export": "node --test tests/e2e/export-auth-and-api-contract.test.mjs",
+    "test:smoke:remote": "node tests/prod-smoke.mjs",
     "verify:release": "npm run build && npm run test:e2e:export"
   },
   "dependencies": {
