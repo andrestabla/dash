@@ -320,11 +320,13 @@ export default function LandingPage() {
           color: white;
           font-family: 'Outfit', sans-serif;
           scroll-behavior: smooth;
-          overflow-x: clip;
+          overflow-x: hidden;
           width: 100%;
+          min-height: 100dvh;
         }
 
         .container {
+          width: 100%;
           max-width: 1240px;
           margin: 0 auto;
           padding: 0 clamp(16px, 4vw, 40px);
@@ -351,6 +353,17 @@ export default function LandingPage() {
           align-items: center;
           gap: 12px;
           min-width: 0;
+          width: 100%;
+        }
+
+        .logo {
+          min-width: 0;
+        }
+
+        .logo img {
+          display: block;
+          max-width: min(46vw, 190px);
+          height: auto !important;
         }
 
         .nav-menu {
@@ -427,6 +440,8 @@ export default function LandingPage() {
           margin-bottom: 32px;
           letter-spacing: -2px;
           overflow-wrap: anywhere;
+          word-break: break-word;
+          hyphens: auto;
         }
 
         .hero-subtitle {
@@ -436,6 +451,7 @@ export default function LandingPage() {
           margin-bottom: 48px;
           line-height: 1.7;
           overflow-wrap: anywhere;
+          word-break: break-word;
         }
 
         .hero-actions {
@@ -610,6 +626,9 @@ export default function LandingPage() {
              padding-top: max(10px, var(--safe-top));
              padding-bottom: 10px;
            }
+           .logo img {
+             max-width: min(42vw, 150px);
+           }
            .container {
              padding-left: max(14px, var(--safe-left));
              padding-right: max(14px, var(--safe-right));
@@ -643,6 +662,13 @@ export default function LandingPage() {
              font-size: 12px;
              padding: 8px 12px;
              justify-content: center;
+           }
+           .hero-title,
+           .hero-subtitle,
+           .section-title,
+           .section-desc {
+             overflow-wrap: anywhere;
+             word-break: break-word;
            }
            .main-mockup-frame {
              overflow: hidden;

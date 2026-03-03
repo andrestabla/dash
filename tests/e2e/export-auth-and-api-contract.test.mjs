@@ -23,6 +23,8 @@ const pool = new Pool({
 });
 
 let serverProcess = null;
+let serverOutput = '';
+const SERVER_LOG_LIMIT = 10_000;
 const fixture = {
     email: '',
     password: '',
@@ -31,8 +33,27 @@ const fixture = {
     dashboardId: '',
 };
 
+function appendServerOutput(source, chunk) {
+    if (!chunk) return;
+    const text = String(chunk);
+    const next = `${serverOutput}\n[${source}] ${text}`;
+    serverOutput = next.length > SERVER_LOG_LIMIT
+        ? next.slice(next.length - SERVER_LOG_LIMIT)
+        : next;
+}
+
+function serverDebugContext() {
+    return serverOutput.trim() ? `\nRecent server logs:\n${serverOutput.trim()}` : '';
+}
+
 async function waitForServer() {
     for (let i = 0; i < 60; i += 1) {
+        if (serverProcess && serverProcess.exitCode !== null) {
+            throw new Error(
+                `Server exited before readiness check (code=${serverProcess.exitCode}).${serverDebugContext()}`
+            );
+        }
+
         try {
             const res = await fetch(`${BASE_URL}/api/health`);
             if (res.ok) return;
@@ -41,7 +62,7 @@ async function waitForServer() {
         }
         await sleep(500);
     }
-    throw new Error(`Server did not become ready at ${BASE_URL}`);
+    throw new Error(`Server did not become ready at ${BASE_URL}.${serverDebugContext()}`);
 }
 
 async function startServer() {
@@ -60,8 +81,12 @@ async function startServer() {
         stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    serverProcess.stdout?.on('data', () => {});
-    serverProcess.stderr?.on('data', () => {});
+    serverOutput = '';
+    serverProcess.stdout?.on('data', (chunk) => appendServerOutput('stdout', chunk));
+    serverProcess.stderr?.on('data', (chunk) => appendServerOutput('stderr', chunk));
+    serverProcess.on('exit', (code, signal) => {
+        appendServerOutput('process-exit', `code=${code}, signal=${signal}`);
+    });
 
     await waitForServer();
 }
