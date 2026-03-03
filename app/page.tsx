@@ -39,6 +39,10 @@ export default function LandingPage() {
             <div className="logo">
               <img src="https://imageneseiconos.s3.us-east-1.amazonaws.com/iconos/logo_misproyectos.png" alt="Mis Proyectos" style={{ height: 40 }} />
             </div>
+            <div className="mobile-nav-actions">
+              <Link href="/login" className="btn-nav secondary">Entrar</Link>
+              <Link href="/register" className="btn-nav primary">Registro</Link>
+            </div>
             <div className="nav-menu">
               <a href="#what-is">Qué es</a>
               <a href="#how-works">Cómo funciona</a>
@@ -354,6 +358,12 @@ export default function LandingPage() {
            gap: 40px;
         }
 
+        .mobile-nav-actions {
+          display: none;
+          gap: 8px;
+          align-items: center;
+        }
+
         .nav-menu a {
            color: #94a3b8;
            text-decoration: none;
@@ -601,7 +611,17 @@ export default function LandingPage() {
              padding-bottom: 10px;
            }
            .container {
-             padding: 0 max(14px, var(--safe-left));
+             padding-left: max(14px, var(--safe-left));
+             padding-right: max(14px, var(--safe-right));
+           }
+           .mobile-nav-actions {
+             display: inline-flex;
+           }
+           .mobile-nav-actions .btn-nav {
+             padding: 8px 12px;
+             font-size: 12px;
+             border-radius: 12px;
+             white-space: nowrap;
            }
            .hero-section {
              padding: 140px 0 72px;
