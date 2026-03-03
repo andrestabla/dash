@@ -71,7 +71,7 @@ export default function SupportWidget() {
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 font-outfit">
+        <div className="support-widget-root fixed bottom-6 right-6 z-50 font-outfit">
             {/* Button */}
             {!isOpen && (
                 <button
@@ -98,7 +98,7 @@ export default function SupportWidget() {
             {/* Panel */}
             {isOpen && (
                 <div
-                    className="glass-panel animate-slide-up"
+                    className="support-panel glass-panel animate-slide-up"
                     style={{
                         width: 350,
                         maxHeight: 600,
@@ -258,6 +258,30 @@ export default function SupportWidget() {
                     </div>
                 </div>
             )}
+            <style jsx>{`
+                .support-widget-root {
+                    right: max(16px, var(--safe-right));
+                    bottom: max(16px, var(--safe-bottom));
+                }
+                .support-panel {
+                    width: min(350px, calc(100vw - 24px)) !important;
+                    max-height: min(600px, calc(100dvh - 120px)) !important;
+                }
+                @media (max-width: 768px) {
+                    .support-widget-root {
+                        right: max(12px, var(--safe-right));
+                        left: max(12px, var(--safe-left));
+                        bottom: max(12px, var(--safe-bottom));
+                    }
+                    .support-widget-root > button {
+                        margin-left: auto;
+                    }
+                    .support-panel {
+                        width: 100% !important;
+                        max-height: calc(100dvh - 96px) !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

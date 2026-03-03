@@ -543,7 +543,7 @@ function WorkspaceContent() {
     };
 
     return (
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
+        <div className="workspace-shell" style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
             {/* HEADER & NAV */}
             <header className="workspace-header">
                 <div className="workspace-header-left">
@@ -1167,6 +1167,9 @@ function WorkspaceContent() {
             />
 
             <style jsx>{`
+                .workspace-shell {
+                    padding-bottom: max(24px, var(--safe-bottom));
+                }
                 /* DASHBOARD GRID ADAPTIVE */
                 .dashboard-grid { 
                     display: grid; 
@@ -1187,17 +1190,6 @@ function WorkspaceContent() {
                     justify-content: space-between; 
                     height: 180px; 
                     position: relative;
-                }
-
-                @media (max-width: 768px) {
-                    header { height: auto !important; padding: 16px !important; }
-                    .top-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
-                    .user-area { width: 100%; justify-content: space-between; }
-                    .filters { overflow-x: auto; padding-bottom: 4px; width: 100%; }
-                    .view-toggle { display: none; } /* Hide view toggle on mobile if complex */
-                    
-                    /* Adjust Grid for Mobile */
-                    .dashboard-grid { grid-template-columns: 1fr; }
                 }
 
                 /* Workspace Header Fix */
@@ -1225,16 +1217,48 @@ function WorkspaceContent() {
                     display: flex; 
                     align-items: center; 
                     gap: 12px; 
+                    flex-wrap: wrap;
                 }
 
                 @media (max-width: 992px) {
+                    .workspace-shell {
+                        padding: max(24px, var(--safe-top)) 10px max(24px, var(--safe-bottom)) 10px !important;
+                    }
                     .workspace-header { flex-direction: column; align-items: stretch; gap: 24px; }
                     .workspace-header-right { align-items: stretch; }
                     .workspace-actions { justify-content: stretch; flex-wrap: wrap; }
-                    .workspace-actions button { flex: 1; min-width: 140px; }
+                    .workspace-actions button { flex: 1 1 180px; min-width: 140px; }
                     .folder-header { flex-direction: column; align-items: flex-start; gap: 12px; }
                     .folder-actions { width: 100%; justify-content: space-between; }
                     .folder-actions button { flex: 1; }
+                }
+                @media (max-width: 768px) {
+                    .workspace-header {
+                        gap: 16px;
+                        margin-bottom: 20px;
+                        padding-bottom: 16px;
+                    }
+                    .workspace-header-right {
+                        gap: 10px;
+                    }
+                    .workspace-actions {
+                        gap: 8px;
+                    }
+                    .workspace-actions button {
+                        flex: 1 1 100%;
+                    }
+                    .dashboard-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                @media (max-width: 560px) {
+                    .workspace-header-left h1 {
+                        font-size: 20px !important;
+                    }
+                    .workspace-header-right > div:first-child {
+                        justify-content: space-between;
+                        width: 100%;
+                    }
                 }
                 .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px; }
                 .kpi-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim); text-align: center; }

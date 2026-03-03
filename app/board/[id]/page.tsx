@@ -59,6 +59,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [settings, setSettings] = useState<BoardSettings | null>(null);
     const [dashboardName, setDashboardName] = useState("Roadmap");
     const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics" | "chat">("kanban");
+    const [isMobileView, setIsMobileView] = useState(false);
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [availableUsers, setAvailableUsers] = useState<{ id: string, name: string, email: string }[]>([]);
     const [projectEndDate, setProjectEndDate] = useState<string | null>(null);
@@ -511,6 +512,21 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         document.documentElement.classList.toggle("dark", next === "dark");
     };
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const media = window.matchMedia('(max-width: 900px)');
+        const onChange = () => setIsMobileView(media.matches);
+        onChange();
+        media.addEventListener('change', onChange);
+        return () => media.removeEventListener('change', onChange);
+    }, []);
+
+    useEffect(() => {
+        if (isMobileView && activeTab === 'kanban') {
+            setActiveTab('timeline');
+        }
+    }, [isMobileView, activeTab]);
+
     if (accessDenied) {
         return (
             <div style={{ padding: 40, textAlign: 'center', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -814,7 +830,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         <Link href={dashboardMeta.folder_id ? `/workspace?folderId=${dashboardMeta.folder_id}` : "/workspace"} className="btn-ghost" title="Volver">
                             <span style={{ fontSize: 24 }}>←</span>
                         </Link>
-                        <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
+                        <div className="board-title-wrap" style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 <h1 className="app-title">{settings.icon} {dashboardName}</h1>
                                 <div style={{
@@ -910,11 +926,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         <input
                             placeholder="🔍 Buscar..."
                             style={{ minWidth: 140 }}
+                            className="mobile-grow"
                             value={filters.search}
                             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                         />
                         <select
                             style={{ minWidth: 140 }}
+                            className="mobile-grow"
                             value={filters.week}
                             onChange={(e) => setFilters({ ...filters, week: e.target.value })}
                         >
@@ -927,6 +945,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         </select>
                         <select
                             style={{ minWidth: 150 }}
+                            className="mobile-grow"
                             value={filters.owner}
                             onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
                         >
@@ -963,7 +982,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     const isBottleneck = colTasks.length > 10;
 
                                     return (
-                                        <div key={st.id} className="lane" style={{ minWidth: 320, display: 'flex', flexDirection: 'column', borderTop: `3px solid ${st.color}` }}>
+                                        <div key={st.id} className="lane" style={{ minWidth: isMobileView ? 280 : 320, display: 'flex', flexDirection: 'column', borderTop: `3px solid ${st.color}` }}>
                                             <div className="lane-head group">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                                     <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{st.name}</span>
@@ -1155,14 +1174,14 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
                 {/* CHAT TAB */}
                 {activeTab === "chat" && (
-                    <div className="view-section active animate-fade-in" style={{ padding: '0 20px 20px 20px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+                    <div className="view-section active animate-fade-in" style={{ padding: isMobileView ? '0 8px 12px 8px' : '0 20px 20px 20px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
                         <DashboardChat dashboardId={dashboardId} currentUser={currentUser} />
                     </div>
                 )}
 
                 {isModalOpen && settings && (
                     <div className="backdrop fade-in" onClick={cancelEditTask}>
-                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800 }}>
+                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(800px, calc(100vw - 24px))' }}>
                             <div className="modal-header">
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 4 }}>NOMBRE TAREA</div>
@@ -1372,7 +1391,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {/* COLUMN MODAL */}
                 {isColModalOpen && (
                     <div className="backdrop fade-in" onClick={() => setIsColModalOpen(false)}>
-                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(400px, calc(100vw - 24px))' }}>
                             <div className="modal-header">
                                 <h3 className="modal-title">{editingColId ? "Editar Columna" : "Nueva Columna"}</h3>
                                 <button className="btn-ghost" onClick={() => setIsColModalOpen(false)}>✕</button>
@@ -1418,7 +1437,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {/* EDIT DASHBOARD MODAL */}
                 {isSettingsOpen && settings && (
                     <div className="backdrop fade-in" onClick={() => setIsSettingsOpen(false)}>
-                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(600px, calc(100vw - 24px))' }}>
                             <div className="modal-header">
                                 <h3 className="modal-title">Configurar Tablero</h3>
                                 <button className="btn-ghost" onClick={() => setIsSettingsOpen(false)}>✕</button>
@@ -1502,8 +1521,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     -webkit-backdrop-filter: blur(12px);
                     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
                     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
-                    padding: 0 24px; 
-                    height: 70px; 
+                    padding: 0 24px;
+                    min-height: 70px;
                     display: flex !important; 
                     align-items: center !important; 
                     position: sticky; 
@@ -1528,6 +1547,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     align-items: center !important;
                     gap: 12px !important;
                 }
+                .hide-mobile { display: inline-flex; }
+                .show-mobile { display: none; }
 
                 /* Dark Mode Overrides for Header - Global scope to match ThemeProvider */
                 :global(.dark) header { 
@@ -1540,11 +1561,39 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 :global(.dark) .btn-ghost:hover { background: rgba(255, 255, 255, 0.05) !important; color: #f8fafc !important; }
 
                 /* Mobile Overrides for Header */
-                @media (max-width: 768px) {
-                    header { height: auto !important; padding: 12px 16px; }
-                    .top-bar { flex-direction: column !important; align-items: flex-start !important; gap: 20px !important; }
-                    .logo-area { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
-                    .top-right-controls { width: 100% !important; justify-content: space-between !important; }
+                @media (max-width: 900px) {
+                    header {
+                        padding: max(10px, var(--safe-top)) 12px 10px 12px;
+                    }
+                    .top-bar {
+                        flex-direction: column !important;
+                        align-items: stretch !important;
+                        gap: 12px !important;
+                    }
+                    .logo-area {
+                        width: 100%;
+                        align-items: flex-start !important;
+                        gap: 8px !important;
+                    }
+                    .board-title-wrap {
+                        margin-left: 0 !important;
+                        padding-left: 0 !important;
+                        border-left: none !important;
+                        width: 100%;
+                    }
+                    .top-right-controls {
+                        width: 100% !important;
+                        justify-content: space-between !important;
+                        flex-wrap: wrap !important;
+                        gap: 8px !important;
+                    }
+                    .desktop-actions {
+                        width: 100%;
+                        justify-content: space-between;
+                        flex-wrap: wrap;
+                    }
+                    .hide-mobile { display: none !important; }
+                    .show-mobile { display: inline-flex !important; }
                 }
             `}</style>
 
@@ -1566,6 +1615,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 /* Controls & Filters */
                 .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 20px; }
                 .filters { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; }
+                .mobile-grow { flex: 1 1 180px; min-width: 0 !important; }
                 
                 .tabs { 
                     display: flex; 
@@ -1574,7 +1624,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     border-radius: 14px; 
                     gap: 4px;
                     border: 1px solid rgba(0,0,0,0.05);
+                    overflow-x: auto;
+                    scrollbar-width: none;
                 }
+                .tabs::-webkit-scrollbar { display: none; }
                 .tab { 
                     display: flex; 
                     align-items: center; 
@@ -1753,19 +1806,51 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 .type-tag.other { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
 
                 /* Mobile Optimization */
-                @media (max-width: 768px) {
+                @media (max-width: 900px) {
+                    .controls {
+                        flex-direction: column;
+                        align-items: stretch;
+                        gap: 12px;
+                    }
+                    .filters {
+                        flex-wrap: wrap;
+                        width: 100%;
+                        gap: 8px;
+                    }
+                    .filters > :global(button),
+                    .filters > button {
+                        flex: 1 1 calc(50% - 8px);
+                    }
+                    .filters > input,
+                    .filters > select {
+                        flex: 1 1 calc(50% - 8px);
+                    }
+                    .tabs {
+                        width: 100%;
+                        justify-content: flex-start;
+                    }
+                    .tab {
+                        padding: 10px 12px;
+                        font-size: 12px;
+                    }
                     .tl-cards-grid { grid-template-columns: 1fr; }
                     .tl-actions { opacity: 1; }
-                    main { overflow-y: auto !important; height: auto !important; padding: 16px; }
+                    main {
+                        overflow-y: auto !important;
+                        height: auto !important;
+                        min-height: calc(100dvh - 70px);
+                        padding: 12px 8px max(20px, var(--safe-bottom)) 8px;
+                    }
                     .kanban-container { height: auto !important; padding-bottom: 40px; }
                     .lanes { height: auto !important; gap: 16px; padding-right: 0; }
+                    .lane { padding: 12px; }
                 }
             `}</style>
 
             {
                 isShareModalOpen && (
                     <div className="backdrop animate-fade-in" onClick={() => setIsShareModalOpen(false)}>
-                        <div className="modal-container animate-slide-up" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-container animate-slide-up" style={{ maxWidth: 'min(500px, calc(100vw - 24px))' }} onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2 className="modal-title">Compartir Tablero</h2>
                                 <button onClick={() => setIsShareModalOpen(false)} className="btn-ghost"><X size={20} /></button>
