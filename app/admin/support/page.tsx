@@ -94,8 +94,8 @@ export default function AdminSupportPage() {
                 <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Centro de Soporte</h1>
             </div>
 
-            <div className="glass-panel" style={{ overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="glass-panel" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ width: '100%', minWidth: 960, borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid var(--border-dim)', background: 'rgba(0,0,0,0.02)' }}>
                             <th style={{ padding: 16, textAlign: 'left', fontSize: 13, color: 'var(--text-dim)' }}>USUARIO</th>
@@ -183,9 +183,22 @@ export default function AdminSupportPage() {
                 <div style={{
                     position: 'fixed', inset: 0, zIndex: 100,
                     background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: 'max(12px, var(--safe-top)) max(12px, var(--safe-right)) max(12px, var(--safe-bottom)) max(12px, var(--safe-left))',
+                    overflowY: 'auto'
                 }}>
-                    <div className="glass-panel animate-slide-up" style={{ width: 600, maxWidth: '90vw', background: 'var(--bg-card)', border: '1px solid var(--border-dim)', borderRadius: 24, padding: 32 }}>
+                    <div
+                        className="glass-panel animate-slide-up"
+                        style={{
+                            width: 'min(600px, 100%)',
+                            maxHeight: 'min(92vh, 820px)',
+                            overflowY: 'auto',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border-dim)',
+                            borderRadius: 24,
+                            padding: 'clamp(16px, 4vw, 32px)'
+                        }}
+                    >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
                             <h3 style={{ margin: 0, fontSize: 20 }}>Responder a {replyingTicket.user_name}</h3>
                             <button onClick={() => setReplyingTicket(null)} className="btn-ghost"><X size={20} /></button>
@@ -218,9 +231,9 @@ export default function AdminSupportPage() {
                             </div>
                         </div>
 
-                        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                            <button onClick={() => setReplyingTicket(null)} className="btn-ghost" disabled={sendingReply}>Cancelar</button>
-                            <button onClick={sendReply} className="btn-primary" disabled={sendingReply || !replyMessage}>
+                        <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12 }}>
+                            <button onClick={() => setReplyingTicket(null)} className="btn-ghost" disabled={sendingReply} style={{ flex: '1 1 140px' }}>Cancelar</button>
+                            <button onClick={sendReply} className="btn-primary" disabled={sendingReply || !replyMessage} style={{ flex: '1 1 180px' }}>
                                 {sendingReply ? 'Enviando...' : (
                                     <>
                                         <Send size={16} style={{ marginRight: 8 }} /> Enviar Respuesta

@@ -14,6 +14,13 @@ Este proyecto web ya quedó preparado con base `mobile-first` para evolucionar a
   - `board`: header, filtros, tabs, lanes y modales en pantallas pequeñas.
   - `workspace`: header/acciones y grillas para móvil.
   - `SupportWidget`: panel full-width en móvil + safe area inferior.
+  - `login`: formulario con ancho/padding fluidos y safe areas.
+  - `admin/support`: tabla con scroll horizontal y modal de respuesta con alto adaptable.
+  - `admin/settings`: wizard de correo con modal scrollable y acciones responsivas.
+- Componentes transversales adaptados:
+  - `ConfirmModal`: ancho fluido, botones responsivos y padding con safe areas.
+  - `ToastProvider`: ubicación segura en móvil y ancho máximo adaptativo.
+  - `MentionInput`: sugerencias de menciones sin desbordar en pantallas estrechas.
 
 ## Contrato backend para app móvil
 

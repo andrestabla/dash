@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 
 interface User {
     id: string;
@@ -34,8 +34,6 @@ const MentionInput: React.FC<MentionInputProps> = ({
     const [cursorIdx, setCursorIdx] = useState(0);
     const [activeIndex, setActiveIndex] = useState(0);
     const inputRef = useRef<HTMLTextAreaElement>(null);
-    const [coords, setCoords] = useState({ top: 0, left: 0 });
-
     const filteredUsers = users.filter(u =>
         u.name.toLowerCase().includes(suggestionQuery.toLowerCase()) ||
         (u.email && u.email.toLowerCase().includes(suggestionQuery.toLowerCase()))
@@ -126,7 +124,7 @@ const MentionInput: React.FC<MentionInputProps> = ({
                     position: 'absolute',
                     bottom: '100%',
                     left: 0,
-                    width: 250,
+                    width: 'min(320px, 100%)',
                     maxHeight: 200,
                     overflowY: 'auto',
                     background: 'var(--bg-panel)',
