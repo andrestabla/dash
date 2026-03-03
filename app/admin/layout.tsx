@@ -166,7 +166,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         display: flex;
                         justify-content: space-between;
                         align-items: center;
-                        padding: 16px;
+                        padding: max(12px, var(--safe-top)) max(12px, var(--safe-right)) 12px max(12px, var(--safe-left));
                         background: var(--bg-panel);
                         border-bottom: 1px solid var(--border-dim);
                         position: sticky;
@@ -203,7 +203,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     .mobile-close-btn { display: block; }
 
                     .admin-main {
-                        padding: 16px;
+                        padding: 16px max(12px, var(--safe-right)) max(16px, var(--safe-bottom)) max(12px, var(--safe-left));
                     }
                     .content-panel {
                         padding: 20px;

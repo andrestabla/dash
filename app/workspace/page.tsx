@@ -754,7 +754,7 @@ function WorkspaceContent() {
             {/* 1. NEW/EDIT FOLDER */}
             {isCreatingFolder && (
                 <div className="backdrop">
-                    <div className="modal-container animate-slide-up" style={{ maxWidth: 450 }}>
+                    <div className="modal-container animate-slide-up" style={{ width: 'min(450px, 100%)', maxWidth: 450 }}>
                         <div className="modal-header">
                             <h3 className="modal-title">{editingFolder ? 'Editar Carpeta' : 'Nueva Carpeta'}</h3>
                             <button className="btn-ghost" onClick={closeFolderModal} style={{ padding: 4 }}><X size={20} /></button>
@@ -773,10 +773,10 @@ function WorkspaceContent() {
                                 />
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
                                 <div>
                                     <label className="form-label">Ícono</label>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6, maxHeight: 200, overflowY: 'auto', padding: 4 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', gap: 6, maxHeight: 200, overflowY: 'auto', padding: 4 }}>
                                         {FOLDER_ICONS.map(ic => (
                                             <div
                                                 key={ic}
@@ -802,7 +802,7 @@ function WorkspaceContent() {
                                 </div>
                                 <div>
                                     <label className="form-label">Color</label>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(34px, 1fr))', gap: 6 }}>
                                         {COLORS.map(c => (
                                             <div
                                                 key={c}
@@ -837,7 +837,7 @@ function WorkspaceContent() {
             {/* 2. MOVE DASHBOARD */}
             {isMoving && (
                 <div className="backdrop">
-                    <div className="modal-container animate-slide-up" style={{ maxWidth: 400 }}>
+                    <div className="modal-container animate-slide-up" style={{ width: 'min(400px, 100%)', maxWidth: 400 }}>
                         <div className="modal-header">
                             <h3 className="modal-title">Mover Tablero a...</h3>
                         </div>
@@ -874,7 +874,7 @@ function WorkspaceContent() {
             {/* 3. NEW DASHBOARD WIZARD */}
             {isCreating && (
                 <div className="backdrop">
-                    <div className="modal-container animate-slide-up" style={{ maxWidth: 700 }}>
+                    <div className="modal-container animate-slide-up" style={{ width: 'min(700px, 100%)', maxWidth: 700 }}>
                         <div className="modal-header">
                             <h2 className="modal-title">{editingDash ? "Editar Tablero" : "Nuevo Proyecto (" + wizardStep + " / 4)"}</h2>
                             <button className="btn-ghost" onClick={resetWizard} style={{ padding: 4 }}><X size={20} /></button>
@@ -944,10 +944,10 @@ function WorkspaceContent() {
                                         <label className="form-label">Descripción</label>
                                         <input className="input-glass" value={wizDesc} onChange={e => setWizDesc(e.target.value)} placeholder="Breve resumen..." />
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 }}>
                                         <div>
                                             <label className="form-label">Ícono</label>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6, maxHeight: 200, overflowY: 'auto', padding: 4 }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', gap: 6, maxHeight: 200, overflowY: 'auto', padding: 4 }}>
                                                 {ICONS.map(ic => (
                                                     <div
                                                         key={ic}
@@ -973,7 +973,7 @@ function WorkspaceContent() {
                                         </div>
                                         <div>
                                             <label className="form-label">Color Principal</label>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(34px, 1fr))', gap: 8 }}>
                                                 {COLORS.map(c => (
                                                     <div
                                                         key={c}
@@ -986,7 +986,8 @@ function WorkspaceContent() {
                                                             cursor: 'pointer',
                                                             boxShadow: wizColor === c ? '0 0 0 3px var(--bg-card), 0 0 0 5px ' + c : 'none',
                                                             transition: 'all 0.2s',
-                                                            border: '2px solid rgba(255,255,255,0.1)'
+                                                            border: '2px solid rgba(255,255,255,0.1)',
+                                                            justifySelf: 'center'
                                                         }}
                                                     >
                                                     </div>
@@ -1010,7 +1011,7 @@ function WorkspaceContent() {
                                         }
                                     </p>
 
-                                    <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                                    <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
                                         <div>
                                             <label className="form-label" style={{ fontSize: 14 }}>Fecha de Inicio</label>
                                             <input
@@ -1099,7 +1100,7 @@ function WorkspaceContent() {
                                 </div>
                             )}
                             {wizardStep === 4 && (
-                                <div className="wiz-step animate-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                                <div className="wiz-step animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
                                     <div>
                                         <label className="form-label">Tipos</label>
                                         <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
@@ -1270,7 +1271,7 @@ function WorkspaceContent() {
             {/* SHARE MODAL */}
             {isSharingFolder && (
                 <div className="backdrop fade-in" onClick={() => setIsSharingFolder(false)}>
-                    <div className="modal-container animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
+                    <div className="modal-container animate-slide-up" onClick={e => e.stopPropagation()} style={{ width: 'min(450px, 100%)', maxWidth: 450 }}>
                         <div className="modal-header">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 <div style={{ color: sharingFolder?.color || '#3b82f6' }}><Folder size={24} /></div>

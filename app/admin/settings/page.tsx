@@ -232,7 +232,7 @@ export default function AdminSettingsPage() {
                             <label style={{ display: 'block', marginBottom: 12, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Fondo de Login</label>
 
                             {/* Presets */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(48px, 1fr))', gap: 10, marginBottom: 16 }}>
                                 {[
                                     'radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%)', // Default
                                     'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)',

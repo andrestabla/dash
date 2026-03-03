@@ -48,7 +48,7 @@ export default function UserLogsModal({ isOpen, userId, userName, onClose }: Use
 
     return (
         <div className="backdrop fade-in" onClick={onClose}>
-            <div className="modal-container animate-slide-up" style={{ maxWidth: 600, maxHeight: "85vh" }} onClick={e => e.stopPropagation()}>
+            <div className="modal-container animate-slide-up" style={{ width: 'min(600px, 100%)', maxWidth: 600, maxHeight: "85vh" }} onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <div>
                         <h3 className="modal-title">Registro de Actividad</h3>
@@ -81,7 +81,7 @@ export default function UserLogsModal({ isOpen, userId, userName, onClose }: Use
                                         <Activity size={16} />
                                     </div>
                                     <div style={{ flexGrow: 1 }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                        <div style={{ display: "flex", flexWrap: 'wrap', gap: 6, justifyContent: "space-between", marginBottom: 4 }}>
                                             <span style={{ fontWeight: 600, fontSize: 14 }}>{log.action}</span>
                                             <span style={{ fontSize: 12, color: "var(--text-dim)", display: "flex", alignItems: "center", gap: 4 }}>
                                                 <Clock size={12} />

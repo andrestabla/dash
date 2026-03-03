@@ -17,10 +17,14 @@ Este proyecto web ya quedó preparado con base `mobile-first` para evolucionar a
   - `login`: formulario con ancho/padding fluidos y safe areas.
   - `admin/support`: tabla con scroll horizontal y modal de respuesta con alto adaptable.
   - `admin/settings`: wizard de correo con modal scrollable y acciones responsivas.
+  - `admin/users`: formulario de creación adaptable, tabla scrollable y acciones táctiles.
+  - `admin/dashboards`: tabla scrollable, modal adaptable y botones de acción responsive.
+  - `profile/register`: mejor distribución de acciones y safe areas en pantallas estrechas.
 - Componentes transversales adaptados:
   - `ConfirmModal`: ancho fluido, botones responsivos y padding con safe areas.
   - `ToastProvider`: ubicación segura en móvil y ancho máximo adaptativo.
   - `MentionInput`: sugerencias de menciones sin desbordar en pantallas estrechas.
+  - `EditUserModal` / `UserLogsModal`: mejor lectura/interacción en móvil.
 
 ## Contrato backend para app móvil
 
