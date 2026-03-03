@@ -73,6 +73,12 @@ body {
   overscroll-behavior-y: none;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 /* --- UTILITIES --- */
 .glass-panel {
   background: var(--bg-glass);
@@ -481,9 +487,6 @@ select.input-glass option:checked {
 @media (max-width: 768px) {
   body {
     -webkit-text-size-adjust: 100%;
-    padding-left: max(12px, var(--safe-left));
-    padding-right: max(12px, var(--safe-right));
-    padding-bottom: max(12px, var(--safe-bottom));
   }
 
   /* Modals */

@@ -316,13 +316,14 @@ export default function LandingPage() {
           color: white;
           font-family: 'Outfit', sans-serif;
           scroll-behavior: smooth;
-          overflow-x: hidden;
+          overflow-x: clip;
+          width: 100%;
         }
 
         .container {
           max-width: 1240px;
           margin: 0 auto;
-          padding: 0 40px;
+          padding: 0 clamp(16px, 4vw, 40px);
         }
 
         /* Nav */
@@ -344,6 +345,8 @@ export default function LandingPage() {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: 12px;
+          min-width: 0;
         }
 
         .nav-menu {
@@ -387,6 +390,10 @@ export default function LandingPage() {
           align-items: center;
         }
 
+        .hero-content {
+          min-width: 0;
+        }
+
         .badge {
            display: inline-flex;
            align-items: center;
@@ -399,14 +406,17 @@ export default function LandingPage() {
            font-weight: 600;
            margin-bottom: 30px;
            border: 1px solid rgba(59, 130, 246, 0.2);
+           max-width: 100%;
+           flex-wrap: wrap;
         }
 
         .hero-title {
-          font-size: 56px;
+          font-size: clamp(2.1rem, 5.2vw, 3.5rem);
           font-weight: 800;
           line-height: 1.15;
           margin-bottom: 32px;
           letter-spacing: -2px;
+          overflow-wrap: anywhere;
         }
 
         .hero-subtitle {
@@ -415,11 +425,13 @@ export default function LandingPage() {
           max-width: 650px;
           margin-bottom: 48px;
           line-height: 1.7;
+          overflow-wrap: anywhere;
         }
 
         .hero-actions {
           display: flex;
           gap: 20px;
+          flex-wrap: wrap;
         }
 
         .btn-hero-primary {
@@ -581,10 +593,64 @@ export default function LandingPage() {
            .nav-menu { display: none; }
         }
 
+        @media (max-width: 768px) {
+           .landing-nav {
+             height: auto;
+             min-height: 76px;
+             padding-top: max(10px, var(--safe-top));
+             padding-bottom: 10px;
+           }
+           .container {
+             padding: 0 max(14px, var(--safe-left));
+           }
+           .hero-section {
+             padding: 140px 0 72px;
+           }
+           .hero-actions {
+             flex-direction: column;
+             align-items: stretch;
+             width: 100%;
+             gap: 12px;
+           }
+           .btn-hero-primary,
+           .btn-hero-ghost {
+             width: 100%;
+             justify-content: center;
+             padding: 14px 16px;
+             text-align: center;
+           }
+           .badge {
+             font-size: 12px;
+             padding: 8px 12px;
+             justify-content: center;
+           }
+           .main-mockup-frame {
+             overflow: hidden;
+           }
+           .top-right,
+           .bottom-left {
+             position: static;
+             margin-top: 10px;
+             display: inline-flex;
+           }
+           .floating-badge {
+             max-width: 100%;
+             justify-content: center;
+           }
+        }
+
         @media (max-width: 640px) {
-           .hero-title { font-size: 38px; }
+           .hero-title { font-size: clamp(2rem, 10vw, 2.5rem); letter-spacing: -1px; }
+           .hero-subtitle { font-size: 16px; line-height: 1.55; }
            .capability-grid { grid-template-columns: 1fr; }
            .cta-card h2 { font-size: 32px; }
+           .section-title { font-size: 32px; }
+           .problem-card,
+           .cap-card,
+           .benefit-content,
+           .cta-card {
+             padding: 24px;
+           }
         }
         /* Footer */
         .landing-footer { 
@@ -628,6 +694,7 @@ export default function LandingPage() {
            .footer-brand { margin-bottom: 40px; }
            .footer-nav { flex-direction: column; gap: 40px; }
            .nav-links { display: none !important; }
+        }
       `}</style>
     </div>
   );
