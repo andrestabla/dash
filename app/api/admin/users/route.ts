@@ -102,12 +102,13 @@ export async function PUT(request: Request) {
     try {
         const body = await request.json();
         const { id, email, name, role, password, status, resendCredentials } = body;
+        let nonBlockingWarning: string | null = null;
 
         if (!id) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
 
         // Build query dynamically
-        let updates = [];
-        let values = [id];
+        const updates: string[] = [];
+        const values: Array<string | null> = [id];
         let idx = 2;
 
         if (email) { updates.push(`email = $${idx++}`); values.push(email); }
@@ -123,7 +124,7 @@ export async function PUT(request: Request) {
         if (updates.length > 0) {
             await client.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $1`, values);
 
-            let logDetails = [];
+            const logDetails: string[] = [];
             if (email) logDetails.push(`Email: ${email}`);
             if (name !== undefined) logDetails.push(`Name changed`);
             if (role) logDetails.push(`Role: ${role}`);
@@ -151,11 +152,13 @@ export async function PUT(request: Request) {
             await logAction(id, 'RESEND_CREDS', `Credentials resent to ${email}`, session.id, client);
         }
 
-        // Send approval/denial emails if status changed
+        // Send approval/denial emails if status changed.
+        // Email failures must not block status persistence.
         if (status && email) {
-            if (status === 'active') {
-                const subject = "Cuenta Aprobada - Project Control";
-                const html = `
+            try {
+                if (status === 'active') {
+                    const subject = "Cuenta Aprobada - Project Control";
+                    const html = `
                     <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
                         <div style="background: #10b981; padding: 30px; text-align: center;">
                             <h1 style="color: white; margin: 0; font-size: 24px;">¡Cuenta Aprobada! 🎉</h1>
@@ -173,10 +176,11 @@ export async function PUT(request: Request) {
                         </div>
                     </div>
                 `;
-                await sendEmail(email, subject, html);
-            } else if (status === 'denied') {
-                const subject = "Resultado de tu solicitud - Project Control";
-                const html = `
+                    const sent = await sendEmail(email, subject, html);
+                    if (!sent) nonBlockingWarning = 'Status changed, but approval email could not be sent';
+                } else if (status === 'denied') {
+                    const subject = "Resultado de tu solicitud - Project Control";
+                    const html = `
                     <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
                         <div style="background: #ef4444; padding: 30px; text-align: center;">
                             <h1 style="color: white; margin: 0; font-size: 24px;">Actualización de Registro</h1>
@@ -188,14 +192,22 @@ export async function PUT(request: Request) {
                         </div>
                     </div>
                 `;
-                await sendEmail(email, subject, html);
+                    const sent = await sendEmail(email, subject, html);
+                    if (!sent) nonBlockingWarning = 'Status changed, but denial email could not be sent';
+                }
+            } catch (emailError) {
+                nonBlockingWarning = 'Status changed, but notification email failed';
+                console.error('Status notification email error:', emailError);
             }
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, warning: nonBlockingWarning || undefined });
     } catch (error) {
         console.error("PUT /api/admin/users error:", error);
-        return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Failed to update user', details: error instanceof Error ? error.message : undefined },
+            { status: 500 }
+        );
     } finally {
         client.release();
     }

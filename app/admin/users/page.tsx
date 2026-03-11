@@ -86,12 +86,18 @@ export default function AdminUsersPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: user.id, email: user.email, status: newStatus }),
         });
+        let payload: { details?: string; error?: string } | null = null;
+        try {
+            payload = await res.json();
+        } catch {
+            payload = null;
+        }
 
         if (res.ok) {
             showToast(`Usuario ${newStatus === 'active' ? 'aprobado' : 'denegado'}`, "success");
             fetchUsers();
         } else {
-            showToast("Error al actualizar estado", "error");
+            showToast(payload?.details || payload?.error || "Error al actualizar estado", "error");
         }
     };
 

@@ -14,7 +14,8 @@ async function validateDatabase() {
 
         // 2. Verify all required tables exist
         console.log('2️⃣ Verifying tables...');
-        const tables = ['users', 'folders', 'dashboards', 'tasks', 'comments', 'notifications', 'organization_settings'];
+        const tables = ['users', 'folders', 'dashboards', 'tasks', 'comments', 'notifications', 'system_settings'];
+        let missingTables = 0;
         for (const table of tables) {
             const result = await client.query(`
                 SELECT EXISTS (
@@ -25,6 +26,7 @@ async function validateDatabase() {
             `, [table]);
             const exists = result.rows[0].exists;
             console.log(`   ${exists ? '✅' : '❌'} Table: ${table}`);
+            if (!exists) missingTables++;
         }
         console.log('');
 
@@ -140,7 +142,7 @@ async function validateDatabase() {
         // 8. Summary
         console.log('📊 Validation Summary:');
         console.log('   ✅ Database connection: OK');
-        console.log('   ✅ All tables exist: OK');
+        console.log(`   ${missingTables === 0 ? '✅' : '⚠️'} Required tables: ${missingTables === 0 ? 'OK' : `Missing ${missingTables}`}`);
         console.log('   ✅ Foreign keys: OK');
         console.log('   ✅ Recursive queries: OK');
         console.log('   ✅ Task relationships: OK');
