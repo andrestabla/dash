@@ -25,6 +25,10 @@ interface Task {
     due: string;
     desc: string;
     dashboard_id: string;
+    notification_enabled?: boolean;
+    notification_value?: number;
+    notification_unit?: 'days' | 'hours';
+    notification_sent?: boolean;
 }
 
 interface StatusColumn {
@@ -1269,10 +1273,47 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                         </select>
                                     </div>
                                 </div>
-                                <div className="form-group">
-                                    <label className="form-label">Fecha Objetivo</label>
-                                    <input className="input-glass" type="date" value={editingTask.due || ""} onChange={(e) => setEditingTask({ ...editingTask, due: e.target.value })} />
+                                <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                    <div>
+                                        <label className="form-label">Fecha Objetivo</label>
+                                        <input className="input-glass" type="date" value={editingTask.due || ""} onChange={(e) => setEditingTask({ ...editingTask, due: e.target.value, notification_sent: false })} />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text-main)', marginBottom: 12 }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={editingTask.notification_enabled || false} 
+                                                onChange={(e) => setEditingTask({ ...editingTask, notification_enabled: e.target.checked, notification_sent: false })} 
+                                            />
+                                            🔔 Notificar
+                                        </label>
+                                    </div>
                                 </div>
+
+                                {editingTask.notification_enabled && (
+                                    <div className="form-group animate-fade-in" style={{ background: 'var(--primary-light)', padding: 12, borderRadius: 12, border: '1px solid var(--primary-border)', marginBottom: 16 }}>
+                                        <label className="form-label" style={{ color: 'var(--primary)', marginBottom: 8 }}>Configuración de Notificación</label>
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                            <input 
+                                                type="number" 
+                                                className="input-glass" 
+                                                style={{ width: 80 }} 
+                                                value={editingTask.notification_value || 0} 
+                                                onChange={(e) => setEditingTask({ ...editingTask, notification_value: parseInt(e.target.value) || 0 })} 
+                                                min="0"
+                                            />
+                                            <select 
+                                                className="input-glass" 
+                                                value={editingTask.notification_unit || 'days'} 
+                                                onChange={(e) => setEditingTask({ ...editingTask, notification_unit: e.target.value as any })}
+                                            >
+                                                <option value="days">Días antes</option>
+                                                <option value="hours">Horas antes</option>
+                                            </select>
+                                            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>de la fecha objetivo</span>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="form-group">
                                     <label className="form-label">Descripción</label>
                                     <textarea className="input-glass" value={editingTask.desc || ""} onChange={(e) => setEditingTask({ ...editingTask, desc: e.target.value })} rows={4} />

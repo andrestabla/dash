@@ -16,7 +16,7 @@ export async function GET(request: Request) {
         const client = await pool.connect();
 
         // Base Query
-        let query = 'SELECT id, week, name, status, owner, type, prio, gate, due, description as desc, dashboard_id FROM tasks';
+        let query = 'SELECT id, week, name, status, owner, type, prio, gate, due, description as desc, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent FROM tasks';
         const params: any[] = [];
 
         if (dashboardId) {
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { id, week, name, status, owner, type, prio, gate, due, desc, dashboard_id, assignees } = body;
+        const { id, week, name, status, owner, type, prio, gate, due, desc, dashboard_id, assignees, notification_enabled, notification_value, notification_unit, notification_sent } = body;
 
         if (!dashboard_id) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
 
@@ -186,8 +186,8 @@ export async function POST(request: Request) {
             if (isValidUUID) {
                 // UPDATE: upsert by UUID
                 const upsertQuery = `
-                  INSERT INTO tasks (id, week, name, status, owner, type, prio, gate, due, description, dashboard_id)
-                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                  INSERT INTO tasks (id, week, name, status, owner, type, prio, gate, due, description, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent)
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                   ON CONFLICT (id) DO UPDATE SET
                     week = EXCLUDED.week,
                     name = EXCLUDED.name,
@@ -198,19 +198,23 @@ export async function POST(request: Request) {
                     gate = EXCLUDED.gate,
                     due = EXCLUDED.due,
                     description = EXCLUDED.description,
-                    dashboard_id = EXCLUDED.dashboard_id
+                    dashboard_id = EXCLUDED.dashboard_id,
+                    notification_enabled = EXCLUDED.notification_enabled,
+                    notification_value = EXCLUDED.notification_value,
+                    notification_unit = EXCLUDED.notification_unit,
+                    notification_sent = EXCLUDED.notification_sent
                   RETURNING id
                 `;
-                const res = await client.query(upsertQuery, [id, week, name, status, primaryOwner, type, prio, gate, due, desc, dashboard_id]);
+                const res = await client.query(upsertQuery, [id, week, name, status, primaryOwner, type, prio, gate, due, desc, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent]);
                 savedTaskId = res.rows[0].id;
             } else {
                 // CREATE: let the DB generate a proper UUID
                 const insertQuery = `
-                  INSERT INTO tasks (week, name, status, owner, type, prio, gate, due, description, dashboard_id)
-                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                  INSERT INTO tasks (week, name, status, owner, type, prio, gate, due, description, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent)
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                   RETURNING id
                 `;
-                const res = await client.query(insertQuery, [week, name, status, primaryOwner, type, prio, gate, due, desc, dashboard_id]);
+                const res = await client.query(insertQuery, [week, name, status, primaryOwner, type, prio, gate, due, desc, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent]);
                 savedTaskId = res.rows[0].id;
             }
 
