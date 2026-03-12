@@ -55,6 +55,25 @@ const DEFAULT_STATUSES: StatusColumn[] = [
     { id: "done", name: "Hecho", color: "#10b981", percentage: 100 },
 ];
 
+/** Returns a due-date urgency color based on days remaining:
+ *  > 3 days  → green  (#10b981)
+ *  2–3 days  → orange (#f59e0b)
+ *  ≤ 1 day or overdue → red (#ef4444)
+ *  No due date → null (no color override)
+ */
+function getDueDateColor(due: string | undefined | null): string | null {
+    if (!due) return null;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const dueDate = new Date(due);
+    dueDate.setHours(0, 0, 0, 0);
+    const diffMs = dueDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 1) return '#ef4444';   // red: 1 day or overdue
+    if (diffDays <= 3) return '#f59e0b';   // orange: 2-3 days
+    return '#10b981';                       // green: more than 3 days
+}
+
 export default function BoardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: dashboardId } = use(params);
     const { showToast } = useToast();
@@ -1024,7 +1043,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                         ) : (
                                                             colTasks.map((t, index) => (
                                                                 <Draggable key={t.id || index} draggableId={String(t.id || index)} index={index}>
-                                                                    {(provided, snapshot) => (
+                                                                    {(provided, snapshot) => {
+                                                                        const dueDateColor = getDueDateColor(t.due);
+                                                                        const taskStatusObj = statuses.find(s => s.id === t.status);
+                                                                        const isComplete = taskStatusObj?.percentage === 100;
+                                                                        return (
                                                                         <div
                                                                             ref={provided.innerRef}
                                                                             {...provided.draggableProps}
@@ -1035,7 +1058,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                                                 ...provided.draggableProps.style,
                                                                                 marginBottom: 12,
                                                                                 opacity: snapshot.isDragging ? 0.9 : 1,
-                                                                                transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'none'
+                                                                                transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'none',
+                                                                                borderLeft: (!isComplete && dueDateColor) ? `4px solid ${dueDateColor}` : undefined,
                                                                             }}
                                                                         >
                                                                             {/* Main Title Hierachy */}
@@ -1080,7 +1104,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                                                 </div>
                                                                             </div>
                                                                         </div>
-                                                                    )}
+                                                                        );
+                                                                    }}
                                                                 </Draggable>
                                                             ))
                                                         )}
@@ -1128,8 +1153,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                         <div className="tl-cards-grid">
                                             {weekTasks.map(t => {
                                                 const taskStatus = statuses.find(s => s.id === t.status) || DEFAULT_STATUSES[0];
+                                                const dueDateColor = getDueDateColor(t.due);
+                                                const isComplete = taskStatus.percentage === 100;
                                                 return (
-                                                    <div key={t.id} className="tl-card" onClick={() => openModal(t)}>
+                                                    <div
+                                                        key={t.id}
+                                                        className="tl-card"
+                                                        onClick={() => openModal(t)}
+                                                        style={{ borderLeft: (!isComplete && dueDateColor) ? `4px solid ${dueDateColor}` : undefined }}
+                                                    >
                                                         <div className="tl-card-top">
                                                             <div className="tl-status-dot" style={{ background: taskStatus.color }}></div>
                                                             <div className="tl-task-name">{t.name}</div>
