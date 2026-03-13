@@ -1,41 +1,8 @@
 name: Send Task Notifications
-
 on:
-  schedule:
-      # Runs every hour at minute 0 (UTC)
-          - cron: '0 * * * *'
-            workflow_dispatch: # Allow manual trigger from GitHub UI
-
-            jobs:
-              notify:
-                  runs-on: ubuntu-latest
-                     steps:
-                            - name: Trigger notification cron
-                                    run: |
-                                              URL="${{ secrets.APP_URL }}"
-                                                        # Ensure protocol exists
-                                                                  if [[ ! $URL =~ ^https?:// ]]; then
-                                                                              URL="https://$URL"
-                                                                                        fi
-                                                                                                  # Trim trailing slash
-                                                                                                            URL="${URL%/}"
-                                                                                                                      
-                                                                                                                                echo "Triggering cron at: $URL/api/cron/notifications"
-                                                                                                                                          
-                                                                                                                                                    RESPONSE=$(curl -s -L -o /tmp/cron_response.json -w "%{http_code}" \
-                                                                                                                                                                -X GET "$URL/api/cron/notifications" \
-                                                                                                                                                                            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-                                                                                                                                                                                        -H "Content-Type: application/json")
-                                                                                                                                                                                        
-                                                                                                                                                                                                  echo "HTTP Status: $RESPONSE"
-                                                                                                                                                                                                            echo "Response body:"
-                                                                                                                                                                                                                      cat /tmp/cron_response.json
-                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                if [ "$RESPONSE" != "200" ]; then
-                                                                                                                                                                                                                                            echo "FAILED: Notification cron failed with status $RESPONSE"
-                                                                                                                                                                                                                                                        exit 1
-                                                                                                                                                                                                                                                                  fi
-                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                            SENT=$(cat /tmp/cron_response.json | python3 -c "import sys,json; data=json.load(sys.stdin); print(data.get('sentCount', data.get('count', 0)))")
-                                                                                                                                                                                                                                                                                      echo "SUCCESS: Notifications sent: $SENT"
-                                                                                                                                                                                                                                                                                      
+  workflow_dispatch:
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Success"
