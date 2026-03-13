@@ -96,8 +96,8 @@ export default function AdminDashboardsPage() {
             <h1 style={{ fontSize: 24, marginBottom: 10 }}>📊 Gestión de Tableros</h1>
             <p style={{ color: 'var(--text-dim)', marginBottom: 30 }}>Supervisa todos los proyectos activos en la plataforma.</p>
 
-            <div style={{ background: "var(--panel)", borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div className="dashboards-table-wrap" style={{ background: "var(--panel)", borderRadius: 12, border: "1px solid var(--border)", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                <table style={{ width: "100%", minWidth: 920, borderCollapse: "collapse" }}>
                     <thead>
                         <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left", background: "var(--panel-hover)" }}>
                             <th style={{ padding: 15 }}>Nombre</th>
@@ -132,7 +132,7 @@ export default function AdminDashboardsPage() {
             {/* EDIT MODAL */}
             {isEditOpen && (
                 <div className="backdrop fade-in" onClick={() => setIsEditOpen(false)}>
-                    <div className="modal-container animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: 550 }}>
+                    <div className="modal-container animate-slide-up" onClick={e => e.stopPropagation()} style={{ width: 'min(550px, 100%)', maxWidth: 550 }}>
                         <div className="modal-header">
                             <h3 className="modal-title">Editar Tablero</h3>
                             <button className="btn-ghost" onClick={() => setIsEditOpen(false)}>✕</button>
@@ -181,7 +181,7 @@ export default function AdminDashboardsPage() {
                                 </div>
                             </div>
 
-                            <div className="modal-footer">
+                            <div className="modal-footer dashboards-modal-footer">
                                 <button type="button" className="btn-ghost" onClick={() => setIsEditOpen(false)}>Cancelar</button>
                                 <button type="submit" className="btn-primary">Guardar Cambios</button>
                             </div>
@@ -189,6 +189,18 @@ export default function AdminDashboardsPage() {
                     </div>
                 </div>
             )}
+
+            <style jsx>{`
+                @media (max-width: 900px) {
+                    .dashboards-modal-footer {
+                        flex-wrap: wrap;
+                    }
+                    .dashboards-modal-footer button {
+                        flex: 1 1 140px;
+                        justify-content: center;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

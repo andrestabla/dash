@@ -75,7 +75,7 @@ export default function EditUserModal({ isOpen, user, onClose, onSave }: EditUse
 
     return (
         <div className="backdrop fade-in" onClick={onClose}>
-            <div className="modal-container animate-slide-up" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-container animate-slide-up" style={{ width: 'min(500px, 100%)', maxWidth: 500 }} onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <h3 className="modal-title">Editar Usuario</h3>
                     <button onClick={onClose} className="btn-ghost" style={{ padding: 4 }}><X size={20} /></button>
@@ -93,7 +93,7 @@ export default function EditUserModal({ isOpen, user, onClose, onSave }: EditUse
                             />
                         </div>
 
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
                             <div className="form-group">
                                 <label className="form-label">Email</label>
                                 <input
@@ -159,9 +159,9 @@ export default function EditUserModal({ isOpen, user, onClose, onSave }: EditUse
                         </div>
                     </div>
 
-                    <div className="modal-footer">
+                    <div className="modal-footer" style={{ flexWrap: 'wrap' }}>
                         <button type="button" className="btn-ghost" onClick={onClose} disabled={isSaving}>Cancelar</button>
-                        <button type="submit" className="btn-primary" disabled={isSaving} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <button type="submit" className="btn-primary" disabled={isSaving} style={{ display: "flex", alignItems: "center", gap: 8, flex: '1 1 160px', justifyContent: 'center' }}>
                             {isSaving ? <RefreshCw className="spin" size={16} /> : <Save size={16} />}
                             Guardar Cambios
                         </button>

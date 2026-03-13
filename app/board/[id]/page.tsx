@@ -25,6 +25,10 @@ interface Task {
     due: string;
     desc: string;
     dashboard_id: string;
+    notification_enabled?: boolean;
+    notification_value?: number;
+    notification_unit?: 'days' | 'hours';
+    notification_sent?: boolean;
 }
 
 interface StatusColumn {
@@ -51,6 +55,25 @@ const DEFAULT_STATUSES: StatusColumn[] = [
     { id: "done", name: "Hecho", color: "#10b981", percentage: 100 },
 ];
 
+/** Returns a due-date urgency color based on days remaining:
+ *  > 3 days  → green  (#10b981)
+ *  2–3 days  → orange (#f59e0b)
+ *  ≤ 1 day or overdue → red (#ef4444)
+ *  No due date → null (no color override)
+ */
+function getDueDateColor(due: string | undefined | null): string | null {
+    if (!due) return null;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const dueDate = new Date(due);
+    dueDate.setHours(0, 0, 0, 0);
+    const diffMs = dueDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 1) return '#ef4444';   // red: 1 day or overdue
+    if (diffDays <= 3) return '#f59e0b';   // orange: 2-3 days
+    return '#10b981';                       // green: more than 3 days
+}
+
 export default function BoardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: dashboardId } = use(params);
     const { showToast } = useToast();
@@ -59,6 +82,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [settings, setSettings] = useState<BoardSettings | null>(null);
     const [dashboardName, setDashboardName] = useState("Roadmap");
     const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics" | "chat">("kanban");
+    const [isMobileView, setIsMobileView] = useState(false);
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [availableUsers, setAvailableUsers] = useState<{ id: string, name: string, email: string }[]>([]);
     const [projectEndDate, setProjectEndDate] = useState<string | null>(null);
@@ -511,6 +535,21 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         document.documentElement.classList.toggle("dark", next === "dark");
     };
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const media = window.matchMedia('(max-width: 900px)');
+        const onChange = () => setIsMobileView(media.matches);
+        onChange();
+        media.addEventListener('change', onChange);
+        return () => media.removeEventListener('change', onChange);
+    }, []);
+
+    useEffect(() => {
+        if (isMobileView && activeTab === 'kanban') {
+            setActiveTab('timeline');
+        }
+    }, [isMobileView, activeTab]);
+
     if (accessDenied) {
         return (
             <div style={{ padding: 40, textAlign: 'center', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -544,12 +583,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         try {
             const task = tasks.find(t => t.id === taskId);
             if (task && task.status !== newStatus) {
-                await fetch('/api/tasks', {
+                const res = await fetch('/api/tasks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...task, status: newStatus, dashboard_id: dashboardId })
                 });
-                // Silent success for DnD
+
+                if (!res.ok) {
+                    throw new Error('Failed to persist task move');
+                }
             }
         } catch (err) {
             setTasks(originalTasks);
@@ -811,7 +853,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         <Link href={dashboardMeta.folder_id ? `/workspace?folderId=${dashboardMeta.folder_id}` : "/workspace"} className="btn-ghost" title="Volver">
                             <span style={{ fontSize: 24 }}>←</span>
                         </Link>
-                        <div style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
+                        <div className="board-title-wrap" style={{ marginLeft: 8, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 <h1 className="app-title">{settings.icon} {dashboardName}</h1>
                                 <div style={{
@@ -907,11 +949,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         <input
                             placeholder="🔍 Buscar..."
                             style={{ minWidth: 140 }}
+                            className="mobile-grow"
                             value={filters.search}
                             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                         />
                         <select
                             style={{ minWidth: 140 }}
+                            className="mobile-grow"
                             value={filters.week}
                             onChange={(e) => setFilters({ ...filters, week: e.target.value })}
                         >
@@ -924,6 +968,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         </select>
                         <select
                             style={{ minWidth: 150 }}
+                            className="mobile-grow"
                             value={filters.owner}
                             onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
                         >
@@ -960,7 +1005,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     const isBottleneck = colTasks.length > 10;
 
                                     return (
-                                        <div key={st.id} className="lane" style={{ minWidth: 320, display: 'flex', flexDirection: 'column', borderTop: `3px solid ${st.color}` }}>
+                                        <div key={st.id} className="lane" style={{ minWidth: isMobileView ? 280 : 320, display: 'flex', flexDirection: 'column', borderTop: `3px solid ${st.color}` }}>
                                             <div className="lane-head group">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                                     <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{st.name}</span>
@@ -998,7 +1043,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                         ) : (
                                                             colTasks.map((t, index) => (
                                                                 <Draggable key={t.id || index} draggableId={String(t.id || index)} index={index}>
-                                                                    {(provided, snapshot) => (
+                                                                    {(provided, snapshot) => {
+                                                                        const dueDateColor = getDueDateColor(t.due);
+                                                                        const taskStatusObj = statuses.find(s => s.id === t.status);
+                                                                        const isComplete = taskStatusObj?.percentage === 100;
+                                                                        return (
                                                                         <div
                                                                             ref={provided.innerRef}
                                                                             {...provided.draggableProps}
@@ -1009,7 +1058,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                                                 ...provided.draggableProps.style,
                                                                                 marginBottom: 12,
                                                                                 opacity: snapshot.isDragging ? 0.9 : 1,
-                                                                                transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'none'
+                                                                                transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'none',
+                                                                                borderLeft: (!isComplete && dueDateColor) ? `4px solid ${dueDateColor}` : undefined,
                                                                             }}
                                                                         >
                                                                             {/* Main Title Hierachy */}
@@ -1054,7 +1104,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                                                 </div>
                                                                             </div>
                                                                         </div>
-                                                                    )}
+                                                                        );
+                                                                    }}
                                                                 </Draggable>
                                                             ))
                                                         )}
@@ -1102,8 +1153,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                         <div className="tl-cards-grid">
                                             {weekTasks.map(t => {
                                                 const taskStatus = statuses.find(s => s.id === t.status) || DEFAULT_STATUSES[0];
+                                                const dueDateColor = getDueDateColor(t.due);
+                                                const isComplete = taskStatus.percentage === 100;
                                                 return (
-                                                    <div key={t.id} className="tl-card" onClick={() => openModal(t)}>
+                                                    <div
+                                                        key={t.id}
+                                                        className="tl-card"
+                                                        onClick={() => openModal(t)}
+                                                        style={{ borderLeft: (!isComplete && dueDateColor) ? `4px solid ${dueDateColor}` : undefined }}
+                                                    >
                                                         <div className="tl-card-top">
                                                             <div className="tl-status-dot" style={{ background: taskStatus.color }}></div>
                                                             <div className="tl-task-name">{t.name}</div>
@@ -1152,14 +1210,14 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
                 {/* CHAT TAB */}
                 {activeTab === "chat" && (
-                    <div className="view-section active animate-fade-in" style={{ padding: '0 20px 20px 20px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+                    <div className="view-section active animate-fade-in" style={{ padding: isMobileView ? '0 8px 12px 8px' : '0 20px 20px 20px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
                         <DashboardChat dashboardId={dashboardId} currentUser={currentUser} />
                     </div>
                 )}
 
                 {isModalOpen && settings && (
                     <div className="backdrop fade-in" onClick={cancelEditTask}>
-                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800 }}>
+                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(800px, calc(100vw - 24px))' }}>
                             <div className="modal-header">
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 4 }}>NOMBRE TAREA</div>
@@ -1247,10 +1305,47 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                         </select>
                                     </div>
                                 </div>
-                                <div className="form-group">
-                                    <label className="form-label">Fecha Objetivo</label>
-                                    <input className="input-glass" type="date" value={editingTask.due || ""} onChange={(e) => setEditingTask({ ...editingTask, due: e.target.value })} />
+                                <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                    <div>
+                                        <label className="form-label">Fecha Objetivo</label>
+                                        <input className="input-glass" type="date" value={editingTask.due || ""} onChange={(e) => setEditingTask({ ...editingTask, due: e.target.value, notification_sent: false })} />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text-main)', marginBottom: 12 }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={editingTask.notification_enabled || false} 
+                                                onChange={(e) => setEditingTask({ ...editingTask, notification_enabled: e.target.checked, notification_sent: false })} 
+                                            />
+                                            🔔 Notificar
+                                        </label>
+                                    </div>
                                 </div>
+
+                                {editingTask.notification_enabled && (
+                                    <div className="form-group animate-fade-in" style={{ background: 'var(--primary-light)', padding: 12, borderRadius: 12, border: '1px solid var(--primary-border)', marginBottom: 16 }}>
+                                        <label className="form-label" style={{ color: 'var(--primary)', marginBottom: 8 }}>Configuración de Notificación</label>
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                            <input 
+                                                type="number" 
+                                                className="input-glass" 
+                                                style={{ width: 80 }} 
+                                                value={editingTask.notification_value || 0} 
+                                                onChange={(e) => setEditingTask({ ...editingTask, notification_value: parseInt(e.target.value) || 0 })} 
+                                                min="0"
+                                            />
+                                            <select 
+                                                className="input-glass" 
+                                                value={editingTask.notification_unit || 'days'} 
+                                                onChange={(e) => setEditingTask({ ...editingTask, notification_unit: e.target.value as any })}
+                                            >
+                                                <option value="days">Días antes</option>
+                                                <option value="hours">Horas antes</option>
+                                            </select>
+                                            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>de la fecha objetivo</span>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="form-group">
                                     <label className="form-label">Descripción</label>
                                     <textarea className="input-glass" value={editingTask.desc || ""} onChange={(e) => setEditingTask({ ...editingTask, desc: e.target.value })} rows={4} />
@@ -1369,7 +1464,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {/* COLUMN MODAL */}
                 {isColModalOpen && (
                     <div className="backdrop fade-in" onClick={() => setIsColModalOpen(false)}>
-                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(400px, calc(100vw - 24px))' }}>
                             <div className="modal-header">
                                 <h3 className="modal-title">{editingColId ? "Editar Columna" : "Nueva Columna"}</h3>
                                 <button className="btn-ghost" onClick={() => setIsColModalOpen(false)}>✕</button>
@@ -1415,7 +1510,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {/* EDIT DASHBOARD MODAL */}
                 {isSettingsOpen && settings && (
                     <div className="backdrop fade-in" onClick={() => setIsSettingsOpen(false)}>
-                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                        <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(600px, calc(100vw - 24px))' }}>
                             <div className="modal-header">
                                 <h3 className="modal-title">Configurar Tablero</h3>
                                 <button className="btn-ghost" onClick={() => setIsSettingsOpen(false)}>✕</button>
@@ -1499,8 +1594,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     -webkit-backdrop-filter: blur(12px);
                     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
                     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
-                    padding: 0 24px; 
-                    height: 70px; 
+                    padding: 0 24px;
+                    min-height: 70px;
                     display: flex !important; 
                     align-items: center !important; 
                     position: sticky; 
@@ -1525,6 +1620,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     align-items: center !important;
                     gap: 12px !important;
                 }
+                .hide-mobile { display: inline-flex; }
+                .show-mobile { display: none; }
 
                 /* Dark Mode Overrides for Header - Global scope to match ThemeProvider */
                 :global(.dark) header { 
@@ -1537,11 +1634,39 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 :global(.dark) .btn-ghost:hover { background: rgba(255, 255, 255, 0.05) !important; color: #f8fafc !important; }
 
                 /* Mobile Overrides for Header */
-                @media (max-width: 768px) {
-                    header { height: auto !important; padding: 12px 16px; }
-                    .top-bar { flex-direction: column !important; align-items: flex-start !important; gap: 20px !important; }
-                    .logo-area { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
-                    .top-right-controls { width: 100% !important; justify-content: space-between !important; }
+                @media (max-width: 900px) {
+                    header {
+                        padding: max(10px, var(--safe-top)) 12px 10px 12px;
+                    }
+                    .top-bar {
+                        flex-direction: column !important;
+                        align-items: stretch !important;
+                        gap: 12px !important;
+                    }
+                    .logo-area {
+                        width: 100%;
+                        align-items: flex-start !important;
+                        gap: 8px !important;
+                    }
+                    .board-title-wrap {
+                        margin-left: 0 !important;
+                        padding-left: 0 !important;
+                        border-left: none !important;
+                        width: 100%;
+                    }
+                    .top-right-controls {
+                        width: 100% !important;
+                        justify-content: space-between !important;
+                        flex-wrap: wrap !important;
+                        gap: 8px !important;
+                    }
+                    .desktop-actions {
+                        width: 100%;
+                        justify-content: space-between;
+                        flex-wrap: wrap;
+                    }
+                    .hide-mobile { display: none !important; }
+                    .show-mobile { display: inline-flex !important; }
                 }
             `}</style>
 
@@ -1563,6 +1688,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 /* Controls & Filters */
                 .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 20px; }
                 .filters { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; }
+                .mobile-grow { flex: 1 1 180px; min-width: 0 !important; }
                 
                 .tabs { 
                     display: flex; 
@@ -1571,7 +1697,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     border-radius: 14px; 
                     gap: 4px;
                     border: 1px solid rgba(0,0,0,0.05);
+                    overflow-x: auto;
+                    scrollbar-width: none;
                 }
+                .tabs::-webkit-scrollbar { display: none; }
                 .tab { 
                     display: flex; 
                     align-items: center; 
@@ -1750,19 +1879,51 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 .type-tag.other { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
 
                 /* Mobile Optimization */
-                @media (max-width: 768px) {
+                @media (max-width: 900px) {
+                    .controls {
+                        flex-direction: column;
+                        align-items: stretch;
+                        gap: 12px;
+                    }
+                    .filters {
+                        flex-wrap: wrap;
+                        width: 100%;
+                        gap: 8px;
+                    }
+                    .filters > :global(button),
+                    .filters > button {
+                        flex: 1 1 calc(50% - 8px);
+                    }
+                    .filters > input,
+                    .filters > select {
+                        flex: 1 1 calc(50% - 8px);
+                    }
+                    .tabs {
+                        width: 100%;
+                        justify-content: flex-start;
+                    }
+                    .tab {
+                        padding: 10px 12px;
+                        font-size: 12px;
+                    }
                     .tl-cards-grid { grid-template-columns: 1fr; }
                     .tl-actions { opacity: 1; }
-                    main { overflow-y: auto !important; height: auto !important; padding: 16px; }
+                    main {
+                        overflow-y: auto !important;
+                        height: auto !important;
+                        min-height: calc(100dvh - 70px);
+                        padding: 12px 8px max(20px, var(--safe-bottom)) 8px;
+                    }
                     .kanban-container { height: auto !important; padding-bottom: 40px; }
                     .lanes { height: auto !important; gap: 16px; padding-right: 0; }
+                    .lane { padding: 12px; }
                 }
             `}</style>
 
             {
                 isShareModalOpen && (
                     <div className="backdrop animate-fade-in" onClick={() => setIsShareModalOpen(false)}>
-                        <div className="modal-container animate-slide-up" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-container animate-slide-up" style={{ maxWidth: 'min(500px, calc(100vw - 24px))' }} onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2 className="modal-title">Compartir Tablero</h2>
                                 <button onClick={() => setIsShareModalOpen(false)} className="btn-ghost"><X size={20} /></button>

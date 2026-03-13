@@ -31,6 +31,11 @@
   --font-main: 'Outfit', 'Inter', sans-serif;
   --radius-lg: 16px;
   --radius-md: 10px;
+  --touch-target-min: 44px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
 
 /* --- DARK MODE OVERRIDES --- */
@@ -57,6 +62,13 @@
   --glass-border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   background-color: var(--bg-main);
@@ -65,6 +77,13 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   transition: background-color 0.3s ease, color 0.3s ease;
+  overscroll-behavior-y: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 /* --- UTILITIES --- */
@@ -256,6 +275,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: var(--touch-target-min);
 }
 
 .btn-primary:hover {
@@ -271,6 +291,7 @@ body {
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.2s;
+  min-height: var(--touch-target-min);
 }
 
 .btn-ghost:hover {
@@ -288,6 +309,7 @@ body {
   border-radius: var(--radius-md);
   width: 100%;
   transition: all 0.3s;
+  min-height: var(--touch-target-min);
 }
 
 .input-glass:focus {
@@ -476,9 +498,9 @@ select.input-glass option:checked {
 
   /* Modals */
   .modal-container {
-    width: 95% !important;
+    width: min(100%, calc(100vw - 24px)) !important;
     max-height: 90vh !important;
-    margin: 10px;
+    margin: 0;
   }
 
   .modal-body {
@@ -494,16 +516,15 @@ select.input-glass option:checked {
   .input-glass {
     font-size: 16px;
     /* Prevent iOS zoom */
-    padding: 10px 12px;
+    padding: 12px 12px;
   }
 
   /* Buttons */
   .btn-primary,
   .btn-ghost {
-    padding: 10px 16px;
+    padding: 12px 16px;
     font-size: 14px;
-    width: 100%;
-    justify-content: center;
+    min-height: var(--touch-target-min);
   }
 
   /* Data Tables */
@@ -516,5 +537,17 @@ select.input-glass option:checked {
   .data-table th,
   .data-table td {
     padding: 12px;
+  }
+}
+
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a.btn-primary,
+  a.btn-ghost,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
   }
 }

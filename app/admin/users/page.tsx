@@ -86,25 +86,31 @@ export default function AdminUsersPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: user.id, email: user.email, status: newStatus }),
         });
+        let payload: { details?: string; error?: string } | null = null;
+        try {
+            payload = await res.json();
+        } catch {
+            payload = null;
+        }
 
         if (res.ok) {
             showToast(`Usuario ${newStatus === 'active' ? 'aprobado' : 'denegado'}`, "success");
             fetchUsers();
         } else {
-            showToast("Error al actualizar estado", "error");
+            showToast(payload?.details || payload?.error || "Error al actualizar estado", "error");
         }
     };
 
     return (
-        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 20px" }}>
-            <header style={{ marginBottom: 30, paddingBottom: 20, borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="admin-users-page" style={{ maxWidth: 1000, margin: "0 auto", padding: "0 20px" }}>
+            <header className="users-header" style={{ marginBottom: 30, paddingBottom: 20, borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Users size={28} className="text-primary" /> Gestión de Usuarios
                     </h1>
                     <p style={{ color: 'var(--text-dim)', margin: '4px 0 0 0', paddingLeft: 38 }}>Administra el acceso al sistema</p>
                 </div>
-                <button className="btn-primary" onClick={() => setIsCreating(true)}>
+                <button className="btn-primary create-user-btn" onClick={() => setIsCreating(true)}>
                     <UserPlus size={18} style={{ marginRight: 8 }} /> Nuevo Usuario
                 </button>
             </header>
@@ -113,7 +119,7 @@ export default function AdminUsersPage() {
                 <div className="glass-panel animate-slide-up" style={{ padding: 24, marginBottom: 30 }}>
                     <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: 18, fontWeight: 600 }}>Crear Usuario</h3>
                     <form onSubmit={handleCreate}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, alignItems: "start", marginBottom: 20 }}>
+                        <div className="create-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, alignItems: "start", marginBottom: 20 }}>
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label">Nombre</label>
                                 <input className="input-glass" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Opcional" />
@@ -134,8 +140,8 @@ export default function AdminUsersPage() {
                                 </select>
                             </div>
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div className="create-actions-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div className="create-checkbox-row" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <input
                                     type="checkbox"
                                     id="sendCreds"
@@ -145,7 +151,7 @@ export default function AdminUsersPage() {
                                 />
                                 <label htmlFor="sendCreds" style={{ fontSize: 13, cursor: "pointer", userSelect: "none" }}>Enviar credenciales de acceso al correo</label>
                             </div>
-                            <div style={{ display: 'flex', gap: 10 }}>
+                            <div className="create-buttons-row" style={{ display: 'flex', gap: 10 }}>
                                 <button type="button" className="btn-ghost" onClick={() => setIsCreating(false)}>Cancelar</button>
                                 <button type="submit" className="btn-primary">Crear Usuario</button>
                             </div>
@@ -154,8 +160,8 @@ export default function AdminUsersPage() {
                 </div>
             )}
 
-            <div className="glass-panel" style={{ overflow: "hidden", padding: 0, borderRadius: 16 }}>
-                <table className="data-table">
+            <div className="glass-panel users-table-wrap" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", padding: 0, borderRadius: 16 }}>
+                <table className="data-table" style={{ minWidth: 980 }}>
                     <thead>
                         <tr>
                             <th style={{ padding: '16px 24px' }}>Usuario</th>
@@ -278,6 +284,40 @@ export default function AdminUsersPage() {
                 onCancel={() => setConfirmOpen(false)}
                 isDestructive={true}
             />
+
+            <style jsx>{`
+                @media (max-width: 900px) {
+                    .admin-users-page {
+                        padding: 0 10px !important;
+                    }
+                    .users-header {
+                        flex-wrap: wrap;
+                        gap: 12px;
+                    }
+                    .create-user-btn {
+                        width: 100%;
+                        justify-content: center;
+                    }
+                    .create-grid {
+                        grid-template-columns: 1fr !important;
+                    }
+                    .create-actions-row {
+                        flex-direction: column;
+                        align-items: stretch !important;
+                        gap: 12px;
+                    }
+                    .create-checkbox-row {
+                        width: 100%;
+                    }
+                    .create-buttons-row {
+                        width: 100%;
+                    }
+                    .create-buttons-row button {
+                        flex: 1;
+                        justify-content: center;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

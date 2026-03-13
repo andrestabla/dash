@@ -39,6 +39,10 @@ export default function LandingPage() {
             <div className="logo">
               <img src="https://imageneseiconos.s3.us-east-1.amazonaws.com/iconos/logo_misproyectos.png" alt="Mis Proyectos" style={{ height: 40 }} />
             </div>
+            <div className="mobile-nav-actions">
+              <Link href="/login" className="btn-nav secondary">Entrar</Link>
+              <Link href="/register" className="btn-nav primary">Registro</Link>
+            </div>
             <div className="nav-menu">
               <a href="#what-is">Qué es</a>
               <a href="#how-works">Cómo funciona</a>
@@ -317,12 +321,15 @@ export default function LandingPage() {
           font-family: 'Outfit', sans-serif;
           scroll-behavior: smooth;
           overflow-x: hidden;
+          width: 100%;
+          min-height: 100dvh;
         }
 
         .container {
+          width: 100%;
           max-width: 1240px;
           margin: 0 auto;
-          padding: 0 40px;
+          padding: 0 clamp(16px, 4vw, 40px);
         }
 
         /* Nav */
@@ -344,11 +351,30 @@ export default function LandingPage() {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: 12px;
+          min-width: 0;
+          width: 100%;
+        }
+
+        .logo {
+          min-width: 0;
+        }
+
+        .logo img {
+          display: block;
+          max-width: min(46vw, 190px);
+          height: auto !important;
         }
 
         .nav-menu {
            display: flex;
            gap: 40px;
+        }
+
+        .mobile-nav-actions {
+          display: none;
+          gap: 8px;
+          align-items: center;
         }
 
         .nav-menu a {
@@ -387,6 +413,10 @@ export default function LandingPage() {
           align-items: center;
         }
 
+        .hero-content {
+          min-width: 0;
+        }
+
         .badge {
            display: inline-flex;
            align-items: center;
@@ -399,14 +429,19 @@ export default function LandingPage() {
            font-weight: 600;
            margin-bottom: 30px;
            border: 1px solid rgba(59, 130, 246, 0.2);
+           max-width: 100%;
+           flex-wrap: wrap;
         }
 
         .hero-title {
-          font-size: 56px;
+          font-size: clamp(2.1rem, 5.2vw, 3.5rem);
           font-weight: 800;
           line-height: 1.15;
           margin-bottom: 32px;
           letter-spacing: -2px;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+          hyphens: auto;
         }
 
         .hero-subtitle {
@@ -415,11 +450,14 @@ export default function LandingPage() {
           max-width: 650px;
           margin-bottom: 48px;
           line-height: 1.7;
+          overflow-wrap: anywhere;
+          word-break: break-word;
         }
 
         .hero-actions {
           display: flex;
           gap: 20px;
+          flex-wrap: wrap;
         }
 
         .btn-hero-primary {
@@ -502,6 +540,16 @@ export default function LandingPage() {
         /* Split Layout */
         .split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 100px; align-items: center; }
         .split-layout.reverse { grid-template-columns: 0.9fr 1.1fr; }
+        .visual-side,
+        .info-side {
+          width: 100%;
+          min-width: 0;
+        }
+        .concept-card {
+          width: 100%;
+          padding: 12px;
+          border-radius: 24px;
+        }
         .solution-list { list-style: none; padding: 0; margin-top: 40px; }
         .solution-list li { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; font-size: 17px; color: #cbd5e1; }
         .solution-list li strong { color: white; }
@@ -571,7 +619,16 @@ export default function LandingPage() {
            .hero-visual { margin-top: 60px; }
            .problem-grid { grid-template-columns: 1fr; }
            .split-layout { grid-template-columns: 1fr; gap: 60px; }
-           .split-layout :global(.visual-side) { order: 2; }
+           .split-layout.reverse { grid-template-columns: 1fr; }
+           .split-layout.reverse .info-side { order: 1; }
+           .split-layout.reverse .visual-side {
+             order: 2;
+             width: 100%;
+           }
+           .split-layout.reverse .concept-card {
+             max-width: 100%;
+             margin: 0;
+           }
            .pipeline-container { flex-direction: column; align-items: center; gap: 40px; }
            .p-arrow { display: none; }
            .benefit-card { grid-template-columns: 1fr; }
@@ -581,10 +638,88 @@ export default function LandingPage() {
            .nav-menu { display: none; }
         }
 
+        @media (max-width: 768px) {
+           .landing-nav {
+             height: auto;
+             min-height: 76px;
+             padding-top: max(10px, var(--safe-top));
+             padding-bottom: 10px;
+           }
+           .logo img {
+             max-width: min(42vw, 150px);
+           }
+           .container {
+             padding-left: max(14px, var(--safe-left));
+             padding-right: max(14px, var(--safe-right));
+           }
+           .mobile-nav-actions {
+             display: inline-flex;
+           }
+           .mobile-nav-actions .btn-nav {
+             padding: 8px 12px;
+             font-size: 12px;
+             border-radius: 12px;
+             white-space: nowrap;
+           }
+           .hero-section {
+             padding: 140px 0 72px;
+           }
+           .hero-actions {
+             flex-direction: column;
+             align-items: stretch;
+             width: 100%;
+             gap: 12px;
+           }
+           .btn-hero-primary,
+           .btn-hero-ghost {
+             width: 100%;
+             justify-content: center;
+             padding: 14px 16px;
+             text-align: center;
+           }
+           .badge {
+             font-size: 12px;
+             padding: 8px 12px;
+             justify-content: center;
+           }
+           .concept-card {
+             padding: 8px;
+             border-radius: 16px;
+           }
+           .hero-title,
+           .hero-subtitle,
+           .section-title,
+           .section-desc {
+             overflow-wrap: anywhere;
+             word-break: break-word;
+           }
+           .main-mockup-frame {
+             overflow: hidden;
+           }
+           .top-right,
+           .bottom-left {
+             position: static;
+             margin-top: 10px;
+             display: inline-flex;
+           }
+           .floating-badge {
+             max-width: 100%;
+             justify-content: center;
+           }
+        }
+
         @media (max-width: 640px) {
-           .hero-title { font-size: 38px; }
+           .hero-title { font-size: clamp(2rem, 10vw, 2.5rem); letter-spacing: -1px; }
+           .hero-subtitle { font-size: 16px; line-height: 1.55; }
            .capability-grid { grid-template-columns: 1fr; }
            .cta-card h2 { font-size: 32px; }
+           .section-title { font-size: 32px; }
+           .problem-card,
+           .cap-card,
+           .benefit-content,
+           .cta-card {
+             padding: 24px;
+           }
         }
         /* Footer */
         .landing-footer { 
@@ -628,6 +763,7 @@ export default function LandingPage() {
            .footer-brand { margin-bottom: 40px; }
            .footer-nav { flex-direction: column; gap: 40px; }
            .nav-links { display: none !important; }
+        }
       `}</style>
     </div>
   );

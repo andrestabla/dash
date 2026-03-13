@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTheme } from '@/components/ThemeProvider';
 
@@ -13,7 +12,6 @@ export default function LoginPage() {
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
     const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean, platform: string | null }>({ enabled: false, platform: null });
-    const router = useRouter();
     const { branding } = useTheme();
 
     useEffect(() => {
@@ -119,7 +117,8 @@ export default function LoginPage() {
             display: 'flex',
             ...bgStyle,
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            padding: 'max(16px, var(--safe-top)) max(16px, var(--safe-right)) max(16px, var(--safe-bottom)) max(16px, var(--safe-left))'
         }}>
             {/* Overlay if image */}
             {branding.brand_login_bg?.startsWith('http') && (
@@ -135,10 +134,15 @@ export default function LoginPage() {
             )}
 
             {/* Main Content */}
-
             <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-
-                <div className="glass-panel animate-slide-up" style={{ width: 420, padding: 40, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div
+                    className="glass-panel animate-slide-up"
+                    style={{
+                        width: 'min(420px, 100%)',
+                        padding: 'clamp(20px, 5vw, 40px)',
+                        border: '1px solid rgba(255,255,255,0.08)'
+                    }}
+                >
 
                     <div style={{ textAlign: 'center', marginBottom: 40 }}>
                         <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>

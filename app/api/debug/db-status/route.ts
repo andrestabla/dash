@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { getSession } from '@/lib/auth';
 
 export async function GET() {
     try {
+        const session = await getSession() as any;
+        if (!session || session.role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
+
         const client = await pool.connect();
 
         // Get database info
@@ -10,7 +16,7 @@ export async function GET() {
 
         // Get demo dashboard info
         const demoQuery = await client.query(`
-            SELECT id, name, public_token, is_public 
+            SELECT id, name, is_public 
             FROM dashboards 
             WHERE is_demo = TRUE 
             LIMIT 1
@@ -18,7 +24,7 @@ export async function GET() {
 
         // Get all public dashboards
         const publicQuery = await client.query(`
-            SELECT id, name, public_token 
+            SELECT id, name
             FROM dashboards 
             WHERE is_public = TRUE
         `);

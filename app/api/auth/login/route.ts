@@ -5,23 +5,52 @@ import { login } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
 
 export async function POST(request: Request) {
-    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
 
     try {
         const body = await request.json();
         const { email, password } = body;
+        const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-        if (!email || !password) {
+        if (!normalizedEmail || !password) {
             return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
         }
 
         const client = await pool.connect();
 
         try {
-            const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+            // Login rate limiting: protect against brute force and credential stuffing.
+            const [ipAttempts, emailAttempts] = await Promise.all([
+                client.query(
+                    `SELECT COUNT(*) 
+                     FROM login_attempts
+                     WHERE ip_address = $1
+                       AND success = FALSE
+                       AND attempted_at > NOW() - INTERVAL '15 minutes'`,
+                    [ip]
+                ),
+                client.query(
+                    `SELECT COUNT(*)
+                     FROM login_attempts
+                     WHERE email = $1
+                       AND success = FALSE
+                       AND attempted_at > NOW() - INTERVAL '15 minutes'`,
+                    [normalizedEmail]
+                ),
+            ]);
+
+            if (parseInt(ipAttempts.rows[0].count, 10) >= 20 || parseInt(emailAttempts.rows[0].count, 10) >= 8) {
+                return NextResponse.json({ error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }, { status: 429 });
+            }
+
+            const result = await client.query('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
             const user = result.rows[0];
 
             if (!user) {
+                await client.query(
+                    'INSERT INTO login_attempts (ip_address, email, success) VALUES ($1, $2, FALSE)',
+                    [ip, normalizedEmail]
+                );
                 return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
             }
 
@@ -30,7 +59,7 @@ export async function POST(request: Request) {
             if (!isMatch) {
                 await client.query(
                     'INSERT INTO login_attempts (ip_address, email, success) VALUES ($1, $2, FALSE)',
-                    [ip, email]
+                    [ip, normalizedEmail]
                 );
                 return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
             }
@@ -43,7 +72,7 @@ export async function POST(request: Request) {
             // Record success
             await client.query(
                 'INSERT INTO login_attempts (ip_address, email, success) VALUES ($1, $2, TRUE)',
-                [ip, email]
+                [ip, normalizedEmail]
             );
 
             // Create Session
@@ -73,7 +102,6 @@ export async function POST(request: Request) {
         }
     } catch (error: any) {
         console.error('[LOGIN] Fatal error:', error);
-        return NextResponse.json({ error: 'Error del servidor', detail: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
     }
 }
-

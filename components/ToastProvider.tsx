@@ -34,11 +34,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {children}
             <div style={{
                 position: 'fixed',
-                bottom: 24,
-                right: 24,
+                bottom: 'max(16px, var(--safe-bottom))',
+                right: 'max(12px, var(--safe-right))',
+                left: 'max(12px, var(--safe-left))',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 12,
+                alignItems: 'flex-end',
                 zIndex: 9999,
                 pointerEvents: 'none'
             }}>
@@ -53,7 +55,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                                 'rgba(30, 41, 59, 0.9)',
                         color: 'white',
                         border: '1px solid rgba(255,255,255,0.1)',
-                        minWidth: 200,
+                        minWidth: 0,
+                        maxWidth: 'min(420px, 100%)',
                         boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
                         pointerEvents: 'auto'
                     }}>

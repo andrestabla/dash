@@ -232,7 +232,7 @@ export default function AdminSettingsPage() {
                             <label style={{ display: 'block', marginBottom: 12, fontWeight: 600, fontSize: 13, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Fondo de Login</label>
 
                             {/* Presets */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(48px, 1fr))', gap: 10, marginBottom: 16 }}>
                                 {[
                                     'radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%)', // Default
                                     'linear-gradient(to right, #4facfe 0%, #00f2fe 100%)',
@@ -275,13 +275,24 @@ export default function AdminSettingsPage() {
             {/* WIZARD MODAL */}
             {isWizardOpen && (
                 <div className="backdrop">
-                    <div className="glass-panel animate-slide-up" style={{ padding: 0, width: 500, overflow: 'hidden' }}>
+                    <div
+                        className="glass-panel animate-slide-up"
+                        style={{
+                            padding: 0,
+                            width: 'min(500px, 100%)',
+                            maxHeight: 'min(92vh, 860px)',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            margin: 'max(12px, var(--safe-top)) max(12px, var(--safe-right)) max(12px, var(--safe-bottom)) max(12px, var(--safe-left))'
+                        }}
+                    >
                         <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0 }}>Asistente de Correo ({wizardStep}/3)</h3>
                             <button className="btn-ghost" onClick={() => setIsWizardOpen(false)}>✕</button>
                         </div>
 
-                        <div style={{ padding: 32, minHeight: 280 }}>
+                        <div style={{ padding: 'clamp(16px, 4vw, 32px)', minHeight: 280, overflowY: 'auto' }}>
                             {/* STEP 1: SERVER */}
                             {wizardStep === 1 && (
                                 <div className="animate-fade-in">
@@ -292,7 +303,7 @@ export default function AdminSettingsPage() {
                                     </div>
 
                                     {/* Provider Selection */}
-                                    <div style={{ display: 'flex', gap: 10, marginBottom: 20, justifyContent: 'center' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20, justifyContent: 'center' }}>
                                         {[
                                             { id: 'gmail', name: 'Gmail', icon: 'M' },
                                             { id: 'outlook', name: 'Outlook', icon: 'O' },
@@ -401,17 +412,18 @@ export default function AdminSettingsPage() {
                                     {/* Test Connection */}
                                     <div style={{ marginTop: 20, padding: 16, border: '1px dashed var(--border-dim)', borderRadius: 12 }}>
                                         <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', color: 'var(--text-dim)' }}>Enviar correo de prueba a:</label>
-                                        <div style={{ display: 'flex', gap: 10 }}>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                                             <input
                                                 className="input-glass"
                                                 placeholder="tu@email.com"
                                                 value={info.testEmail || ''}
-                                                style={{ color: 'var(--text-main)', borderColor: 'var(--border-dim)' }}
+                                                style={{ flex: '1 1 220px', color: 'var(--text-main)', borderColor: 'var(--border-dim)' }}
                                                 onChange={e => setInfo({ ...info, testEmail: e.target.value })}
                                             />
                                             <button
                                                 className="btn-primary"
                                                 style={{
+                                                    flex: '1 1 180px',
                                                     whiteSpace: 'nowrap',
                                                     background: testing ? '#94a3b8' : '#3b82f6', // Force Blue
                                                     color: '#ffffff',
@@ -451,7 +463,7 @@ export default function AdminSettingsPage() {
                             )}
                         </div>
 
-                        <div style={{ padding: '20px 24px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                        <div style={{ padding: '20px 24px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12 }}>
                             {wizardStep > 1 && (
                                 <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>
                                     <ArrowLeft size={16} style={{ marginRight: 6 }} /> Atrás

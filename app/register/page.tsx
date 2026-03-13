@@ -63,8 +63,8 @@ export default function RegisterPage() {
 
     if (success) {
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', padding: 20 }}>
-                <div className="glass-panel animate-fade-in" style={{ maxWidth: 450, width: '100%', padding: '40px 30px', textAlign: 'center' }}>
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', padding: 'max(16px, var(--safe-top)) max(16px, var(--safe-right)) max(16px, var(--safe-bottom)) max(16px, var(--safe-left))' }}>
+                <div className="glass-panel animate-fade-in" style={{ maxWidth: 450, width: '100%', padding: 'clamp(20px, 5vw, 40px) clamp(18px, 5vw, 30px)', textAlign: 'center' }}>
                     <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
                         <CheckCircle2 size={48} />
                     </div>
@@ -77,7 +77,7 @@ export default function RegisterPage() {
                             <Mail size={16} /> Te avisaremos por correo electrónico
                         </p>
                     </div>
-                    <Link href="/login" className="btn-primary" style={{ display: 'inline-flex', padding: '12px 32px' }}>
+                    <Link href="/login" className="btn-primary register-login-link" style={{ display: 'inline-flex', padding: '12px 32px' }}>
                         Volver al Inicio
                     </Link>
                 </div>
@@ -86,8 +86,8 @@ export default function RegisterPage() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', padding: 20 }}>
-            <div className="glass-panel animate-slide-up" style={{ maxWidth: 450, width: '100%', padding: '40px 30px' }}>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', padding: 'max(16px, var(--safe-top)) max(16px, var(--safe-right)) max(16px, var(--safe-bottom)) max(16px, var(--safe-left))' }}>
+            <div className="glass-panel animate-slide-up" style={{ maxWidth: 450, width: '100%', padding: 'clamp(20px, 5vw, 40px) clamp(18px, 5vw, 30px)' }}>
                 <div style={{ textAlign: 'center', marginBottom: 40 }}>
                     <div style={{ display: 'inline-flex', background: 'var(--primary)', color: 'white', padding: 12, borderRadius: 16, marginBottom: 20, boxShadow: '0 8px 16px rgba(59, 130, 246, 0.2)' }}>
                         <ShieldCheck size={32} />
@@ -230,9 +230,13 @@ export default function RegisterPage() {
                 .animate-slide-up { animation: slide-up 0.5s ease-out; }
                 .animate-spin { animation: spin 1s linear infinite; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @media (max-width: 560px) {
+                    .register-login-link {
+                        width: 100%;
+                        justify-content: center;
+                    }
+                }
             `}</style>
         </div>
     );
 }
-
-function get_id() { return "1767721200001"; }

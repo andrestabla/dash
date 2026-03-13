@@ -1,20 +1,42 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
-const SECRET_KEY = process.env.JWT_SECRET || 'secret-key-change-me-in-prod';
-const key = new TextEncoder().encode(SECRET_KEY);
+let warnedInsecureDevSecret = false;
+
+function getJwtSecret() {
+    const envSecret = process.env.JWT_SECRET?.trim();
+
+    if (envSecret) {
+        return envSecret;
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('JWT_SECRET is required in production');
+    }
+
+    if (!warnedInsecureDevSecret) {
+        warnedInsecureDevSecret = true;
+        console.warn('[AUTH] Using insecure development fallback JWT secret. Set JWT_SECRET to test auth safely.');
+    }
+
+    return 'dev-insecure-jwt-secret';
+}
+
+function getJwtKey() {
+    return new TextEncoder().encode(getJwtSecret());
+}
 
 export async function signToken(payload: any) {
     return await new SignJWT(payload)
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('24h')
-        .sign(key);
+        .sign(getJwtKey());
 }
 
 export async function verifyToken(token: string) {
     try {
-        const { payload } = await jwtVerify(token, key);
+        const { payload } = await jwtVerify(token, getJwtKey());
         return payload;
     } catch (error) {
         return null;

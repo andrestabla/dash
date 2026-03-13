@@ -79,7 +79,7 @@ export default function ProfilePage() {
     if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Cargando perfil...</div>;
 
     return (
-        <div style={{ maxWidth: 600, margin: '60px auto', padding: '0 20px' }}>
+        <div className="profile-page" style={{ maxWidth: 600, margin: 'max(16px, var(--safe-top)) auto max(24px, var(--safe-bottom)) auto', padding: '0 max(12px, var(--safe-left)) 0 max(12px, var(--safe-right))' }}>
             <Link href="/workspace" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'var(--text-dim)', marginBottom: 20, fontWeight: 500 }}>
                 <span>← Volver al Workspace</span>
             </Link>
@@ -111,7 +111,7 @@ export default function ProfilePage() {
                         <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>Mínimo 6 caracteres recomendado.</p>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <div className="profile-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingTop: 20, borderTop: '1px solid rgba(255, 255, 255, 0.05)', gap: 12 }}>
                         <button
                             type="button"
                             onClick={() => setIsPolicyModalOpen(true)}
@@ -127,14 +127,14 @@ export default function ProfilePage() {
                         >
                             <Shield size={16} /> Consultar Política de Privacidad
                         </button>
-                        <button type="submit" className="btn-primary">Guardar Cambios</button>
+                        <button type="submit" className="btn-primary profile-save-btn">Guardar Cambios</button>
                     </div>
                 </form>
 
                 {/* DANGER ZONE */}
                 <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid var(--border-dim)' }}>
                     <h3 style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', marginBottom: 16 }}>Zona de Peligro</h3>
-                    <div style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: 20, borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="danger-box" style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: 20, borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                         <div>
                             <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>Eliminar Cuenta</h4>
                             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-dim)' }}>
@@ -144,7 +144,7 @@ export default function ProfilePage() {
                         <button
                             type="button"
                             onClick={confirmDelete}
-                            className="btn-ghost"
+                            className="btn-ghost danger-btn"
                             style={{ color: '#ef4444', borderColor: '#ef4444', border: '1px solid' }}
                         >
                             Eliminar Cuenta
@@ -167,6 +167,23 @@ export default function ProfilePage() {
                 onCancel={() => setIsDeleteOpen(false)}
                 isDestructive={true}
             />
+
+            <style jsx>{`
+                @media (max-width: 768px) {
+                    .profile-actions {
+                        flex-direction: column;
+                        align-items: stretch !important;
+                    }
+                    .profile-save-btn {
+                        width: 100%;
+                        justify-content: center;
+                    }
+                    .danger-btn {
+                        width: 100%;
+                        justify-content: center;
+                    }
+                }
+            `}</style>
         </div>
     );
 }
