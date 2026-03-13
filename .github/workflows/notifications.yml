@@ -9,7 +9,7 @@ on:
             jobs:
               notify:
                   runs-on: ubuntu-latest
-                      steps:
+                     steps:
                             - name: Trigger notification cron
                                     run: |
                                               URL="${{ secrets.APP_URL }}"
