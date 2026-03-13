@@ -5,9 +5,13 @@ import { sendEmail } from '@/lib/email';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-    // Basic security check
+    // Allow Vercel's own cron runner OR a valid CRON_SECRET bearer token
+    const userAgent = request.headers.get('user-agent') || '';
     const authHeader = request.headers.get('authorization');
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const isVercelCron = userAgent.includes('vercel-cron');
+    const isValidSecret = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+
+    if (!isVercelCron && !isValidSecret && process.env.CRON_SECRET) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
