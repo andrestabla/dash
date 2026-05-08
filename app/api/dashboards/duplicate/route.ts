@@ -29,10 +29,10 @@ export async function POST(request: Request) {
 
         // 3. Insert Copy
         const res = await client.query(
-            `INSERT INTO dashboards (name, description, settings, folder_id) 
-             VALUES ($1, $2, $3, $4) 
+            `INSERT INTO dashboards (name, description, settings, folder_id, owner_id)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING *`,
-            [newName, original.description, original.settings, original.folder_id]
+            [newName, original.description, original.settings, original.folder_id, (session as any).id]
         );
 
         const newDashboard = res.rows[0];
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
         for (let i = 0; i < tasks.length; i++) {
             const task = tasks[i];
-            const newTaskId = Date.now() + i; // Generate unique BIGINT ID similar to frontend
+            const newTaskId = crypto.randomUUID();
             await client.query(
                 `INSERT INTO tasks (
                     id, name, status, prio, owner, type, week, gate, 
