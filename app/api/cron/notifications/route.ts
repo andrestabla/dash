@@ -4,6 +4,10 @@ import { sendEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
+function escapeHtml(str: string): string {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
+}
+
 export async function GET(request: Request) {
     // Allow Vercel's own cron runner OR a valid CRON_SECRET bearer token
     const userAgent = request.headers.get('user-agent') || '';
@@ -11,7 +15,7 @@ export async function GET(request: Request) {
     const isVercelCron = userAgent.includes('vercel-cron');
     const isValidSecret = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
 
-    if (!isVercelCron && !isValidSecret && process.env.CRON_SECRET) {
+    if (!isVercelCron && !isValidSecret) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -103,13 +107,13 @@ export async function GET(request: Request) {
                         <p>Hola,</p>
                         <p>Te recordamos que la tarea:</p>
                         <div style="background: #f1f5f9; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #3b82f6;">
-                            <strong style="font-size: 16px;">${task.name}</strong><br/>
-                            <span style="color: #64748b; font-size: 13px;">📋 Tablero: ${task.dashboard_name}</span><br/>
+                            <strong style="font-size: 16px;">${escapeHtml(task.name)}</strong><br/>
+                            <span style="color: #64748b; font-size: 13px;">📋 Tablero: ${escapeHtml(task.dashboard_name)}</span><br/>
                             <span style="color: #64748b; font-size: 13px;">📅 Fecha límite: <strong>${dueDate.toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong></span>
                         </div>
                         <p style="color: #64748b; font-size: 13px;">Esta notificación fue configurada para enviarse <strong>${task.notification_value} ${task.notification_unit === 'days' ? 'día(s)' : 'hora(s)'} antes</strong> de la fecha límite.</p>
                         <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #94a3b8;">
-                            Correo automático generado por misproyectos.com.co — No responder.
+                            Correo automático generado por ${process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname : 'misproyectos.com.co'} — No responder.
                         </div>
                     </div>
                 `;

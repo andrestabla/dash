@@ -5,8 +5,12 @@ import { sendEmail } from '@/lib/email';
 import { getSession } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
 
+function escapeHtml(str: string): string {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
+}
+
 export async function POST(request: Request) {
-    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
 
     try {
         const body = await request.json();
@@ -16,13 +20,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Todos los campos son obligatorios' }, { status: 400 });
         }
 
+        const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+        if (!normalizedEmail) {
+            return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
+        }
+
         const client = await pool.connect();
 
         try {
             // Rate limiting: max 3 attempts per hour per IP
             const rateLimitCheck = await client.query(
-                `SELECT COUNT(*) FROM login_attempts 
-                 WHERE ip_address = $1 
+                `SELECT COUNT(*) FROM login_attempts
+                 WHERE ip_address = $1
                  AND email LIKE 'REG:%'
                  AND attempted_at > NOW() - INTERVAL '1 hour'`,
                 [ip]
@@ -38,11 +47,11 @@ export async function POST(request: Request) {
             // Record attempt
             await client.query(
                 'INSERT INTO login_attempts (ip_address, email, success) VALUES ($1, $2, FALSE)',
-                [ip, `REG:${email}`]
+                [ip, `REG:${normalizedEmail}`]
             );
 
             // 1. Check if user already exists
-            const check = await client.query('SELECT id FROM users WHERE email = $1', [email]);
+            const check = await client.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
             if (check.rows.length > 0) {
                 return NextResponse.json({ error: 'El correo electrónico ya está registrado' }, { status: 400 });
             }
@@ -51,7 +60,7 @@ export async function POST(request: Request) {
             const hashed = await bcrypt.hash(password, 10);
             const result = await client.query(
                 'INSERT INTO users (email, password, name, status, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name',
-                [email, hashed, name, 'pending', 'user']
+                [normalizedEmail, hashed, name, 'pending', 'user']
             );
 
             const newUser = result.rows[0];
@@ -62,7 +71,7 @@ export async function POST(request: Request) {
             // Mark as success in attempts
             await client.query(
                 'UPDATE login_attempts SET success = TRUE WHERE ip_address = $1 AND email = $2',
-                [ip, `REG:${email}`]
+                [ip, `REG:${normalizedEmail}`]
             );
 
             // 4. Fetch admin emails for notification
@@ -78,7 +87,7 @@ export async function POST(request: Request) {
                         <h1 style="color: white; margin: 0; font-size: 24px;">¡Registro Recibido! 🚀</h1>
                     </div>
                     <div style="padding: 30px; line-height: 1.6;">
-                        <p>Hola <b>${name}</b>,</p>
+                        <p>Hola <b>${escapeHtml(name)}</b>,</p>
                         <p>Gracias por registrarte en <b>Project Control</b>. Tu solicitud ha sido recibida correctamente.</p>
                         <div style="background: #f8fafc; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
                             <p style="margin: 0; font-weight: 600;">Estado de la cuenta: <span style="color: #f59e0b;">Pendiente de aprobación</span></p>
@@ -87,7 +96,7 @@ export async function POST(request: Request) {
                     </div>
                 </div>
             `;
-            await sendEmail(email, "Registro Recibido - Project Control", userHtml);
+            await sendEmail(normalizedEmail, "Registro Recibido - Project Control", userHtml);
 
             // To Admins
             const adminHtml = `
@@ -98,8 +107,8 @@ export async function POST(request: Request) {
                     <div style="padding: 30px; line-height: 1.6;">
                         <p>Se ha recibido una nueva solicitud de cuenta en la plataforma:</p>
                         <ul style="background: #f8fafc; padding: 20px; border-radius: 8px; list-style: none;">
-                            <li><b>Nombre:</b> ${name}</li>
-                            <li><b>Email:</b> ${email}</li>
+                            <li><b>Nombre:</b> ${escapeHtml(name)}</li>
+                            <li><b>Email:</b> ${escapeHtml(normalizedEmail)}</li>
                             <li><b>Fecha:</b> ${new Date().toLocaleString()}</li>
                         </ul>
                         <p>Puedes revisar y aprobar esta solicitud desde el panel de administración.</p>
