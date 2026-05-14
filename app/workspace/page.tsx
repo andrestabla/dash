@@ -206,7 +206,17 @@ function WorkspaceContent() {
 
     // --- COMPUTED ---
     const currentItems = useMemo(() => {
-        let d = dashboards.filter(item => item.folder_id === currentFolderId);
+        const visibleFolderIds = new Set(folders.map(f => f.id));
+        const normalizedDashboards = dashboards.map((item) => {
+            // If user has direct dashboard access but not folder visibility,
+            // surface the dashboard at root instead of hiding it.
+            if (item.folder_id && !visibleFolderIds.has(item.folder_id)) {
+                return { ...item, folder_id: null };
+            }
+            return item;
+        });
+
+        let d = normalizedDashboards.filter(item => item.folder_id === currentFolderId);
         let f = folders.filter(item => item.parent_id === currentFolderId);
 
         // Sorting Logic
