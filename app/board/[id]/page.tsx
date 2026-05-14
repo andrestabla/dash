@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, use } from "react";
+import { useState, useEffect, useMemo, use, useRef } from "react";
 import Link from 'next/link';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useToast } from "@/components/ToastProvider";
@@ -140,6 +140,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
     // Access State (moved from line 430)
     const [accessDenied, setAccessDenied] = useState(false);
+    const tasksSnapshotRef = useRef('');
+    const settingsSnapshotRef = useRef('');
+    const isRealtimeSyncingRef = useRef(false);
 
     // Fetch Share Data
     const fetchShareData = async () => {
@@ -456,56 +459,150 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         }
     };
 
-    // Load Data
+    const loadDashboardSettings = async () => {
+        try {
+            const res = await fetch(`/api/dashboards/${dashboardId}`);
+            if (res.status === 403) {
+                setAccessDenied(true);
+                return;
+            }
+            const data = await res.json();
+            if (!data || !data.settings) return;
+
+            const nextSnapshot = JSON.stringify({
+                name: data.name,
+                description: data.description,
+                start_date: data.start_date,
+                end_date: data.end_date,
+                is_demo: data.is_demo,
+                folder_id: data.folder_id,
+                settings: data.settings
+            });
+
+            if (nextSnapshot === settingsSnapshotRef.current) return;
+            settingsSnapshotRef.current = nextSnapshot;
+
+            setSettings(data.settings);
+            setDashboardName(data.name);
+            setDashboardMeta({
+                description: data.description,
+                start_date: data.start_date,
+                end_date: data.end_date,
+                is_demo: data.is_demo,
+                folder_id: data.folder_id
+            });
+            setIsDemoMode(data.is_demo === true);
+            if (data.end_date) setProjectEndDate(data.end_date.split('T')[0]);
+        } catch (err) {
+            console.error("Failed to load dashboard settings", err);
+        }
+    };
+
+    const loadTasks = async () => {
+        try {
+            const res = await fetch(`/api/tasks?dashboardId=${dashboardId}`);
+            const data = await res.json();
+            if (!Array.isArray(data)) return;
+            const nextTasks = data.filter(t => t && t.id);
+            const nextSnapshot = JSON.stringify(nextTasks);
+            if (nextSnapshot === tasksSnapshotRef.current) return;
+            tasksSnapshotRef.current = nextSnapshot;
+            setTasks(nextTasks);
+        } catch (err) {
+            console.error("Failed to load tasks", err);
+        }
+    };
+
+    const loadAvailableUsers = async () => {
+        try {
+            const res = await fetch('/api/users/list');
+            const data = await res.json();
+            if (Array.isArray(data)) setAvailableUsers(data);
+        } catch (err) {
+            console.error("Failed to load users", err);
+        }
+    };
+
+    // Initial Load Data
+    useEffect(() => {
+        if (!dashboardId) return;
+        setAccessDenied(false);
+        void loadDashboardSettings();
+        void loadTasks();
+        void loadAvailableUsers();
+        void fetchShareData();
+    }, [dashboardId]);
+
+    // Realtime sync fallback: periodic pull to keep consistency if SSE disconnects.
     useEffect(() => {
         if (!dashboardId) return;
 
-        // Fetch Dashboard Settings
-        fetch(`/api/dashboards/${dashboardId}`)
-            .then(async res => {
-                if (res.status === 403) {
-                    setAccessDenied(true);
-                    return null;
+        const syncFromServer = async () => {
+            if (document.visibilityState !== 'visible') return;
+            if (isRealtimeSyncingRef.current) return;
+            if (isModalOpen || isSettingsOpen || isColModalOpen) return;
+
+            isRealtimeSyncingRef.current = true;
+            try {
+                await Promise.all([loadDashboardSettings(), loadTasks()]);
+            } finally {
+                isRealtimeSyncingRef.current = false;
+            }
+        };
+
+        const interval = setInterval(() => {
+            void syncFromServer();
+        }, 15000);
+
+        const onFocusOrVisible = () => {
+            void syncFromServer();
+        };
+
+        window.addEventListener('focus', onFocusOrVisible);
+        document.addEventListener('visibilitychange', onFocusOrVisible);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', onFocusOrVisible);
+            document.removeEventListener('visibilitychange', onFocusOrVisible);
+        };
+    }, [dashboardId, isModalOpen, isSettingsOpen, isColModalOpen]);
+
+    // True realtime channel for board updates (SSE).
+    useEffect(() => {
+        if (!dashboardId) return;
+        if (typeof window === 'undefined') return;
+
+        let source: EventSource | null = null;
+        let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+        let closedByClient = false;
+
+        const connect = () => {
+            source = new EventSource(`/api/realtime/dashboard/${dashboardId}`);
+
+            source.addEventListener('update', () => {
+                if (isModalOpen || isSettingsOpen || isColModalOpen) return;
+                void Promise.all([loadTasks(), loadDashboardSettings()]);
+            });
+
+            source.onerror = () => {
+                if (source) {
+                    source.close();
+                    source = null;
                 }
-                return res.json();
-            })
-            .then(data => {
-                if (data && data.settings) {
-                    setSettings(data.settings);
-                    setDashboardName(data.name);
-                    setDashboardMeta({
-                        description: data.description,
-                        start_date: data.start_date,
-                        end_date: data.end_date,
-                        is_demo: data.is_demo,
-                        folder_id: data.folder_id
-                    });
-                    setIsDemoMode(data.is_demo === true);
-                    if (data.end_date) setProjectEndDate(data.end_date.split('T')[0]);
-                }
-            })
-            .catch(err => console.error("Failed to load dashboard settings", err));
+                if (closedByClient) return;
+                reconnectTimer = setTimeout(connect, 2500);
+            };
+        };
 
-        // Fetch Tasks
-        fetch(`/api/tasks?dashboardId=${dashboardId}`)
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) setTasks(data.filter(t => t && t.id));
-            })
-            .catch(err => console.error("Failed to load tasks", err));
+        connect();
 
-        // Fetch Available Users for Dropdown
-        fetch('/api/users/list')
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) setAvailableUsers(data);
-            })
-            .catch(err => console.error("Failed to load users", err));
-
-        // Fetch Collaborators for Mentions
-        fetchShareData();
-
-    }, [dashboardId]);
+        return () => {
+            closedByClient = true;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            if (source) source.close();
+        };
+    }, [dashboardId, isModalOpen, isSettingsOpen, isColModalOpen]);
 
     // Memoized values (must be before early returns)
     const statuses = useMemo(() => {

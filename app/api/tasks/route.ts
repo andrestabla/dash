@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { publishDashboardRealtime } from '@/lib/realtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -239,6 +240,7 @@ export async function POST(request: Request) {
             }
 
             await client.query('COMMIT');
+            publishDashboardRealtime(String(dashboard_id), 'tasks_changed');
 
             return NextResponse.json({ message: 'Task saved', id: savedTaskId }, { status: 201 });
         } catch (dbError) {
@@ -295,6 +297,7 @@ export async function DELETE(request: Request) {
         }
 
         await client.query('DELETE FROM tasks WHERE id = $1', [id]);
+        publishDashboardRealtime(String(dashboardId), 'tasks_changed');
 
         return NextResponse.json({ message: 'Task deleted' });
         } finally {

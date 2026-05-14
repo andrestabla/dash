@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { publishDashboardRealtime } from '@/lib/realtime';
 
 export async function GET() {
     const session = await getSession() as any;
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
             }
 
             await client.query('COMMIT');
+            publishDashboardRealtime(String(newDash.id), 'dashboard_changed');
             return NextResponse.json(newDash, { status: 201 });
         } catch (e) {
             await client.query('ROLLBACK');
@@ -157,6 +159,7 @@ export async function PUT(request: Request) {
             [name, description || '', settings || {}, body.start_date || null, body.end_date || null, body.is_demo ?? dashboard.is_demo, id]
         );
         client.release();
+        publishDashboardRealtime(String(id), 'dashboard_changed');
 
         return NextResponse.json(result.rows[0]);
     } catch (error) {
@@ -197,6 +200,7 @@ export async function DELETE(request: Request) {
 
         const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
         client.release();
+        publishDashboardRealtime(String(id), 'dashboard_deleted');
 
         return NextResponse.json({ success: true, id });
     } catch (error) {
