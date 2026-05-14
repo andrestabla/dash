@@ -168,16 +168,26 @@ function WorkspaceContent() {
     // --- DATA LOADING ---
     const loadData = () => {
         setIsLoading(true);
-        Promise.all([
+        Promise.allSettled([
             fetch('/api/dashboards').then(res => res.json()),
             fetch('/api/folders').then(res => res.json()),
             fetch('/api/users/list').then(res => res.json())
-        ]).then(([dData, fData, uData]) => {
-            if (Array.isArray(dData)) setDashboards(dData);
-            if (Array.isArray(fData)) setFolders(fData);
-            if (Array.isArray(uData)) setAvailableUsers(uData);
-        }).catch(err => {
-            console.error(err);
+        ]).then((results) => {
+            const [dashboardsResult, foldersResult, usersResult] = results;
+
+            if (dashboardsResult.status === 'fulfilled' && Array.isArray(dashboardsResult.value)) {
+                setDashboards(dashboardsResult.value);
+            }
+            if (foldersResult.status === 'fulfilled' && Array.isArray(foldersResult.value)) {
+                setFolders(foldersResult.value);
+            }
+            if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
+                setAvailableUsers(usersResult.value);
+            }
+
+            if (dashboardsResult.status === 'rejected' || foldersResult.status === 'rejected') {
+                showToast("Algunas secciones no cargaron completamente. Reintentando...", "warning");
+            }
         }).finally(() => {
             setIsLoading(false);
         });

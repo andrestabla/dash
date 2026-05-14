@@ -14,7 +14,7 @@ export async function GET(
 
     const { id: dashboardId } = await params;
     if (!dashboardId) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
-    const connectionAttempt = openRealtimeConnection(dashboardId, String(session.id), 3);
+    const connectionAttempt = openRealtimeConnection(dashboardId, String(session.id), 12);
     if (!connectionAttempt.ok) {
         return NextResponse.json({ error: 'Too many realtime connections for this dashboard/user' }, { status: 429 });
     }
@@ -74,8 +74,8 @@ export async function GET(
                 }
             };
 
-            // Close stale streams after 2 minutes to enforce aggressive cleanup.
-            const maxLifetime = setTimeout(close, 2 * 60 * 1000);
+            // Close stale streams after 5 minutes; browser reconnect is automatic.
+            const maxLifetime = setTimeout(close, 5 * 60 * 1000);
             void maxLifetime;
         },
         cancel() {

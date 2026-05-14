@@ -143,6 +143,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const tasksSnapshotRef = useRef('');
     const settingsSnapshotRef = useRef('');
     const isRealtimeSyncingRef = useRef(false);
+    const isModalOpenRef = useRef(false);
+    const isSettingsOpenRef = useRef(false);
+    const isColModalOpenRef = useRef(false);
 
     // Fetch Share Data
     const fetchShareData = async () => {
@@ -523,6 +526,18 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         }
     };
 
+    useEffect(() => {
+        isModalOpenRef.current = isModalOpen;
+    }, [isModalOpen]);
+
+    useEffect(() => {
+        isSettingsOpenRef.current = isSettingsOpen;
+    }, [isSettingsOpen]);
+
+    useEffect(() => {
+        isColModalOpenRef.current = isColModalOpen;
+    }, [isColModalOpen]);
+
     // Initial Load Data
     useEffect(() => {
         if (!dashboardId) return;
@@ -573,36 +588,17 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         if (!dashboardId) return;
         if (typeof window === 'undefined') return;
 
-        let source: EventSource | null = null;
-        let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-        let closedByClient = false;
+        const source = new EventSource(`/api/realtime/dashboard/${dashboardId}`);
 
-        const connect = () => {
-            source = new EventSource(`/api/realtime/dashboard/${dashboardId}`);
-
-            source.addEventListener('update', () => {
-                if (isModalOpen || isSettingsOpen || isColModalOpen) return;
-                void Promise.all([loadTasks(), loadDashboardSettings()]);
-            });
-
-            source.onerror = () => {
-                if (source) {
-                    source.close();
-                    source = null;
-                }
-                if (closedByClient) return;
-                reconnectTimer = setTimeout(connect, 2500);
-            };
-        };
-
-        connect();
+        source.addEventListener('update', () => {
+            if (isModalOpenRef.current || isSettingsOpenRef.current || isColModalOpenRef.current) return;
+            void Promise.all([loadTasks(), loadDashboardSettings()]);
+        });
 
         return () => {
-            closedByClient = true;
-            if (reconnectTimer) clearTimeout(reconnectTimer);
-            if (source) source.close();
+            source.close();
         };
-    }, [dashboardId, isModalOpen, isSettingsOpen, isColModalOpen]);
+    }, [dashboardId]);
 
     // Memoized values (must be before early returns)
     const statuses = useMemo(() => {
