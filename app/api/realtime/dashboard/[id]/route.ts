@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
-import { subscribeDashboardRealtime } from '@/lib/realtime';
+import { closeRealtimeConnection, openRealtimeConnection, subscribeDashboardRealtime } from '@/lib/realtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +14,11 @@ export async function GET(
 
     const { id: dashboardId } = await params;
     if (!dashboardId) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
+    const connectionAttempt = openRealtimeConnection(dashboardId, String(session.id), 3);
+    if (!connectionAttempt.ok) {
+        return NextResponse.json({ error: 'Too many realtime connections for this dashboard/user' }, { status: 429 });
+    }
+    const connectionId = connectionAttempt.connectionId;
 
     const client = await pool.connect();
     try {
@@ -38,7 +43,9 @@ export async function GET(
 
     const stream = new ReadableStream<Uint8Array>({
         start(controller) {
+            let isClosed = false;
             const send = (event: string, data: unknown) => {
+                if (isClosed) return;
                 controller.enqueue(
                     encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
                 );
@@ -55,8 +62,11 @@ export async function GET(
             }, 25000);
 
             const close = () => {
+                if (isClosed) return;
+                isClosed = true;
                 clearInterval(heartbeat);
                 unsubscribe();
+                closeRealtimeConnection(connectionId);
                 try {
                     controller.close();
                 } catch {
@@ -64,13 +74,12 @@ export async function GET(
                 }
             };
 
-            // Close stale streams after 5 minutes to avoid long-lived leaks.
-            const maxLifetime = setTimeout(close, 5 * 60 * 1000);
-
+            // Close stale streams after 2 minutes to enforce aggressive cleanup.
+            const maxLifetime = setTimeout(close, 2 * 60 * 1000);
             void maxLifetime;
         },
         cancel() {
-            // no-op; cleanup happens in close timeout or abort handler when available
+            closeRealtimeConnection(connectionId);
         }
     });
 

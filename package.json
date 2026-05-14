@@ -8,8 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e:export": "node --test tests/e2e/export-auth-and-api-contract.test.mjs",
+    "test:e2e:realtime": "node --test tests/e2e/realtime-concurrency.test.mjs",
     "test:smoke:remote": "node tests/prod-smoke.mjs",
-    "verify:release": "npm run build && npm run test:e2e:export"
+    "verify:release": "npm run build && npm run test:e2e:export && npm run test:e2e:realtime"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
