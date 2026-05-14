@@ -186,7 +186,7 @@ function WorkspaceContent() {
             }
 
             if (dashboardsResult.status === 'rejected' || foldersResult.status === 'rejected') {
-                showToast("Algunas secciones no cargaron completamente. Reintentando...", "warning");
+                showToast("Algunas secciones no cargaron completamente. Reintentando...", "info");
             }
         }).finally(() => {
             setIsLoading(false);
