@@ -25,8 +25,8 @@ async function verifyHealth() {
             'task_comments',
             'audit_logs',
             'dashboard_collaborators',
+            'dashboard_user_permissions',
             'system_settings',
-            'dashboard_shares' // Check if this exists based on verify_db_health.js logic if needed, or migration scripts
         ];
 
         const tablesRes = await client.query(`
@@ -46,6 +46,11 @@ async function verifyHealth() {
                 missingTables.push(t);
             }
         });
+
+        // Backward-compatibility note: legacy installs may still have dashboard_shares.
+        if (existingTables.includes('dashboard_shares')) {
+            console.log('   ℹ️ dashboard_shares (legacy table detected)');
+        }
 
         // 2. Check Critical Columns
         console.log("\n🔍 Column Check:");
@@ -71,6 +76,11 @@ async function verifyHealth() {
         if (existingTables.includes('dashboards')) {
             await checkColumn('dashboards', 'owner_id');
             await checkColumn('dashboards', 'folder_id');
+        }
+        if (existingTables.includes('dashboard_user_permissions')) {
+            await checkColumn('dashboard_user_permissions', 'dashboard_id');
+            await checkColumn('dashboard_user_permissions', 'user_id');
+            await checkColumn('dashboard_user_permissions', 'role');
         }
         if (existingTables.includes('users')) {
             await checkColumn('users', 'status');
