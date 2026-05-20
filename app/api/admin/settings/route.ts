@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { forbidden, serverError } from '@/lib/api-error';
 
 const verifyAdmin = async () => {
     const session = await getSession();
@@ -8,7 +9,7 @@ const verifyAdmin = async () => {
 };
 
 export async function GET() {
-    if (!await verifyAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!await verifyAdmin()) return forbidden();
 
     try {
         const client = await pool.connect();
@@ -21,12 +22,13 @@ export async function GET() {
 
         return NextResponse.json(settings);
     } catch (error) {
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        console.error('[AdminSettings] GET error:', error);
+        return serverError('Failed');
     }
 }
 
 export async function POST(request: Request) {
-    if (!await verifyAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!await verifyAdmin()) return forbidden();
 
     try {
         const body = await request.json();
@@ -43,6 +45,7 @@ export async function POST(request: Request) {
         client.release();
         return NextResponse.json({ success: true });
     } catch (error) {
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        console.error('[AdminSettings] POST error:', error);
+        return serverError('Failed');
     }
 }

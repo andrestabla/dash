@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getSession } from '@/lib/auth';
 import pool from '@/lib/db';
+import { unauthorized, badRequest, notFound, serverError } from '@/lib/api-error';
 
 type Dashboard = {
     id: string;
@@ -134,7 +135,7 @@ async function getAuthorizedFolder(client: any, folderId: string, session: any) 
 export async function GET(request: Request) {
     const session = await getSession() as any;
     if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return unauthorized();
     }
 
     const { searchParams } = new URL(request.url);
@@ -142,7 +143,7 @@ export async function GET(request: Request) {
     const type = searchParams.get('type');
 
     if (!id || !type) {
-        return NextResponse.json({ error: 'Missing id or type' }, { status: 400 });
+        return badRequest('Missing id or type');
     }
 
     const headersDashboard = [
@@ -165,7 +166,7 @@ export async function GET(request: Request) {
         if (type === 'dashboard') {
             const dashboard = await getAuthorizedDashboard(client, id, session);
             if (!dashboard) {
-                return NextResponse.json({ error: 'Dashboard not found or forbidden' }, { status: 404 });
+                return notFound('Dashboard not found or forbidden');
             }
 
             const tasksRes = await client.query(
@@ -195,7 +196,7 @@ export async function GET(request: Request) {
         if (type === 'folder') {
             const folder = await getAuthorizedFolder(client, id, session);
             if (!folder) {
-                return NextResponse.json({ error: 'Folder not found or forbidden' }, { status: 404 });
+                return notFound('Folder not found or forbidden');
             }
 
             const dashboardsRes = await client.query(
@@ -294,15 +295,10 @@ export async function GET(request: Request) {
             });
         }
 
-        return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
-    } catch (error: any) {
-        return NextResponse.json(
-            {
-                error: 'Internal Server Error',
-                details: process.env.NODE_ENV === 'production' ? undefined : error.message,
-            },
-            { status: 500 }
-        );
+        return badRequest('Invalid type');
+    } catch (error) {
+        console.error("Export error:", error);
+        return serverError();
     } finally {
         client.release();
     }

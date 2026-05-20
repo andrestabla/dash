@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { badRequest, notFound, serverError } from '@/lib/api-error';
 
 export async function GET(request: Request, props: { params: Promise<{ token: string }> }) {
     const params = await props.params;
     const { token } = params;
 
-    if (!token) return NextResponse.json({ error: 'Token required' }, { status: 400 });
+    if (!token) return badRequest('Token required');
 
     try {
         const client = await pool.connect();
@@ -15,7 +16,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
 
         if (folderRes.rows.length === 0 || !folderRes.rows[0].is_public) {
             client.release();
-            return NextResponse.json({ error: 'Not found or not public' }, { status: 404 });
+            return notFound('Not found or not public');
         }
 
         const folder = folderRes.rows[0];
@@ -55,6 +56,6 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
 
     } catch (error) {
         console.error("Public Analytics API Error:", error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return serverError();
     }
 }

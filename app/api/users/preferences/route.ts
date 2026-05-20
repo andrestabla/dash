@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, badRequest, serverError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { preferences } = body;
 
-        if (!preferences) return NextResponse.json({ error: 'Preferences required' }, { status: 400 });
+        if (!preferences) return badRequest('Preferences required');
 
         const client = await pool.connect();
         try {
@@ -32,6 +33,6 @@ export async function POST(request: Request) {
         }
     } catch (error) {
         console.error("Preferences Update Error", error);
-        return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 });
+        return serverError('Failed to update preferences');
     }
 }

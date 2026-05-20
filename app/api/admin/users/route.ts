@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { getSession } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
 import { logAction } from '@/lib/audit';
+import { forbidden, badRequest, serverError } from '@/lib/api-error';
 
 // Ensure only admins access this
 interface Session {
@@ -24,7 +25,7 @@ const verifyAdmin = async (): Promise<Session | null> => {
 // Use logAction from @/lib/audit
 
 export async function GET() {
-    if (!await verifyAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!await verifyAdmin()) return forbidden();
 
     try {
         const client = await pool.connect();
@@ -37,19 +38,20 @@ export async function GET() {
         client.release();
         return NextResponse.json(result.rows);
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+        console.error("GET /api/admin/users error:", error);
+        return serverError('Failed to fetch users');
     }
 }
 
 export async function POST(request: Request) {
     const session = await verifyAdmin();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!session) return forbidden();
 
     try {
         const body = await request.json();
         const { email, password, role, name } = body;
 
-        if (!email || !password) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+        if (!email || !password) return badRequest('Missing fields');
 
         const hashed = await bcrypt.hash(password, 10);
 
@@ -90,13 +92,13 @@ export async function POST(request: Request) {
         }
     } catch (error) {
         console.error("POST /api/admin/users error:", error);
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+        return serverError('Failed to create user');
     }
 }
 
 export async function PUT(request: Request) {
     const session = await verifyAdmin();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!session) return forbidden();
 
     const client = await pool.connect();
     try {
@@ -104,7 +106,7 @@ export async function PUT(request: Request) {
         const { id, email, name, role, password, status, resendCredentials } = body;
         let nonBlockingWarning: string | null = null;
 
-        if (!id) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+        if (!id) return badRequest('User ID required');
 
         // Build query dynamically
         const updates: string[] = [];
@@ -204,10 +206,7 @@ export async function PUT(request: Request) {
         return NextResponse.json({ success: true, warning: nonBlockingWarning || undefined });
     } catch (error) {
         console.error("PUT /api/admin/users error:", error);
-        return NextResponse.json(
-            { error: 'Failed to update user', details: error instanceof Error ? error.message : undefined },
-            { status: 500 }
-        );
+        return serverError('Failed to update user');
     } finally {
         client.release();
     }
@@ -215,13 +214,13 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
     const session = await verifyAdmin();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!session) return forbidden();
 
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        if (!id) return badRequest('ID required');
 
         const client = await pool.connect();
         try {
@@ -232,6 +231,7 @@ export async function DELETE(request: Request) {
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+        console.error("DELETE /api/admin/users error:", error);
+        return serverError('Failed to delete user');
     }
 }

@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, forbidden, notFound, badRequest, serverError } from '@/lib/api-error';
 
 export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     const body = await request.json();
     const { action } = body;
@@ -19,7 +20,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
                 [dashboardId]
             );
             if (dashRes.rows.length === 0) {
-                return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+                return notFound('Dashboard not found');
             }
             const dashboard = dashRes.rows[0];
 
@@ -33,7 +34,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
                 (action === 'toggle_public' || action === 'add_collaborator' || action === 'remove_collaborator')
                 && !canManage
             ) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             if (action === 'toggle_public') {
@@ -95,7 +96,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
                     hasAccess = accessRes.rows.length > 0;
                 }
                 if (!hasAccess) {
-                    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                    return forbidden('Access denied');
                 }
 
                 const res = await client.query(`
@@ -118,12 +119,12 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
                 });
             }
 
-            return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+            return badRequest('Invalid action');
         } finally {
             client.release();
         }
     } catch (error) {
         console.error("Share API Error:", error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return serverError();
     }
 }

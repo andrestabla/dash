@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, badRequest, forbidden, serverError } from '@/lib/api-error';
 
 export async function PUT(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { dashboardId, folderId } = body;
 
-        if (!dashboardId) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
+        if (!dashboardId) return badRequest('Dashboard ID required');
 
         const client = await pool.connect();
         try {
@@ -28,7 +29,7 @@ export async function PUT(request: Request) {
                 session.role === 'admin' ? [dashboardId] : [dashboardId, session.id]
             );
             if (dashAccess.rows.length === 0) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             // If moving into a folder, verify the caller may access that folder too.
@@ -45,7 +46,7 @@ export async function PUT(request: Request) {
                     session.role === 'admin' ? [folderId] : [folderId, session.id]
                 );
                 if (folderAccess.rows.length === 0) {
-                    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                    return forbidden('Access denied');
                 }
             }
 
@@ -60,6 +61,6 @@ export async function PUT(request: Request) {
         }
     } catch (error) {
         console.error('Dashboard Move Error', error);
-        return NextResponse.json({ error: 'Failed to move dashboard' }, { status: 500 });
+        return serverError('Failed to move dashboard');
     }
 }

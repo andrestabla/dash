@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { publishDashboardRealtime } from '@/lib/realtime';
+import { unauthorized, badRequest, forbidden, notFound, serverError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const { searchParams } = new URL(request.url);
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
             const accessCheck = await client.query(accessQuery, accessParams);
 
             if (accessCheck.rows.length === 0) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             query += ' WHERE dashboard_id = $1';
@@ -134,19 +135,19 @@ export async function GET(request: Request) {
         }
     } catch (error) {
         console.error('Database Error:', error);
-        return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+        return serverError('Database connection failed');
     }
 }
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { id, week, name, status, owner, type, prio, gate, due, desc, dashboard_id, assignees, notification_enabled, notification_value, notification_unit, notification_sent } = body;
 
-        if (!dashboard_id) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
+        if (!dashboard_id) return badRequest('Dashboard ID required');
 
         const client = await pool.connect();
         try {
@@ -165,7 +166,7 @@ export async function POST(request: Request) {
         const accessCheck = await client.query(accessQuery, accessParams);
 
         if (accessCheck.rows.length === 0) {
-            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            return forbidden('Access denied');
         }
 
         try {
@@ -246,27 +247,27 @@ export async function POST(request: Request) {
         } catch (dbError) {
             await client.query('ROLLBACK');
             console.error('Database Transaction Error:', dbError);
-            return NextResponse.json({ error: 'Failed to save task data' }, { status: 500 });
+            return serverError('Failed to save task data');
         }
         } finally {
             client.release();
         }
     } catch (error) {
         console.error('Request Error:', error);
-        return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+        return serverError('Failed to process request');
     }
 }
 
 export async function DELETE(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
         if (!id) {
-            return NextResponse.json({ error: 'ID required' }, { status: 400 });
+            return badRequest('ID required');
         }
 
         const client = await pool.connect();
@@ -275,7 +276,7 @@ export async function DELETE(request: Request) {
         // To delete, we need to know the dashboard_id of the task
         const taskRes = await client.query('SELECT dashboard_id FROM tasks WHERE id = $1', [id]);
         if (taskRes.rows.length === 0) {
-            return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+            return notFound('Task not found');
         }
         const dashboardId = taskRes.rows[0].dashboard_id;
 
@@ -293,7 +294,7 @@ export async function DELETE(request: Request) {
         const accessCheck = await client.query(accessQuery, accessParams);
 
         if (accessCheck.rows.length === 0) {
-            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            return forbidden('Access denied');
         }
 
         await client.query('DELETE FROM tasks WHERE id = $1', [id]);
@@ -305,6 +306,6 @@ export async function DELETE(request: Request) {
         }
     } catch (error) {
         console.error('Database Error:', error);
-        return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 });
+        return serverError('Failed to delete task');
     }
 }

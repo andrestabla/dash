@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession, login } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
+import { unauthorized, badRequest, notFound, serverError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
     if (!session) {
-        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+        return unauthorized('No autorizado');
     }
 
     try {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
         const { accepted } = body;
 
         if (accepted !== true) {
-            return NextResponse.json({ error: 'Debes aceptar la política' }, { status: 400 });
+            return badRequest('Debes aceptar la política');
         }
 
         const client = await pool.connect();
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
             );
 
             if (result.rows.length === 0) {
-                return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+                return notFound('Usuario no encontrado');
             }
 
             const updatedUser = result.rows[0];
@@ -58,9 +59,6 @@ export async function POST(request: Request) {
 
     } catch (error) {
         console.error('Accept Policy Error:', error);
-        return NextResponse.json({
-            error: 'Error al procesar la solicitud',
-            detail: error instanceof Error ? error.message : String(error)
-        }, { status: 500 });
+        return serverError('Error al procesar la solicitud');
     }
 }

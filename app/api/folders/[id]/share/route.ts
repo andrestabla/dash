@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
+import { unauthorized, badRequest, notFound, forbidden, serverError } from '@/lib/api-error';
 
 export async function POST(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     const { id } = await params;
 
@@ -26,13 +27,13 @@ export async function POST(
             const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);
             if (folderRes.rows.length === 0) {
                 client.release();
-                return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+                return notFound('Folder not found');
             }
 
             const folder = folderRes.rows[0];
             if (session.role !== 'admin' && folder.owner_id !== session.id) {
                 client.release();
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+                return forbidden();
             }
 
             let token = null;
@@ -57,7 +58,7 @@ export async function POST(
         }
 
         // Handle user collaboration sharing with dashboard selection
-        if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+        if (!email) return badRequest('Email is required');
 
         const { dashboardIds } = body; // Array of dashboard IDs to grant access to
 
@@ -65,20 +66,20 @@ export async function POST(
         const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);
         if (folderRes.rows.length === 0) {
             client.release();
-            return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+            return notFound('Folder not found');
         }
 
         const folder = folderRes.rows[0];
         if (session.role !== 'admin' && folder.owner_id !== session.id) {
             client.release();
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return forbidden();
         }
 
         // 2. Find target user
         const userRes = await client.query('SELECT id, name FROM users WHERE email = $1', [email]);
         if (userRes.rows.length === 0) {
             client.release();
-            return NextResponse.json({ error: 'User not found in system. They must be registered first.' }, { status: 404 });
+            return notFound('User not found in system. They must be registered first.');
         }
         const targetUser = userRes.rows[0];
 
@@ -150,6 +151,6 @@ export async function POST(
 
     } catch (error) {
         console.error("Folder Share error:", error);
-        return NextResponse.json({ error: 'Failed to share folder' }, { status: 500 });
+        return serverError('Failed to share folder');
     }
 }

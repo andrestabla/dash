@@ -2,18 +2,19 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
 import pool from '@/lib/db';
+import { unauthorized, badRequest, serverError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
     if (!session || session.role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return unauthorized();
     }
 
     try {
         const { ticketId, to, subject, message } = await request.json();
 
         if (!to || !message) {
-            return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+            return badRequest('Missing fields');
         }
 
         // Send Email
@@ -41,11 +42,11 @@ export async function POST(request: Request) {
 
             return NextResponse.json({ success: true });
         } else {
-            return NextResponse.json({ error: "Failed to send email" }, { status: 500 });
+            return serverError('Failed to send email');
         }
 
     } catch (error) {
         console.error("Reply error:", error);
-        return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+        return serverError();
     }
 }

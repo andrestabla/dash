@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, forbidden, notFound, serverError } from '@/lib/api-error';
 
 export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
     try {
         const session = await getSession() as any;
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return unauthorized();
         }
 
         const params = await props.params;
@@ -17,7 +18,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
 
         if (result.rows.length === 0) {
             client.release();
-            return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+            return notFound('Dashboard not found');
         }
 
         const dashboard = result.rows[0];
@@ -48,12 +49,12 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
         client.release();
 
         if (!isAdmin && !isOwner && !isCollaborator) {
-            return NextResponse.json({ error: 'Access Denied: You are not a collaborator on this dashboard.' }, { status: 403 });
+            return forbidden('Access Denied: You are not a collaborator on this dashboard.');
         }
 
         return NextResponse.json(dashboard);
     } catch (error) {
         console.error('Dashboard Fetch Error:', error);
-        return NextResponse.json({ error: 'Database error' }, { status: 500 });
+        return serverError('Database error');
     }
 }

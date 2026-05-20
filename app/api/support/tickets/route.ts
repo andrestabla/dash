@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, serverError } from '@/lib/api-error';
 
 export async function GET() {
     const session = await getSession() as any;
     if (!session || session.role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return unauthorized();
     }
 
     try {
@@ -20,13 +21,14 @@ export async function GET() {
         client.release();
         return NextResponse.json(res.rows);
     } catch (errors) {
-        return NextResponse.json({ error: "DB Error" }, { status: 500 });
+        console.error("Support tickets fetch error:", errors);
+        return serverError('DB Error');
     }
 }
 
 export async function PATCH(request: Request) {
     const session = await getSession() as any;
-    if (!session || session.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session || session.role !== 'admin') return unauthorized();
 
     try {
         const { id, status } = await request.json();
@@ -35,6 +37,7 @@ export async function PATCH(request: Request) {
         client.release();
         return NextResponse.json({ success: true });
     } catch (e) {
-        return NextResponse.json({ error: "Update failed" }, { status: 500 });
+        console.error("Support ticket update error:", e);
+        return serverError('Update failed');
     }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, forbidden, notFound, serverError } from '@/lib/api-error';
 
 export async function GET(
     request: Request,
@@ -8,7 +9,7 @@ export async function GET(
 ) {
     const session = await getSession() as any;
     if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return unauthorized();
     }
 
     const { id } = await params;
@@ -22,7 +23,7 @@ export async function GET(
                 [id]
             );
             if (dashRes.rows.length === 0) {
-                return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+                return notFound('Dashboard not found');
             }
             const dashboard = dashRes.rows[0];
 
@@ -37,7 +38,7 @@ export async function GET(
                 hasAccess = accessRes.rows.length > 0;
             }
             if (!hasAccess) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             // Get all users who have permission to this dashboard
@@ -62,6 +63,6 @@ export async function GET(
         }
     } catch (error) {
         console.error('Error fetching dashboard permissions:', error);
-        return NextResponse.json({ error: 'Failed to fetch permissions' }, { status: 500 });
+        return serverError('Failed to fetch permissions');
     }
 }

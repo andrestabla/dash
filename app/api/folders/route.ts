@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, badRequest, forbidden, notFound, serverError } from '@/lib/api-error';
 
 export async function GET() {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const client = await pool.connect();
@@ -31,20 +32,20 @@ export async function GET() {
 
     } catch (error) {
         console.error("Folder Fetch error:", error);
-        return NextResponse.json({ error: 'Failed to fetch folders' }, { status: 500 });
+        return serverError('Failed to fetch folders');
     }
 }
 
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { name, parent_id, icon, color } = body;
 
-        if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+        if (!name) return badRequest('Name is required');
 
         const client = await pool.connect();
         const res = await client.query(
@@ -56,22 +57,22 @@ export async function POST(request: Request) {
         return NextResponse.json(res.rows[0]);
     } catch (error) {
         console.error("Folder Create error:", error);
-        return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 });
+        return serverError('Failed to create folder');
     }
 }
 
 export async function PUT(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { id, name, parent_id, icon, color } = body;
 
-        if (!id || !name) return NextResponse.json({ error: 'ID and Name are required' }, { status: 400 });
+        if (!id || !name) return badRequest('ID and Name are required');
 
         // Prevent circular reference
-        if (id === parent_id) return NextResponse.json({ error: 'Cannot move folder inside itself' }, { status: 400 });
+        if (id === parent_id) return badRequest('Cannot move folder inside itself');
 
         const client = await pool.connect();
 
@@ -79,12 +80,12 @@ export async function PUT(request: Request) {
         const check = await client.query('SELECT owner_id FROM folders WHERE id = $1', [id]);
         if (check.rows.length === 0) {
             client.release();
-            return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+            return notFound('Folder not found');
         }
 
         if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
             client.release();
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return forbidden();
         }
 
         const res = await client.query(
@@ -96,19 +97,19 @@ export async function PUT(request: Request) {
         return NextResponse.json(res.rows[0]);
     } catch (error) {
         console.error("Folder Update error:", error);
-        return NextResponse.json({ error: 'Failed to update folder' }, { status: 500 });
+        return serverError('Failed to update folder');
     }
 }
 
 export async function DELETE(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
-        if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+        if (!id) return badRequest('ID is required');
 
         const client = await pool.connect();
         try {
@@ -118,12 +119,12 @@ export async function DELETE(request: Request) {
             const check = await client.query('SELECT owner_id FROM folders WHERE id = $1', [id]);
             if (check.rows.length === 0) {
                 await client.query('ROLLBACK');
-                return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
+                return notFound('Folder not found');
             }
 
             if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
                 await client.query('ROLLBACK');
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+                return forbidden();
             }
 
             // 1. Move subfolders to root
@@ -145,6 +146,6 @@ export async function DELETE(request: Request) {
         }
     } catch (error) {
         console.error("Folder Delete error:", error);
-        return NextResponse.json({ error: 'Failed to delete folder' }, { status: 500 });
+        return serverError('Failed to delete folder');
     }
 }

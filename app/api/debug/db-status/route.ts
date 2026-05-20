@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { forbidden, serverError } from '@/lib/api-error';
 
 export async function GET() {
     try {
         const session = await getSession() as any;
         if (!session || session.role !== 'admin') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+            return forbidden('Unauthorized');
         }
 
         const client = await pool.connect();
@@ -37,10 +38,8 @@ export async function GET() {
             public_dashboards: publicQuery.rows,
             timestamp: new Date().toISOString()
         });
-    } catch (error: any) {
-        return NextResponse.json({
-            error: error.message,
-            timestamp: new Date().toISOString()
-        }, { status: 500 });
+    } catch (error) {
+        console.error("DB Status error:", error);
+        return serverError();
     }
 }
