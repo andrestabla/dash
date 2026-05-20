@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { forbidden, badRequest, serverError } from '@/lib/api-error';
 
 export async function GET() {
     const session = await getSession();
-    if (session?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (session?.role !== 'admin') return forbidden();
 
     try {
         const client = await pool.connect();
@@ -20,17 +21,18 @@ export async function GET() {
         client.release();
         return NextResponse.json(res.rows);
     } catch (error) {
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        console.error('[AdminDashboard] GET error:', error);
+        return serverError('Failed');
     }
 }
 
 export async function DELETE(request: Request) {
     const session = await getSession();
-    if (session?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (session?.role !== 'admin') return forbidden();
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+    if (!id) return badRequest('ID required');
 
     try {
         const client = await pool.connect();
@@ -38,20 +40,21 @@ export async function DELETE(request: Request) {
         client.release();
         return NextResponse.json({ success: true });
     } catch (error) {
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        console.error('[AdminDashboard] DELETE error:', error);
+        return serverError('Failed');
     }
 }
 
 export async function PUT(request: Request) {
     const session = await getSession();
-    if (session?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (session?.role !== 'admin') return forbidden();
 
     try {
         const body = await request.json();
 
         const { id, name, description, owners, sendInvite } = body; // owners is string[] of emails
 
-        if (!id || !name) return NextResponse.json({ error: 'ID and Name required' }, { status: 400 });
+        if (!id || !name) return badRequest('ID and Name required');
 
         const client = await pool.connect();
 
@@ -150,7 +153,7 @@ export async function PUT(request: Request) {
         }
     } catch (error: any) {
         console.error('[AdminDashboard] Top-level Error:', error);
-        return NextResponse.json({ error: 'Failed', detail: error.message }, { status: 500 });
+        return serverError('Failed');
     }
 }
 

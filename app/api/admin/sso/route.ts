@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { forbidden, serverError } from '@/lib/api-error';
 
 const verifyAdmin = async () => {
     const session = await getSession();
@@ -8,7 +9,7 @@ const verifyAdmin = async () => {
 };
 
 export async function GET() {
-    if (!await verifyAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!await verifyAdmin()) return forbidden();
 
     try {
         const client = await pool.connect();
@@ -27,12 +28,12 @@ export async function GET() {
         return NextResponse.json(settings);
     } catch (error) {
         console.error('Failed to fetch SSO settings:', error);
-        return NextResponse.json({ error: 'Failed to fetch SSO settings' }, { status: 500 });
+        return serverError('Failed to fetch SSO settings');
     }
 }
 
 export async function POST(request: Request) {
-    if (!await verifyAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!await verifyAdmin()) return forbidden();
 
     try {
         const body = await request.json();
@@ -65,6 +66,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Failed to save SSO settings:', error);
-        return NextResponse.json({ error: 'Failed to save SSO settings' }, { status: 500 });
+        return serverError('Failed to save SSO settings');
     }
 }

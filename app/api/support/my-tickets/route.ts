@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, serverError } from '@/lib/api-error';
 
 export async function GET() {
     const session = await getSession() as any;
     if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return unauthorized();
     }
 
     try {
@@ -22,6 +23,6 @@ export async function GET() {
         return NextResponse.json(res.rows);
     } catch (error) {
         console.error("My tickets error:", error);
-        return NextResponse.json({ error: "DB Error" }, { status: 500 });
+        return serverError('DB Error');
     }
 }

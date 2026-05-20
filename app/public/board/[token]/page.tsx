@@ -24,6 +24,8 @@ import {
     DoorOpen
 } from 'lucide-react';
 import UserTour from "@/components/UserTour";
+import CanvasReadOnly from "@/components/CanvasReadOnly";
+import { getDashboardKind, normalizeCanvasDocument, type CanvasDocument, type DashboardKind } from "@/lib/canvas";
 
 interface Task {
     id: number | string;
@@ -53,6 +55,8 @@ interface BoardSettings {
     icon?: string;
     color?: string;
     statuses?: StatusColumn[];
+    dashboardType?: DashboardKind;
+    canvas?: CanvasDocument;
 }
 
 const DEFAULT_STATUSES: StatusColumn[] = [
@@ -69,11 +73,12 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     const [error, setError] = useState("");
     const [tasks, setTasks] = useState<Task[]>([]);
     const [settings, setSettings] = useState<BoardSettings | null>(null);
+    const [dashboardType, setDashboardType] = useState<DashboardKind>('kanban');
     const [dashboardName, setDashboardName] = useState("");
     const [statuses, setStatuses] = useState<StatusColumn[]>(DEFAULT_STATUSES);
     const [comments, setComments] = useState<any[]>([]);
 
-    const [activeTab, setActiveTab] = useState<"kanban" | "list" | "data">("kanban");
+    const [activeTab, setActiveTab] = useState<"kanban" | "canvas" | "list" | "data">("kanban");
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTourOpen, setIsTourOpen] = useState(true);
@@ -92,10 +97,21 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             .then(data => {
                 setTasks(data.tasks);
                 if (data.dashboard && data.dashboard.settings) {
-                    setSettings(data.dashboard.settings);
+                    const kind = getDashboardKind(data.dashboard.settings);
+                    setDashboardType(kind);
+                    setSettings({
+                        ...data.dashboard.settings,
+                        dashboardType: kind,
+                        canvas: kind === 'canvas'
+                            ? normalizeCanvasDocument(data.dashboard.settings?.canvas, data.dashboard.name || 'Idea Principal')
+                            : undefined
+                    });
                     setDashboardName(data.dashboard.name);
                     if (data.dashboard.settings.statuses) {
                         setStatuses(data.dashboard.settings.statuses);
+                    }
+                    if (kind === 'canvas') {
+                        setActiveTab('canvas');
                     }
                 }
                 if (data.comments) {
@@ -252,6 +268,18 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                     );
                 })}
             </div>
+        </div>
+    );
+
+    const renderCanvasView = () => (
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4">
+            <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-slate-800 font-bold">Canvas colaborativo (solo lectura)</h3>
+                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
+                    {settings?.canvas?.nodes?.length || 0} nodos
+                </span>
+            </div>
+            <CanvasReadOnly document={settings?.canvas || normalizeCanvasDocument(null, dashboardName || 'Idea Principal')} />
         </div>
     );
 
@@ -424,12 +452,18 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                 <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                                     {settings?.icon || "📊"} {dashboardName}
                                 </h1>
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${calculateProgress() === 100
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-blue-100 text-blue-700'
-                                    }`}>
-                                    {calculateProgress()}% Completado
-                                </span>
+                                {dashboardType === 'canvas' ? (
+                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                                        {settings?.canvas?.nodes?.length || 0} nodos
+                                    </span>
+                                ) : (
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${calculateProgress() === 100
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-blue-100 text-blue-700'
+                                        }`}>
+                                        {calculateProgress()}% Completado
+                                    </span>
+                                )}
                                 <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold border border-blue-100 flex items-center gap-1">
                                     <LockKeyhole size={12} /> MODO LECTURA - VISTA PÚBLICA
                                 </span>
@@ -454,83 +488,105 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             <div className="bg-white border-b border-slate-200 py-4 px-4 sticky top-16 z-20">
                 <div className="max-w-[1800px] mx-auto flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                     <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                        <button
-                            disabled
-                            className="bg-blue-600/50 cursor-not-allowed text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2"
-                        >
-                            <Plus size={18} /> Nueva Tarea
-                        </button>
-                        <button disabled className="text-slate-400 px-4 py-2.5 bg-slate-100 rounded-xl font-medium border border-slate-200 flex items-center gap-2 cursor-not-allowed">
-                            <Columns size={18} /> Nueva Columna
-                        </button>
+                        {dashboardType !== 'canvas' ? (
+                            <>
+                                <button
+                                    disabled
+                                    className="bg-blue-600/50 cursor-not-allowed text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2"
+                                >
+                                    <Plus size={18} /> Nueva Tarea
+                                </button>
+                                <button disabled className="text-slate-400 px-4 py-2.5 bg-slate-100 rounded-xl font-medium border border-slate-200 flex items-center gap-2 cursor-not-allowed">
+                                    <Columns size={18} /> Nueva Columna
+                                </button>
 
-                        <div className="h-8 w-px bg-slate-200 mx-2 hidden lg:block"></div>
+                                <div className="h-8 w-px bg-slate-200 mx-2 hidden lg:block"></div>
 
-                        {/* Search */}
-                        <div className="relative group flex-1 lg:w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Buscar..."
-                                value={filters.search}
-                                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900"
-                            />
-                        </div>
+                                {/* Search */}
+                                <div className="relative group flex-1 lg:w-64">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar..."
+                                        value={filters.search}
+                                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900"
+                                    />
+                                </div>
 
-                        {/* Filters */}
-                        <select
-                            value={filters.week}
-                            onChange={(e) => setFilters({ ...filters, week: e.target.value })}
-                            className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium hover:border-blue-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 cursor-pointer"
-                        >
-                            <option value="">📅 Semanas</option>
-                            {settings?.weeks.map(w => (
-                                <option key={w.id} value={w.id}>{w.name}</option>
-                            ))}
-                        </select>
+                                {/* Filters */}
+                                <select
+                                    value={filters.week}
+                                    onChange={(e) => setFilters({ ...filters, week: e.target.value })}
+                                    className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium hover:border-blue-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 cursor-pointer"
+                                >
+                                    <option value="">📅 Semanas</option>
+                                    {settings?.weeks.map(w => (
+                                        <option key={w.id} value={w.id}>{w.name}</option>
+                                    ))}
+                                </select>
 
-                        <select
-                            value={filters.owner}
-                            onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
-                            className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium hover:border-blue-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 cursor-pointer"
-                        >
-                            <option value="">👤 Todos</option>
-                            {settings?.owners.map(o => (
-                                <option key={o} value={o}>{o}</option>
-                            ))}
-                        </select>
+                                <select
+                                    value={filters.owner}
+                                    onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
+                                    className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium hover:border-blue-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 cursor-pointer"
+                                >
+                                    <option value="">👤 Todos</option>
+                                    {settings?.owners.map(o => (
+                                        <option key={o} value={o}>{o}</option>
+                                    ))}
+                                </select>
+                            </>
+                        ) : (
+                            <div className="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-4 py-2.5 rounded-xl">
+                                Lienzo colaborativo público (solo lectura)
+                            </div>
+                        )}
                     </div>
 
                     {/* View Toggles */}
                     <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-                        <button
-                            onClick={() => setActiveTab("kanban")}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "kanban"
-                                ? "bg-white text-blue-600 shadow-sm"
-                                : "text-slate-500 hover:text-slate-700"
-                                }`}
-                        >
-                            <LayoutGrid size={16} /> Tablero
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("list")}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "list"
-                                ? "bg-white text-blue-600 shadow-sm"
-                                : "text-slate-500 hover:text-slate-700"
-                                }`}
-                        >
-                            <List size={16} /> Lista
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("data")}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "data"
-                                ? "bg-white text-blue-600 shadow-sm"
-                                : "text-slate-500 hover:text-slate-700"
-                                }`}
-                        >
-                            <BarChart2 size={16} /> Datos
-                        </button>
+                        {dashboardType === 'canvas' ? (
+                            <button
+                                onClick={() => setActiveTab("canvas")}
+                                className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "canvas"
+                                    ? "bg-white text-blue-600 shadow-sm"
+                                    : "text-slate-500 hover:text-slate-700"
+                                    }`}
+                            >
+                                <LayoutGrid size={16} /> Lienzo
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => setActiveTab("kanban")}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "kanban"
+                                        ? "bg-white text-blue-600 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                        }`}
+                                >
+                                    <LayoutGrid size={16} /> Tablero
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("list")}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "list"
+                                        ? "bg-white text-blue-600 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                        }`}
+                                >
+                                    <List size={16} /> Lista
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("data")}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "data"
+                                        ? "bg-white text-blue-600 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                        }`}
+                                >
+                                    <BarChart2 size={16} /> Datos
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -538,9 +594,10 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             {/* Content */}
             <main className="flex-1 overflow-x-hidden bg-slate-50">
                 <div className="h-full p-6 max-w-[1800px] mx-auto min-h-[calc(100vh-200px)]">
-                    {activeTab === "kanban" && renderKanban()}
-                    {activeTab === "list" && renderListView()}
-                    {activeTab === "data" && renderDataView()}
+                    {activeTab === "canvas" && renderCanvasView()}
+                    {activeTab === "kanban" && dashboardType !== 'canvas' && renderKanban()}
+                    {activeTab === "list" && dashboardType !== 'canvas' && renderListView()}
+                    {activeTab === "data" && dashboardType !== 'canvas' && renderDataView()}
                 </div>
             </main>
 

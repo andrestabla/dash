@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession, login } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
+import { unauthorized, serverError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
     if (!session) {
-        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+        return unauthorized('No autorizado');
     }
 
     try {
@@ -29,6 +30,6 @@ export async function POST(request: Request) {
         }
     } catch (error) {
         console.error('View Policy Error:', error);
-        return NextResponse.json({ error: 'Error al registrar la visualización' }, { status: 500 });
+        return serverError('Error al registrar la visualización');
     }
 }

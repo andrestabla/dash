@@ -8,7 +8,6 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [detail, setDetail] = useState('');
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
     const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean, platform: string | null }>({ enabled: false, platform: null });
@@ -20,10 +19,9 @@ export default function LoginPage() {
 
         const params = new URLSearchParams(window.location.search);
         const urlError = params.get('error');
-        const urlDetails = params.get('details');
 
         if (urlError) {
-            console.log('Error parameter detected:', urlError, urlDetails);
+            console.log('Error parameter detected:', urlError);
             if (urlError === 'SSO_SYNC_FAILED') {
                 setError('Error de sincronización SSO');
             } else if (urlError === 'SSO_DISABLED') {
@@ -36,7 +34,6 @@ export default function LoginPage() {
                 setError(urlError);
             }
 
-            if (urlDetails) setDetail(urlDetails);
         }
     }, []);
 
@@ -60,7 +57,6 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         setError('');
-        setDetail('');
         setStatus('Enviando solicitud...');
         console.log('Login attempt started...');
 
@@ -92,7 +88,6 @@ export default function LoginPage() {
                 window.location.href = '/workspace';
             } else {
                 setError(data.error || 'Credenciales inválidas');
-                if (data.detail) setDetail(data.detail);
                 setLoading(false);
                 setStatus('');
                 console.log('Login failed:', data.error);
@@ -100,7 +95,6 @@ export default function LoginPage() {
         } catch (err: any) {
             console.error('Fetch error:', err);
             setError(err.name === 'AbortError' ? 'El servidor tardó demasiado (15s)' : 'Error de conexión');
-            setDetail(err.message);
             setLoading(false);
             setStatus('');
         }
@@ -194,38 +188,6 @@ export default function LoginPage() {
                                     <span>{error}</span>
                                 </div>
 
-                                {detail && (
-                                    <div style={{ marginTop: 12 }}>
-                                        <div style={{
-                                            fontSize: 10,
-                                            fontWeight: 800,
-                                            color: '#f87171',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.05em',
-                                            marginBottom: 6,
-                                            opacity: 0.8
-                                        }}>
-                                            Diagnóstico Técnico
-                                        </div>
-                                        <div style={{
-                                            padding: 10,
-                                            background: 'rgba(0,0,0,0.3)',
-                                            borderRadius: 8,
-                                            fontFamily: 'monospace',
-                                            fontSize: 11,
-                                            color: 'var(--text-dim)',
-                                            border: '1px solid rgba(255,255,255,0.05)',
-                                            wordBreak: 'break-all'
-                                        }}>
-                                            {detail}
-                                        </div>
-                                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 8, lineHeight: 1.4 }}>
-                                            <strong>Sugerencias:</strong><br />
-                                            - Si ves "Unauthorized", revisa que el <i>Client Secret</i> sea correcto.<br />
-                                            - Si ves "redirect_uri_mismatch", asegúrate de añadir tanto la versión con <strong>www</strong> como la versión <strong>sin www</strong> en Google Console.
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
 

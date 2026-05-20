@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { login } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
+import { badRequest, unauthorized, forbidden, rateLimited, serverError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
         const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
         if (!normalizedEmail || !password) {
-            return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
+            return badRequest('Email and password required');
         }
 
         const client = await pool.connect();
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
             ]);
 
             if (parseInt(ipAttempts.rows[0].count, 10) >= 20 || parseInt(emailAttempts.rows[0].count, 10) >= 8) {
-                return NextResponse.json({ error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }, { status: 429 });
+                return rateLimited('Demasiados intentos. Intenta de nuevo en unos minutos.');
             }
 
             const result = await client.query('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
                     'INSERT INTO login_attempts (ip_address, email, success) VALUES ($1, $2, FALSE)',
                     [ip, normalizedEmail]
                 );
-                return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
+                return unauthorized('Credenciales inválidas');
             }
 
             const isMatch = await bcrypt.compare(password, user.password);
@@ -61,12 +62,12 @@ export async function POST(request: Request) {
                     'INSERT INTO login_attempts (ip_address, email, success) VALUES ($1, $2, FALSE)',
                     [ip, normalizedEmail]
                 );
-                return NextResponse.json({ error: 'Credenciales inválidas' }, { status: 401 });
+                return unauthorized('Credenciales inválidas');
             }
 
             // Check Account Status
             if (user.status?.toLowerCase() !== 'active') {
-                return NextResponse.json({ error: 'Tu cuenta no está activa' }, { status: 403 });
+                return forbidden('Tu cuenta no está activa');
             }
 
             // Record success
@@ -102,6 +103,6 @@ export async function POST(request: Request) {
         }
     } catch (error: any) {
         console.error('[LOGIN] Fatal error:', error);
-        return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+        return serverError('Error del servidor');
     }
 }

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, serverError } from '@/lib/api-error';
 
 export async function GET() {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const client = await pool.connect();
@@ -15,6 +16,7 @@ export async function GET() {
 
 
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+        console.error('User list fetch error:', error);
+        return serverError('Failed to fetch users');
     }
 }

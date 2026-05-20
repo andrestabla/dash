@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { forbidden, notFound, serverError } from '@/lib/api-error';
 
 export async function GET() {
     if (process.env.NODE_ENV === 'production') {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        return notFound();
     }
 
     const session = await getSession() as any;
     if (!session || session.role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        return forbidden('Unauthorized');
     }
 
     try {
@@ -27,6 +28,7 @@ export async function GET() {
         client.release();
         return NextResponse.json({ success: true, message: "Table created" });
     } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        console.error("Setup support table error:", e);
+        return serverError();
     }
 }
