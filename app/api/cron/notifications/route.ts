@@ -9,13 +9,13 @@ function escapeHtml(str: string): string {
 }
 
 export async function GET(request: Request) {
-    // Allow Vercel's own cron runner OR a valid CRON_SECRET bearer token
-    const userAgent = request.headers.get('user-agent') || '';
+    // Authenticate via CRON_SECRET only. Vercel Cron automatically sends
+    // `Authorization: Bearer <CRON_SECRET>` when the env var is set. The
+    // User-Agent header is client-controlled and must never be trusted.
     const authHeader = request.headers.get('authorization');
-    const isVercelCron = userAgent.includes('vercel-cron');
-    const isValidSecret = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    const cronSecret = process.env.CRON_SECRET;
 
-    if (!isVercelCron && !isValidSecret) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
