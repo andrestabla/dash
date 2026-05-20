@@ -3,10 +3,11 @@ import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { publishDashboardRealtime } from '@/lib/realtime';
 import { buildCanvasSettings, getDashboardKind } from '@/lib/canvas';
+import { unauthorized, badRequest, notFound, forbidden, serverError } from '@/lib/api-error';
 
 export async function GET() {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const client = await pool.connect();
@@ -34,20 +35,20 @@ export async function GET() {
 
     } catch (error) {
         console.error("Dashboard Fetch Error", error);
-        return NextResponse.json({ error: 'Database error' }, { status: 500 });
+        return serverError('Database error');
     }
 }
 
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { name, description, settings, initialTasks, folder_id, is_demo } = body;
 
-        if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
+        if (!name) return badRequest('Name required');
 
         const client = await pool.connect();
         try {
@@ -104,19 +105,19 @@ export async function POST(request: Request) {
         }
     } catch (error) {
         console.error("Dashboard Create Error", error);
-        return NextResponse.json({ error: 'Failed to create dashboard' }, { status: 500 });
+        return serverError('Failed to create dashboard');
     }
 }
 
 export async function PUT(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { id, name, description, settings } = body;
 
-        if (!id || !name) return NextResponse.json({ error: 'ID and Name required' }, { status: 400 });
+        if (!id || !name) return badRequest('ID and Name required');
 
         const client = await pool.connect();
 
@@ -124,7 +125,7 @@ export async function PUT(request: Request) {
         const check = await client.query('SELECT owner_id, folder_id, is_demo, start_date, end_date, description, settings, name FROM dashboards WHERE id = $1', [id]);
         if (check.rows.length === 0) {
             client.release();
-            return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+            return notFound('Dashboard not found');
         }
 
         const dashboard = check.rows[0];
@@ -133,7 +134,7 @@ export async function PUT(request: Request) {
 
         if (dashboard.is_demo && !isAdmin) {
             client.release();
-            return NextResponse.json({ error: 'Cannot modify demo dashboard' }, { status: 403 });
+            return forbidden('Cannot modify demo dashboard');
         }
 
         let isCollaborator = false;
@@ -157,7 +158,7 @@ export async function PUT(request: Request) {
 
         if (!isAdmin && !isOwner && !isCollaborator) {
             client.release();
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return forbidden();
         }
 
         const normalizedSettings = buildCanvasSettings(
@@ -179,19 +180,19 @@ export async function PUT(request: Request) {
         return NextResponse.json(result.rows[0]);
     } catch (error) {
         console.error("Dashboard Update Error", error);
-        return NextResponse.json({ error: 'Failed to update dashboard' }, { status: 500 });
+        return serverError('Failed to update dashboard');
     }
 }
 
 export async function DELETE(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        if (!id) return badRequest('ID required');
 
         const client = await pool.connect();
 
@@ -199,18 +200,18 @@ export async function DELETE(request: Request) {
         const check = await client.query('SELECT owner_id, is_demo FROM dashboards WHERE id = $1', [id]);
         if (check.rows.length === 0) {
             client.release();
-            return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+            return notFound('Dashboard not found');
         }
 
         const dashboard = check.rows[0];
         if (dashboard.is_demo && session.role !== 'admin') {
             client.release();
-            return NextResponse.json({ error: 'Cannot delete demo dashboard' }, { status: 403 });
+            return forbidden('Cannot delete demo dashboard');
         }
 
         if (session.role !== 'admin' && dashboard.owner_id !== session.id) {
             client.release();
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return forbidden();
         }
 
         const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
@@ -220,6 +221,6 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ success: true, id });
     } catch (error) {
         console.error("Dashboard Delete Error", error);
-        return NextResponse.json({ error: 'Failed to delete dashboard' }, { status: 500 });
+        return serverError('Failed to delete dashboard');
     }
 }

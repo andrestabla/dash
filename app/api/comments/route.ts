@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, forbidden, notFound, badRequest, serverError } from '@/lib/api-error';
 
 // Resolves whether the session user may access the dashboard a task belongs to.
 async function resolveTaskAccess(client: PoolClient, session: any, taskId: string) {
@@ -29,24 +30,24 @@ async function resolveTaskAccess(client: PoolClient, session: any, taskId: strin
 
 export async function GET(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const { searchParams } = new URL(request.url);
         const taskId = searchParams.get('taskId');
 
         if (!taskId) {
-            return NextResponse.json({ error: 'Task ID is required' }, { status: 400 });
+            return badRequest('Task ID is required');
         }
 
         const client = await pool.connect();
         try {
             const access = await resolveTaskAccess(client, session, taskId);
             if (!access.found) {
-                return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+                return notFound('Task not found');
             }
             if (!access.hasAccess) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             const result = await client.query(
@@ -59,20 +60,20 @@ export async function GET(request: Request) {
         }
     } catch (error) {
         console.error('Error fetching comments:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return serverError();
     }
 }
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { taskId, content } = body;
 
         if (!taskId || !content) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return badRequest('Missing required fields');
         }
 
         // The comment author is the authenticated user, never client-supplied.
@@ -83,10 +84,10 @@ export async function POST(request: Request) {
         try {
             const access = await resolveTaskAccess(client, session, taskId);
             if (!access.found) {
-                return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+                return notFound('Task not found');
             }
             if (!access.hasAccess) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             const result = await client.query(
@@ -169,20 +170,20 @@ export async function POST(request: Request) {
         }
     } catch (error) {
         console.error('Error adding comment:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return serverError();
     }
 }
 
 export async function DELETE(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
         if (!id) {
-            return NextResponse.json({ error: 'Comment ID is required' }, { status: 400 });
+            return badRequest('Comment ID is required');
         }
 
         const client = await pool.connect();
@@ -192,13 +193,13 @@ export async function DELETE(request: Request) {
                 [id]
             );
             if (commentRes.rows.length === 0) {
-                return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+                return notFound('Comment not found');
             }
             const comment = commentRes.rows[0];
 
             const access = await resolveTaskAccess(client, session, comment.task_id);
             if (!access.hasAccess) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             const isAuthor = comment.user_email === session.email;
@@ -215,7 +216,7 @@ export async function DELETE(request: Request) {
             }
 
             if (!isAuthor && !isAdmin && !isDashboardOwner) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             await client.query('DELETE FROM task_comments WHERE id = $1', [id]);
@@ -225,32 +226,32 @@ export async function DELETE(request: Request) {
         }
     } catch (error) {
         console.error('Error deleting comment:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return serverError();
     }
 }
 
 export async function PUT(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { id, content } = body;
 
         if (!id || !content) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return badRequest('Missing required fields');
         }
 
         const client = await pool.connect();
         try {
             const check = await client.query('SELECT user_email FROM task_comments WHERE id = $1', [id]);
             if (check.rows.length === 0) {
-                return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+                return notFound('Comment not found');
             }
 
             // Only the original author may edit a comment's content.
             if (check.rows[0].user_email !== session.email) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             const result = await client.query(
@@ -263,6 +264,6 @@ export async function PUT(request: Request) {
         }
     } catch (error) {
         console.error('Error updating comment:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return serverError();
     }
 }

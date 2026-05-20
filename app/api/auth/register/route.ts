@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { sendEmail } from '@/lib/email';
 import { getSession } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
+import { badRequest, rateLimited, serverError } from '@/lib/api-error';
 
 function escapeHtml(str: string): string {
     return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
@@ -17,12 +18,12 @@ export async function POST(request: Request) {
         const { email, password, name } = body;
 
         if (!email || !password || !name) {
-            return NextResponse.json({ error: 'Todos los campos son obligatorios' }, { status: 400 });
+            return badRequest('Todos los campos son obligatorios');
         }
 
         const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
         if (!normalizedEmail) {
-            return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
+            return badRequest('Email inválido');
         }
 
         const client = await pool.connect();
@@ -38,10 +39,7 @@ export async function POST(request: Request) {
             );
 
             if (parseInt(rateLimitCheck.rows[0].count) >= 3) {
-                return NextResponse.json({
-                    error: 'Demasiadas solicitudes',
-                    detail: 'Has excedido el límite de registros permitidos. Intenta de nuevo en una hora.'
-                }, { status: 429 });
+                return rateLimited('Demasiadas solicitudes');
             }
 
             // Record attempt
@@ -53,7 +51,7 @@ export async function POST(request: Request) {
             // 1. Check if user already exists
             const check = await client.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
             if (check.rows.length > 0) {
-                return NextResponse.json({ error: 'El correo electrónico ya está registrado' }, { status: 400 });
+                return badRequest('El correo electrónico ya está registrado');
             }
 
             // 2. Hash password and insert user as 'pending'
@@ -130,6 +128,6 @@ export async function POST(request: Request) {
         }
     } catch (error) {
         console.error('Registration error:', error);
-        return NextResponse.json({ error: 'Error al procesar el registro' }, { status: 500 });
+        return serverError('Error al procesar el registro');
     }
 }

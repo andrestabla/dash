@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { forbidden, badRequest, serverError } from '@/lib/api-error';
 
 export async function GET(request: Request) {
     const session = await getSession();
     if (!session || session.role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        return forbidden();
     }
 
     try {
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
         const userId = searchParams.get('userId');
 
         if (!userId) {
-            return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+            return badRequest('User ID required');
         }
 
         const client = await pool.connect();
@@ -37,6 +38,6 @@ export async function GET(request: Request) {
         return NextResponse.json(result.rows);
     } catch (error) {
         console.error("Error fetching logs:", error);
-        return NextResponse.json({ error: 'Failed to fetch logs' }, { status: 500 });
+        return serverError('Failed to fetch logs');
     }
 }

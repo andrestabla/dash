@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { sendEmail } from '@/lib/email';
+import { unauthorized, serverError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
     const cronSecret = process.env.CRON_SECRET;
 
     if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return unauthorized();
     }
 
     const client = await pool.connect();
@@ -136,6 +137,6 @@ export async function GET(request: Request) {
         await client.query('ROLLBACK');
         client.release();
         console.error('Cron Error:', error);
-        return NextResponse.json({ error: 'Notification process failed' }, { status: 500 });
+        return serverError('Notification process failed');
     }
 }

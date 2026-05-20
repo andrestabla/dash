@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, serverError } from '@/lib/api-error';
 
 export async function GET() {
     const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const client = await pool.connect();
@@ -17,14 +18,15 @@ export async function GET() {
         client.release();
         return NextResponse.json(res.rows);
     } catch (error) {
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        console.error("Notification Fetch Error:", error);
+        return serverError();
     }
 }
 
 // Mark as read or Create (Admin only)
 export async function POST(request: Request) {
     const session = await getSession();
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     const body = await request.json();
 
@@ -70,8 +72,8 @@ export async function POST(request: Request) {
 
         client.release();
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Notification API Error:", error);
-        return NextResponse.json({ error: 'Failed', details: error.message }, { status: 500 });
+        return serverError();
     }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, forbidden, badRequest, serverError } from '@/lib/api-error';
 
 export async function GET(
     request: Request,
@@ -8,7 +9,7 @@ export async function GET(
 ) {
     const session = await getSession() as any;
     if (!session) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return unauthorized();
     }
 
     const { id: dashboardId } = await params;
@@ -30,7 +31,7 @@ export async function GET(
 
         if (accessCheck.rows.length === 0) {
             client.release();
-            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            return forbidden('Access denied');
         }
 
         // Fetch messages with user details
@@ -47,7 +48,7 @@ export async function GET(
         return NextResponse.json(res.rows);
     } catch (error) {
         console.error("Chat fetch error:", error);
-        return NextResponse.json({ error: "DB Error" }, { status: 500 });
+        return serverError('DB Error');
     }
 }
 
@@ -57,7 +58,7 @@ export async function POST(
 ) {
     const session = await getSession() as any;
     if (!session || !session.id) {
-        return NextResponse.json({ error: 'Unauthorized: No session ID' }, { status: 401 });
+        return unauthorized('Unauthorized: No session ID');
     }
 
     const { id: dashboardId } = await params;
@@ -66,7 +67,7 @@ export async function POST(
         const { content, notify } = await request.json();
 
         if (!content || !content.trim()) {
-            return NextResponse.json({ error: "Content required" }, { status: 400 });
+            return badRequest('Content required');
         }
 
         const client = await pool.connect();
@@ -85,7 +86,7 @@ export async function POST(
             const accessCheck = await client.query(accessQuery, accessParams);
 
             if (accessCheck.rows.length === 0) {
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
 
             const res = await client.query(`
@@ -165,6 +166,6 @@ export async function POST(
         }
     } catch (error: any) {
         console.error("Chat post error:", error);
-        return NextResponse.json({ error: "Failed to post message", details: error.message }, { status: 500 });
+        return serverError('Failed to post message');
     }
 }

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession, logout } from '@/lib/auth';
+import { unauthorized, serverError } from '@/lib/api-error';
 
 // Complete implementation
 export async function DELETE(req: NextRequest) {
     try {
         const user = await getSession();
-        if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!user) return unauthorized();
 
         const client = await pool.connect();
         try {
@@ -46,12 +47,12 @@ export async function DELETE(req: NextRequest) {
         } catch (e) {
             await client.query('ROLLBACK');
             console.error("Delete account error:", e);
-            return NextResponse.json({ error: "Failed to delete account" }, { status: 500 });
+            return serverError('Failed to delete account');
         } finally {
             client.release();
         }
     } catch (error) {
         console.error("Delete account error:", error);
-        return NextResponse.json({ error: "Failed to delete account" }, { status: 500 });
+        return serverError('Failed to delete account');
     }
 }

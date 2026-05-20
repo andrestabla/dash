@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, badRequest, serverError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const { type, message } = await request.json();
 
-        if (!message) return NextResponse.json({ error: "Message required" }, { status: 400 });
+        if (!message) return badRequest('Message required');
 
         const client = await pool.connect();
 
@@ -34,6 +35,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Support ticket error", error);
-        return NextResponse.json({ error: "Failed to create ticket" }, { status: 500 });
+        return serverError('Failed to create ticket');
     }
 }

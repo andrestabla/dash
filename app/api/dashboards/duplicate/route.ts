@@ -1,18 +1,19 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { unauthorized, badRequest, notFound, forbidden, serverError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     const session = await getSession() as any;
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session) return unauthorized();
 
     try {
         const body = await request.json();
         const { dashboardId, name } = body; // Optional new name
 
-        if (!dashboardId) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
+        if (!dashboardId) return badRequest('Dashboard ID required');
 
         const client = await pool.connect();
 
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
         const originalRes = await client.query('SELECT * FROM dashboards WHERE id = $1', [dashboardId]);
         if (originalRes.rows.length === 0) {
             client.release();
-            return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+            return notFound('Dashboard not found');
         }
         const original = originalRes.rows[0];
 
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
             );
             if (accessRes.rows.length === 0) {
                 client.release();
-                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+                return forbidden('Access denied');
             }
         }
 
@@ -82,6 +83,6 @@ export async function POST(request: Request) {
         return NextResponse.json(newDashboard);
     } catch (error) {
         console.error(error);
-        return NextResponse.json({ error: 'Failed to duplicate dashboard' }, { status: 500 });
+        return serverError('Failed to duplicate dashboard');
     }
 }

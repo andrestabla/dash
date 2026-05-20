@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { badRequest, notFound, serverError } from '@/lib/api-error';
 
 export async function GET(request: Request, props: { params: Promise<{ token: string }> }) {
     const params = await props.params;
     const { token } = params;
 
-    if (!token) return NextResponse.json({ error: 'Token required' }, { status: 400 });
+    if (!token) return badRequest('Token required');
 
     try {
         const client = await pool.connect();
@@ -19,7 +20,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
 
         if (dashRes.rows.length === 0) {
             client.release();
-            return NextResponse.json({ error: 'Dashboard not found or private' }, { status: 404 });
+            return notFound('Dashboard not found or private');
         }
 
         const dashboard = dashRes.rows[0];
@@ -46,6 +47,6 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
 
     } catch (error) {
         console.error("Public API Error:", error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return serverError();
     }
 }

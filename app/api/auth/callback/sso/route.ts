@@ -195,7 +195,6 @@ export async function GET(request: Request) {
 
     } catch (error: any) {
         console.error('SSO Callback Error:', error);
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        return NextResponse.redirect(new URL(`/login?error=SSO_SYNC_FAILED&details=${encodeURIComponent(errorMsg)}`, request.url));
+        return NextResponse.redirect(new URL('/login?error=SSO_SYNC_FAILED', request.url));
     }
 }

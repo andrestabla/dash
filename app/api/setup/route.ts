@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { notFound, forbidden, serverError } from '@/lib/api-error';
 
 export async function GET() {
   if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return notFound();
   }
 
   const session = await getSession() as any;
   if (!session || session.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    return forbidden('Unauthorized');
   }
 
   const client = await pool.connect();
@@ -111,12 +112,7 @@ export async function GET() {
 
   } catch (error) {
     console.error(error);
-    return NextResponse.json({
-      success: false,
-      error: String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      diagnostics
-    }, { status: 500 });
+    return serverError();
   } finally {
     client.release();
   }

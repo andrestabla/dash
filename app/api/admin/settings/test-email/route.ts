@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { getSession } from '@/lib/auth';
+import { forbidden, badRequest, serverError } from '@/lib/api-error';
 
 const verifyAdmin = async () => {
     const session = await getSession();
@@ -8,14 +9,14 @@ const verifyAdmin = async () => {
 };
 
 export async function POST(request: Request) {
-    if (!await verifyAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!await verifyAdmin()) return forbidden();
 
     try {
         const body = await request.json();
         const { host, port, user, pass, secure, to, from } = body;
 
         if (!host || !port || !user || !pass || !to) {
-            return NextResponse.json({ error: 'Missing configuration fields' }, { status: 400 });
+            return badRequest('Missing configuration fields');
         }
 
         // SMART CONFIG: If port is 587, it is consistently STARTTLS (secure: false).
@@ -79,6 +80,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error("SMTP Test Error:", error);
-        return NextResponse.json({ error: error.message || 'Failed to send test email' }, { status: 500 });
+        return serverError('Failed to send test email');
     }
 }

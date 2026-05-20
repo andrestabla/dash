@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
+import { unauthorized, notFound, serverError } from '@/lib/api-error';
 
 export async function GET() {
     const session = await getSession();
     // Valid session IS the payload
-    if (!session || !(session as any).id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session || !(session as any).id) return unauthorized();
 
     try {
         const client = await pool.connect();
@@ -14,18 +15,18 @@ export async function GET() {
         const res = await client.query('SELECT email, name, role FROM users WHERE id = $1', [(session as any).id]);
         client.release();
 
-        if (res.rows.length === 0) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        if (res.rows.length === 0) return notFound('User not found');
 
         return NextResponse.json(res.rows[0]);
     } catch (error) {
         console.error('Profile GET Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return serverError();
     }
 }
 
 export async function PUT(request: Request) {
     const session = await getSession();
-    if (!session || !(session as any).id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session || !(session as any).id) return unauthorized();
 
     try {
         const { name, password } = await request.json();
@@ -48,6 +49,6 @@ export async function PUT(request: Request) {
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Profile PUT Error:', error);
-        return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+        return serverError('Failed to update profile');
     }
 }

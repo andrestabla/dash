@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { forbidden, serverError } from '@/lib/api-error';
 
 export async function GET() {
     const session = await getSession();
     // Allow admin access for diagnostics
     if (!session || session.role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        return forbidden();
     }
 
     try {
@@ -40,10 +41,7 @@ export async function GET() {
             database_connected: true
         });
     } catch (error: any) {
-        return NextResponse.json({
-            error: 'Database check failed',
-            details: error.message,
-            database_connected: false
-        }, { status: 500 });
+        console.error('[AdminDiagnose] Database check failed:', error);
+        return serverError('Database check failed');
     }
 }

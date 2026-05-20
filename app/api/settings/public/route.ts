@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { serverError } from '@/lib/api-error';
 
 export async function GET() {
     try {
@@ -24,6 +25,7 @@ export async function GET() {
 
         return NextResponse.json(settings);
     } catch (error) {
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        console.error("Public Settings Fetch Error:", error);
+        return serverError();
     }
 }
