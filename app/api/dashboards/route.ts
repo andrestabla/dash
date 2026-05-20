@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { publishDashboardRealtime } from '@/lib/realtime';
+import { buildCanvasSettings, getDashboardKind } from '@/lib/canvas';
 
 export async function GET() {
     const session = await getSession() as any;
@@ -51,9 +53,14 @@ export async function POST(request: Request) {
         try {
             await client.query('BEGIN');
 
+            const normalizedSettings = buildCanvasSettings(
+                { ...(settings || {}), dashboardType: getDashboardKind(settings) },
+                String(name || 'Idea Principal')
+            );
+
             const result = await client.query(
                 'INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-                [name, description || '', settings || {}, folder_id || null, session.id, body.start_date || null, body.end_date || null, is_demo || false]
+                [name, description || '', normalizedSettings, folder_id || null, session.id, body.start_date || null, body.end_date || null, is_demo || false]
             );
             const newDash = result.rows[0];
 
@@ -87,6 +94,7 @@ export async function POST(request: Request) {
             }
 
             await client.query('COMMIT');
+            publishDashboardRealtime(String(newDash.id), 'dashboard_changed');
             return NextResponse.json(newDash, { status: 201 });
         } catch (e) {
             await client.query('ROLLBACK');
@@ -113,7 +121,7 @@ export async function PUT(request: Request) {
         const client = await pool.connect();
 
         // Check permission: Admin, Owner, or Collaborator
-        const check = await client.query('SELECT owner_id, folder_id, is_demo FROM dashboards WHERE id = $1', [id]);
+        const check = await client.query('SELECT owner_id, folder_id, is_demo, start_date, end_date, description, settings, name FROM dashboards WHERE id = $1', [id]);
         if (check.rows.length === 0) {
             client.release();
             return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
@@ -152,11 +160,21 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
+        const normalizedSettings = buildCanvasSettings(
+            { ...(settings || {}), dashboardType: getDashboardKind(settings || dashboard.settings) },
+            String(name || dashboard.name || 'Idea Principal')
+        );
+        const nextDescription = description === undefined ? dashboard.description || '' : description || '';
+        const nextStartDate = body.start_date === undefined ? dashboard.start_date : body.start_date || null;
+        const nextEndDate = body.end_date === undefined ? dashboard.end_date : body.end_date || null;
+        const nextIsDemo = body.is_demo ?? dashboard.is_demo;
+
         const result = await client.query(
             'UPDATE dashboards SET name = $1, description = $2, settings = $3, start_date = $4, end_date = $5, is_demo = $6 WHERE id = $7 RETURNING *',
-            [name, description || '', settings || {}, body.start_date || null, body.end_date || null, body.is_demo ?? dashboard.is_demo, id]
+            [name, nextDescription, normalizedSettings, nextStartDate, nextEndDate, nextIsDemo, id]
         );
         client.release();
+        publishDashboardRealtime(String(id), 'dashboard_changed');
 
         return NextResponse.json(result.rows[0]);
     } catch (error) {
@@ -197,6 +215,7 @@ export async function DELETE(request: Request) {
 
         const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
         client.release();
+        publishDashboardRealtime(String(id), 'dashboard_deleted');
 
         return NextResponse.json({ success: true, id });
     } catch (error) {

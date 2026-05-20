@@ -5,7 +5,7 @@ import { getSession } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-    const session = await getSession();
+    const session = await getSession() as any;
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
@@ -24,15 +24,36 @@ export async function POST(request: Request) {
         }
         const original = originalRes.rows[0];
 
+        // Verify the caller may access the dashboard being duplicated.
+        if (session.role !== 'admin') {
+            const accessRes = await client.query(
+                `SELECT 1 FROM dashboards d
+                 WHERE d.id = $1 AND (
+                     d.owner_id = $2 OR
+                     EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
+                     EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+                 )`,
+                [dashboardId, session.id]
+            );
+            if (accessRes.rows.length === 0) {
+                client.release();
+                return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            }
+        }
+
         // 2. Determine new name
         const newName = name || `${original.name} (Copia)`;
 
+        // Keep the copy in the original folder only when the caller owns the
+        // source; otherwise place it at the root of the caller's workspace.
+        const copyFolderId = original.owner_id === session.id ? original.folder_id : null;
+
         // 3. Insert Copy
         const res = await client.query(
-            `INSERT INTO dashboards (name, description, settings, folder_id, owner_id)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`,
-            [newName, original.description, original.settings, original.folder_id, (session as any).id]
+            [newName, original.description, original.settings, copyFolderId, session.id, original.start_date, original.end_date, false]
         );
 
         const newDashboard = res.rows[0];

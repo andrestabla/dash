@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { publishDashboardRealtime } from '@/lib/realtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ export async function GET(request: Request) {
         const folderId = searchParams.get('folderId');
 
         const client = await pool.connect();
+        try {
 
         // Base Query
         let query = 'SELECT id, week, name, status, owner, type, prio, gate, due, description as desc, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent FROM tasks';
@@ -34,7 +36,6 @@ export async function GET(request: Request) {
             const accessCheck = await client.query(accessQuery, accessParams);
 
             if (accessCheck.rows.length === 0) {
-                client.release();
                 return NextResponse.json({ error: 'Access denied' }, { status: 403 });
             }
 
@@ -67,7 +68,6 @@ export async function GET(request: Request) {
             const dashIds = dashResult.rows.map(r => r.id);
 
             if (dashIds.length === 0) {
-                client.release();
                 return NextResponse.json([]);
             }
 
@@ -88,7 +88,6 @@ export async function GET(request: Request) {
             const dashIds = dashResult.rows.map(r => r.id);
 
             if (dashIds.length === 0) {
-                client.release();
                 return NextResponse.json([]);
             }
 
@@ -129,9 +128,10 @@ export async function GET(request: Request) {
             });
         }
 
-        client.release();
-
-        return NextResponse.json(tasks);
+            return NextResponse.json(tasks);
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error('Database Error:', error);
         return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
@@ -149,6 +149,7 @@ export async function POST(request: Request) {
         if (!dashboard_id) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
 
         const client = await pool.connect();
+        try {
 
         // Check Permission
         const accessQuery = session.role === 'admin'
@@ -164,7 +165,6 @@ export async function POST(request: Request) {
         const accessCheck = await client.query(accessQuery, accessParams);
 
         if (accessCheck.rows.length === 0) {
-            client.release();
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
@@ -240,14 +240,16 @@ export async function POST(request: Request) {
             }
 
             await client.query('COMMIT');
-            client.release();
+            publishDashboardRealtime(String(dashboard_id), 'tasks_changed');
 
             return NextResponse.json({ message: 'Task saved', id: savedTaskId }, { status: 201 });
         } catch (dbError) {
             await client.query('ROLLBACK');
-            client.release();
             console.error('Database Transaction Error:', dbError);
             return NextResponse.json({ error: 'Failed to save task data' }, { status: 500 });
+        }
+        } finally {
+            client.release();
         }
     } catch (error) {
         console.error('Request Error:', error);
@@ -268,11 +270,11 @@ export async function DELETE(request: Request) {
         }
 
         const client = await pool.connect();
+        try {
 
         // To delete, we need to know the dashboard_id of the task
         const taskRes = await client.query('SELECT dashboard_id FROM tasks WHERE id = $1', [id]);
         if (taskRes.rows.length === 0) {
-            client.release();
             return NextResponse.json({ error: 'Task not found' }, { status: 404 });
         }
         const dashboardId = taskRes.rows[0].dashboard_id;
@@ -291,14 +293,16 @@ export async function DELETE(request: Request) {
         const accessCheck = await client.query(accessQuery, accessParams);
 
         if (accessCheck.rows.length === 0) {
-            client.release();
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
         await client.query('DELETE FROM tasks WHERE id = $1', [id]);
-        client.release();
+        publishDashboardRealtime(String(dashboardId), 'tasks_changed');
 
         return NextResponse.json({ message: 'Task deleted' });
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error('Database Error:', error);
         return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 });
