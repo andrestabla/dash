@@ -7,6 +7,7 @@ import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
 import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check, Share2, UserPlus, Mail, BookOpen, Heart } from "lucide-react";
 import SortControl, { SortOption } from "@/components/SortControl";
+import { createDefaultCanvasDocument, getDashboardKind, type DashboardKind } from "@/lib/canvas";
 
 interface Dashboard {
     id: string;
@@ -111,6 +112,7 @@ function WorkspaceContent() {
     // Wizard State (Dashboard)
     const [wizName, setWizName] = useState("");
     const [wizDesc, setWizDesc] = useState("");
+    const [wizDashboardType, setWizDashboardType] = useState<DashboardKind>('kanban');
     const [wizWeeks, setWizWeeks] = useState(9);
     const [wizOwners, setWizOwners] = useState<string[]>(["Andrés Tabla"]);
     const [newOwner, setNewOwner] = useState("");
@@ -338,14 +340,18 @@ function WorkspaceContent() {
         if (!wizName.trim()) return;
         const isEdit = !!editingDash;
 
-        const currentSettings = isEdit ? editingDash.settings : DEFAULT_SETTINGS;
         const finalSettings = {
-            weeks: isEdit ? generateWeeks(wizWeeks) : generateWeeks(wizWeeks),
+            ...(isEdit ? editingDash.settings : DEFAULT_SETTINGS),
+            dashboardType: wizDashboardType,
+            weeks: generateWeeks(wizWeeks),
             owners: wizOwners.length > 0 ? wizOwners : ["Sin Asignar"],
             types: wizTypes.length > 0 ? wizTypes : ["General"],
             gates: wizGates,
             icon: wizIcon,
-            color: wizColor
+            color: wizColor,
+            canvas: wizDashboardType === 'canvas'
+                ? (editingDash?.settings?.canvas || createDefaultCanvasDocument(wizName))
+                : undefined
         };
 
         const payload = {
@@ -355,7 +361,7 @@ function WorkspaceContent() {
             folder_id: wizFolderId, // Use selected folder from wizard
             start_date: wizStartDate,
             end_date: wizEndDate,
-            initialTasks: parsedTasks // Send parsed tasks if any
+            initialTasks: wizDashboardType === 'kanban' ? parsedTasks : [] // Canvas does not import tasks
         };
 
         const method = isEdit ? 'PUT' : 'POST';
@@ -463,6 +469,7 @@ function WorkspaceContent() {
         setEditingDash(d);
         setWizName(d.name);
         setWizDesc(d.description);
+        setWizDashboardType(getDashboardKind(d.settings));
         setWizFolderId(d.folder_id);
         setWizIcon(d.settings?.icon || "🗺️");
         setWizColor(d.settings?.color || "#3b82f6");
@@ -480,6 +487,7 @@ function WorkspaceContent() {
         setWizardStep(1);
         setWizName("");
         setWizDesc("");
+        setWizDashboardType('kanban');
         setWizFolderId(currentFolderId); // Default to current folder
         setWizWeeks(9);
         setWizStartDate(new Date().toISOString().split('T')[0]);
@@ -730,6 +738,18 @@ function WorkspaceContent() {
                                 <div style={{ fontSize: 48, marginBottom: 16 }}>{d.settings?.icon || "🗺️"}</div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <h3 style={{ margin: '0', fontSize: 20 }}>{d.name}</h3>
+                                    <span style={{
+                                        background: getDashboardKind(d.settings) === 'canvas' ? 'rgba(16,185,129,0.14)' : 'rgba(59,130,246,0.14)',
+                                        color: getDashboardKind(d.settings) === 'canvas' ? '#10b981' : '#3b82f6',
+                                        fontSize: 9,
+                                        fontWeight: 800,
+                                        padding: '2px 6px',
+                                        borderRadius: 4,
+                                        border: '1px solid rgba(255,255,255,0.25)',
+                                        letterSpacing: '0.5px'
+                                    }}>
+                                        {getDashboardKind(d.settings) === 'canvas' ? 'CANVAS' : 'KANBAN'}
+                                    </span>
                                     {d.is_demo && (
                                         <span style={{
                                             background: 'rgba(59, 130, 246, 0.1)',
@@ -904,9 +924,32 @@ function WorkspaceContent() {
                             {wizardStep === 1 && (
                                 <div className="animate-fade-in">
                                     <div className="form-group">
+                                        <label className="form-label">Tipo de Dashboard</label>
+                                        <div className="toggle-group">
+                                            <div
+                                                className={`toggle-option ${wizDashboardType === 'kanban' ? 'active' : ''}`}
+                                                onClick={() => setWizDashboardType('kanban')}
+                                            >
+                                                <div className="toggle-option-title">Kanban</div>
+                                                <div className="toggle-option-desc">Tareas por columnas y analítica</div>
+                                            </div>
+                                            <div
+                                                className={`toggle-option ${wizDashboardType === 'canvas' ? 'active' : ''}`}
+                                                onClick={() => {
+                                                    setWizDashboardType('canvas');
+                                                    setIsImporting(false);
+                                                }}
+                                            >
+                                                <div className="toggle-option-title">Canvas colaborativo</div>
+                                                <div className="toggle-option-desc">Mapa mental o flujo tipo whimsical</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group">
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                                             <label className="form-label" style={{ marginBottom: 0 }}>Método de Creación</label>
-                                            {isImporting && (
+                                            {isImporting && wizDashboardType === 'kanban' && (
                                                 <button className="btn-ghost" onClick={handleDownloadTemplate} style={{ fontSize: 11, padding: '4px 8px', height: 'auto', color: 'var(--primary)' }}>
                                                     <Download size={12} style={{ marginRight: 4 }} /> Descargar Plantilla
                                                 </button>
@@ -923,14 +966,20 @@ function WorkspaceContent() {
                                             </div>
                                             <div
                                                 className={`toggle-option ${isImporting ? 'active' : ''}`}
-                                                onClick={() => setIsImporting(true)}
+                                                onClick={() => {
+                                                    if (wizDashboardType === 'canvas') return;
+                                                    setIsImporting(true);
+                                                }}
+                                                style={{ opacity: wizDashboardType === 'canvas' ? 0.45 : 1, cursor: wizDashboardType === 'canvas' ? 'not-allowed' : 'pointer' }}
                                             >
                                                 <div className="toggle-option-title">Importar CSV</div>
-                                                <div className="toggle-option-desc">Desde archivo plano</div>
+                                                <div className="toggle-option-desc">
+                                                    {wizDashboardType === 'canvas' ? 'Disponible solo para Kanban' : 'Desde archivo plano'}
+                                                </div>
                                             </div>
                                         </div>
 
-                                        {isImporting && (
+                                        {isImporting && wizDashboardType === 'kanban' && (
                                             <div className="animate-fade-in" style={{ marginTop: 16, padding: 16, background: 'var(--bg-panel)', borderRadius: 8, border: '1px dashed var(--border-dim)' }}>
                                                 <input type="file" accept=".csv" onChange={handleFileRead} style={{ fontSize: 13, width: '100%' }} />
                                                 {parsedTasks.length > 0 && (

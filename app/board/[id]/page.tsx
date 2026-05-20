@@ -11,6 +11,8 @@ import { Send, Edit2, Trash2, X, Share2, Copy, Check, UserPlus, Globe, Users, La
 import UserTour from "@/components/UserTour";
 import DashboardChat from "@/components/DashboardChat";
 import MentionInput from "@/components/MentionInput";
+import CollaborativeCanvas from "@/components/CollaborativeCanvas";
+import { createDefaultCanvasDocument, getDashboardKind, normalizeCanvasDocument, type CanvasDocument, type DashboardKind } from "@/lib/canvas";
 
 interface Task {
     id: string | number;
@@ -46,6 +48,8 @@ interface BoardSettings {
     icon?: string;
     color?: string;
     statuses?: StatusColumn[];
+    dashboardType?: DashboardKind;
+    canvas?: CanvasDocument;
 }
 
 const DEFAULT_STATUSES: StatusColumn[] = [
@@ -81,7 +85,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [settings, setSettings] = useState<BoardSettings | null>(null);
     const [dashboardName, setDashboardName] = useState("Roadmap");
-    const [activeTab, setActiveTab] = useState<"kanban" | "timeline" | "analytics" | "chat">("kanban");
+    const [activeTab, setActiveTab] = useState<"kanban" | "canvas" | "timeline" | "analytics" | "chat">("kanban");
     const [isMobileView, setIsMobileView] = useState(false);
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [availableUsers, setAvailableUsers] = useState<{ id: string, name: string, email: string }[]>([]);
@@ -142,6 +146,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const [accessDenied, setAccessDenied] = useState(false);
     const tasksSnapshotRef = useRef('');
     const settingsSnapshotRef = useRef('');
+    const canvasSnapshotRef = useRef('');
+    const canvasSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isRealtimeSyncingRef = useRef(false);
     const isModalOpenRef = useRef(false);
     const isSettingsOpenRef = useRef(false);
@@ -485,7 +491,25 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             if (nextSnapshot === settingsSnapshotRef.current) return;
             settingsSnapshotRef.current = nextSnapshot;
 
-            setSettings(data.settings);
+            const dashboardKind = getDashboardKind(data.settings);
+            const normalizedSettings: BoardSettings = {
+                ...data.settings,
+                dashboardType: dashboardKind,
+                canvas: dashboardKind === 'canvas'
+                    ? normalizeCanvasDocument(data.settings?.canvas, data.name || 'Idea Principal')
+                    : undefined
+            };
+
+            setSettings(normalizedSettings);
+            if (dashboardKind === 'canvas') {
+                const canvasSnapshot = JSON.stringify(normalizedSettings.canvas || createDefaultCanvasDocument(data.name || 'Idea Principal'));
+                canvasSnapshotRef.current = canvasSnapshot;
+                if (activeTab !== 'chat') {
+                    setActiveTab('canvas');
+                }
+            } else if (activeTab === 'canvas') {
+                setActiveTab(isMobileView ? 'timeline' : 'kanban');
+            }
             setDashboardName(data.name);
             setDashboardMeta({
                 description: data.description,
@@ -601,6 +625,8 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     }, [dashboardId]);
 
     // Memoized values (must be before early returns)
+    const isCanvasBoard = useMemo(() => getDashboardKind(settings) === 'canvas', [settings]);
+
     const statuses = useMemo(() => {
         return settings?.statuses || DEFAULT_STATUSES;
     }, [settings]);
@@ -621,6 +647,78 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         });
     }, [tasks, filters]);
 
+    const handleCanvasDocumentChange = (nextCanvas: CanvasDocument) => {
+        setSettings((prev) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                dashboardType: 'canvas',
+                canvas: normalizeCanvasDocument(nextCanvas, dashboardName || 'Idea Principal')
+            };
+        });
+    };
+
+    useEffect(() => {
+        if (!settings || !isCanvasBoard) return;
+
+        const nextCanvas = normalizeCanvasDocument(settings.canvas, dashboardName || 'Idea Principal');
+        const nextSnapshot = JSON.stringify(nextCanvas);
+        if (nextSnapshot === canvasSnapshotRef.current) return;
+
+        if (canvasSaveTimerRef.current) {
+            clearTimeout(canvasSaveTimerRef.current);
+        }
+
+        canvasSaveTimerRef.current = setTimeout(async () => {
+            try {
+                const payload = {
+                    id: dashboardId,
+                    name: dashboardName,
+                    description: dashboardMeta.description || '',
+                    settings: {
+                        ...settings,
+                        dashboardType: 'canvas',
+                        canvas: nextCanvas
+                    },
+                    start_date: dashboardMeta.start_date ? dashboardMeta.start_date.split('T')[0] : null,
+                    end_date: dashboardMeta.end_date ? dashboardMeta.end_date.split('T')[0] : null,
+                    is_demo: dashboardMeta.is_demo ?? false
+                };
+
+                const res = await fetch('/api/dashboards', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    showToast("Error guardando cambios del canvas", "error");
+                    return;
+                }
+
+                canvasSnapshotRef.current = nextSnapshot;
+            } catch {
+                showToast("Error de red al sincronizar canvas", "error");
+            }
+        }, 650);
+
+        return () => {
+            if (canvasSaveTimerRef.current) {
+                clearTimeout(canvasSaveTimerRef.current);
+            }
+        };
+    }, [
+        dashboardId,
+        dashboardMeta.description,
+        dashboardMeta.end_date,
+        dashboardMeta.is_demo,
+        dashboardMeta.start_date,
+        dashboardName,
+        isCanvasBoard,
+        settings,
+        showToast
+    ]);
+
     const toggleTheme = () => {
         const current = localStorage.getItem("theme");
         const next = current === "dark" ? "light" : "dark";
@@ -638,10 +736,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     }, []);
 
     useEffect(() => {
-        if (isMobileView && activeTab === 'kanban') {
+        if (!isCanvasBoard && isMobileView && activeTab === 'kanban') {
             setActiveTab('timeline');
         }
-    }, [isMobileView, activeTab]);
+    }, [isMobileView, activeTab, isCanvasBoard]);
 
     if (accessDenied) {
         return (
@@ -885,7 +983,6 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 body: JSON.stringify({
                     id: dashboardId,
                     name: dashboardName,
-                    description: "",
                     settings: newSettings
                 })
             });
@@ -926,7 +1023,6 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 body: JSON.stringify({
                     id: dashboardId,
                     name: dashboardName,
-                    description: "",
                     settings: newSettings
                 })
             });
@@ -958,10 +1054,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     fontWeight: 700,
                                     whiteSpace: 'nowrap'
                                 }}>
-                                    {tasks.length > 0 ? Math.round(tasks.reduce((acc, t) => {
-                                        const st = statuses.find(s => s.id === t.status);
-                                        return acc + (st?.percentage || 0);
-                                    }, 0) / tasks.length) : 0}% Completado
+                                    {isCanvasBoard
+                                        ? `${settings.canvas?.nodes?.length || 0} nodos`
+                                        : `${tasks.length > 0 ? Math.round(tasks.reduce((acc, t) => {
+                                            const st = statuses.find(s => s.id === t.status);
+                                            return acc + (st?.percentage || 0);
+                                        }, 0) / tasks.length) : 0}% Completado`
+                                    }
                                 </div>
                                 {isDemoMode && (
                                     <div style={{
@@ -980,7 +1079,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     </div>
                                 )}
                             </div>
-                            <p className="app-sub">TABLERO DE TRABAJO</p>
+                            <p className="app-sub">{isCanvasBoard ? 'LIENZO COLABORATIVO' : 'TABLERO DE TRABAJO'}</p>
                         </div>
                     </div>
 
@@ -1024,72 +1123,100 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             <main>
                 <div className="controls">
                     <div className="filters">
-                        {(!isDemoMode || currentUser?.role === 'admin') && (
+                        {!isCanvasBoard ? (
                             <>
-                                <button className="btn-primary" onClick={() => {
-                                    setEditingTask({ id: undefined, name: "", status: settings.statuses?.[0]?.id || "todo", week: settings.weeks[0]?.id || "", owner: settings.owners[0] || "", type: "Feature" });
-                                    setIsModalOpen(true);
-                                }} style={{ marginRight: 12 }}>
-                                    <span>➕</span> <span style={{ marginLeft: 4 }}>Nueva Tarea</span>
-                                </button>
+                                {(!isDemoMode || currentUser?.role === 'admin') && (
+                                    <>
+                                        <button className="btn-primary" onClick={() => {
+                                            setEditingTask({ id: undefined, name: "", status: settings.statuses?.[0]?.id || "todo", week: settings.weeks[0]?.id || "", owner: settings.owners[0] || "", type: "Feature" });
+                                            setIsModalOpen(true);
+                                        }} style={{ marginRight: 12 }}>
+                                            <span>➕</span> <span style={{ marginLeft: 4 }}>Nueva Tarea</span>
+                                        </button>
 
-                                <button className="btn-ghost" onClick={openAddCol} style={{ marginRight: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)' }}>
-                                    <span>🏗️</span> <span style={{ marginLeft: 4 }}>Nueva Columna</span>
-                                </button>
+                                        <button className="btn-ghost" onClick={openAddCol} style={{ marginRight: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-panel)' }}>
+                                            <span>🏗️</span> <span style={{ marginLeft: 4 }}>Nueva Columna</span>
+                                        </button>
+                                    </>
+                                )}
+
+                                <input
+                                    placeholder="🔍 Buscar..."
+                                    style={{ minWidth: 140 }}
+                                    className="mobile-grow"
+                                    value={filters.search}
+                                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                />
+                                <select
+                                    style={{ minWidth: 140 }}
+                                    className="mobile-grow"
+                                    value={filters.week}
+                                    onChange={(e) => setFilters({ ...filters, week: e.target.value })}
+                                >
+                                    <option value="">📅 Semanas</option>
+                                    {(settings?.weeks || []).map((w) => (
+                                        <option key={w.id} value={w.id}>
+                                            {w.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <select
+                                    style={{ minWidth: 150 }}
+                                    className="mobile-grow"
+                                    value={filters.owner}
+                                    onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
+                                >
+                                    <option value="">👤 Todos</option>
+                                    {uniqueTaskAssignees.map(o => (
+                                        <option key={o} value={o}>{o}</option>
+                                    ))}
+                                </select>
                             </>
+                        ) : (
+                            <div style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>
+                                Lienzo colaborativo en tiempo real
+                            </div>
                         )}
-
-                        <input
-                            placeholder="🔍 Buscar..."
-                            style={{ minWidth: 140 }}
-                            className="mobile-grow"
-                            value={filters.search}
-                            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                        />
-                        <select
-                            style={{ minWidth: 140 }}
-                            className="mobile-grow"
-                            value={filters.week}
-                            onChange={(e) => setFilters({ ...filters, week: e.target.value })}
-                        >
-                            <option value="">📅 Semanas</option>
-                            {(settings?.weeks || []).map((w) => (
-                                <option key={w.id} value={w.id}>
-                                    {w.name}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            style={{ minWidth: 150 }}
-                            className="mobile-grow"
-                            value={filters.owner}
-                            onChange={(e) => setFilters({ ...filters, owner: e.target.value })}
-                        >
-                            <option value="">👤 Todos</option>
-                            {uniqueTaskAssignees.map(o => (
-                                <option key={o} value={o}>{o}</option>
-                            ))}
-                        </select>
                     </div>
 
                     <div className="tabs">
-                        <div className={`tab ${activeTab === "kanban" ? "active" : ""}`} onClick={() => setActiveTab("kanban")}>
-                            <LayoutGrid size={16} /> <span>Tablero</span>
-                        </div>
-                        <div className={`tab ${activeTab === "timeline" ? "active" : ""}`} onClick={() => setActiveTab("timeline")}>
-                            <ListTodo size={16} /> <span>Lista</span>
-                        </div>
-                        <div className={`tab ${activeTab === "analytics" ? "active" : ""}`} onClick={() => setActiveTab("analytics")}>
-                            <BarChart3 size={16} /> <span>Datos</span>
-                        </div>
+                        {isCanvasBoard ? (
+                            <div className={`tab ${activeTab === "canvas" ? "active" : ""}`} onClick={() => setActiveTab("canvas")}>
+                                <LayoutGrid size={16} /> <span>Lienzo</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className={`tab ${activeTab === "kanban" ? "active" : ""}`} onClick={() => setActiveTab("kanban")}>
+                                    <LayoutGrid size={16} /> <span>Tablero</span>
+                                </div>
+                                <div className={`tab ${activeTab === "timeline" ? "active" : ""}`} onClick={() => setActiveTab("timeline")}>
+                                    <ListTodo size={16} /> <span>Lista</span>
+                                </div>
+                                <div className={`tab ${activeTab === "analytics" ? "active" : ""}`} onClick={() => setActiveTab("analytics")}>
+                                    <BarChart3 size={16} /> <span>Datos</span>
+                                </div>
+                            </>
+                        )}
                         <div className={`tab ${activeTab === "chat" ? "active" : ""}`} onClick={() => setActiveTab("chat")}>
                             <MessageCircle size={16} /> <span>Equipo</span>
                         </div>
                     </div>
                 </div>
 
+                {/* COLLABORATIVE CANVAS */}
+                {isCanvasBoard && activeTab === "canvas" && settings && (
+                    <div className="view-section active animate-fade-in" style={{ overflow: 'visible' }}>
+                        <CollaborativeCanvas
+                            canvasDocument={settings.canvas || createDefaultCanvasDocument(dashboardName || 'Idea Principal')}
+                            onChange={handleCanvasDocumentChange}
+                            readOnly={isDemoMode && currentUser?.role !== 'admin'}
+                            accentColor={settings.color || '#3b82f6'}
+                        />
+                    </div>
+                )}
+
                 {/* KANBAN */}
-                {activeTab === "kanban" && (
+                {!isCanvasBoard && activeTab === "kanban" && (
                     <div className="view-section active">
                         <div className="kanban-container">
                             <div className="lanes" style={{ display: 'flex', height: '100%', alignItems: 'stretch' }}>
@@ -1230,7 +1357,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 )}
 
                 {/* TIMELINE (LIST VIEW) */}
-                {activeTab === "timeline" && (
+                {!isCanvasBoard && activeTab === "timeline" && (
                     <div className="view-section active animate-fade-in">
                         <div className="timeline-container">
                             {(settings?.weeks || []).map(w => {
@@ -1297,7 +1424,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 )}
 
                 {/* ANALYTICS */}
-                {activeTab === "analytics" && settings && (
+                {!isCanvasBoard && activeTab === "analytics" && settings && (
                     <AnalyticsView tasks={tasks} settings={settings} statuses={statuses} />
                 )}
 

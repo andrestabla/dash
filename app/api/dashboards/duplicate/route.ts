@@ -29,10 +29,10 @@ export async function POST(request: Request) {
 
         // 3. Insert Copy
         const res = await client.query(
-            `INSERT INTO dashboards (name, description, settings, folder_id, owner_id)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              RETURNING *`,
-            [newName, original.description, original.settings, original.folder_id, (session as any).id]
+            [newName, original.description, original.settings, original.folder_id, (session as any).id, original.start_date, original.end_date, false]
         );
 
         const newDashboard = res.rows[0];
