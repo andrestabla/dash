@@ -1,6 +1,15 @@
 export type DashboardKind = 'kanban' | 'canvas';
 
-export type CanvasNodeType = 'rectangle' | 'circle' | 'diamond' | 'pill';
+export type CanvasNodeType =
+    | 'rectangle'
+    | 'circle'
+    | 'diamond'
+    | 'pill'
+    | 'cylinder'
+    | 'document'
+    | 'parallelogram'
+    | 'sticky'
+    | 'frame';
 export type CanvasPort = 'top' | 'right' | 'bottom' | 'left';
 export type CanvasLineStyle = 'orthogonal' | 'straight' | 'bezier';
 
@@ -27,6 +36,7 @@ export interface CanvasNode {
     size: CanvasSize;
     style: CanvasNodeStyle;
     content: string;
+    comment?: string;
 }
 
 export interface CanvasConnectorEndpoint {
@@ -41,6 +51,9 @@ export interface CanvasEdge {
     target: CanvasConnectorEndpoint;
     lineStyle: CanvasLineStyle;
     text?: string;
+    comment?: string;
+    startArrow?: boolean;
+    endArrow?: boolean;
 }
 
 export interface CanvasDocument {
@@ -79,7 +92,17 @@ function asPort(value: unknown, fallback: CanvasPort = 'right'): CanvasPort {
 }
 
 function asNodeType(value: unknown): CanvasNodeType {
-    if (value === 'rectangle' || value === 'circle' || value === 'diamond' || value === 'pill') return value;
+    if (
+        value === 'rectangle' ||
+        value === 'circle' ||
+        value === 'diamond' ||
+        value === 'pill' ||
+        value === 'cylinder' ||
+        value === 'document' ||
+        value === 'parallelogram' ||
+        value === 'sticky' ||
+        value === 'frame'
+    ) return value;
     return 'rectangle';
 }
 
@@ -196,7 +219,8 @@ function normalizeNode(inputNode: unknown): CanvasNode {
             radius: asNumber(style.radius, 10),
             stroke: typeof style.stroke === 'string' ? style.stroke : undefined
         },
-        content: asString(node.content, legacyText)
+        content: asString(node.content, legacyText),
+        comment: typeof node.comment === 'string' ? node.comment : undefined
     };
 }
 
@@ -229,7 +253,10 @@ function normalizeEdge(inputEdge: unknown, nodesById: Map<string, CanvasNode>): 
         lineStyle: edge.lineStyle === 'straight' || edge.lineStyle === 'bezier' || edge.lineStyle === 'orthogonal'
             ? edge.lineStyle
             : 'orthogonal',
-        text: typeof edge.text === 'string' ? edge.text : (typeof edge.label === 'string' ? edge.label : undefined)
+        text: typeof edge.text === 'string' ? edge.text : (typeof edge.label === 'string' ? edge.label : undefined),
+        comment: typeof edge.comment === 'string' ? edge.comment : undefined,
+        startArrow: typeof edge.startArrow === 'boolean' ? edge.startArrow : false,
+        endArrow: typeof edge.endArrow === 'boolean' ? edge.endArrow : true
     };
 }
 

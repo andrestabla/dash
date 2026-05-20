@@ -165,6 +165,23 @@ function WorkspaceContent() {
 
     const [isLoading, setIsLoading] = useState(true);
 
+    const wizardSteps = useMemo(() => (
+        wizDashboardType === 'canvas' ? [1, 3] : [1, 2, 3, 4]
+    ), [wizDashboardType]);
+
+    const wizardStepPosition = useMemo(() => {
+        const idx = wizardSteps.indexOf(wizardStep);
+        return idx >= 0 ? idx + 1 : 1;
+    }, [wizardStep, wizardSteps]);
+
+    const lastWizardStep = wizardSteps[wizardSteps.length - 1];
+
+    useEffect(() => {
+        if (!wizardSteps.includes(wizardStep)) {
+            setWizardStep(wizardSteps[0]);
+        }
+    }, [wizardStep, wizardSteps]);
+
 
 
     // --- DATA LOADING ---
@@ -916,7 +933,7 @@ function WorkspaceContent() {
                 <div className="backdrop">
                     <div className="modal-container animate-slide-up" style={{ width: 'min(700px, 100%)', maxWidth: 700 }}>
                         <div className="modal-header">
-                            <h2 className="modal-title">{editingDash ? "Editar Tablero" : "Nuevo Proyecto (" + wizardStep + " / 4)"}</h2>
+                            <h2 className="modal-title">{editingDash ? "Editar Tablero" : "Nuevo Proyecto (" + wizardStepPosition + " / " + wizardSteps.length + ")"}</h2>
                             <button className="btn-ghost" onClick={resetWizard} style={{ padding: 4 }}><X size={20} /></button>
                         </div>
 
@@ -1203,9 +1220,28 @@ function WorkspaceContent() {
                         </div>
 
                         <div className="modal-footer">
-                            {wizardStep > 1 && <button className="btn-ghost" onClick={() => setWizardStep(s => s - 1)}>Atrás</button>}
-                            {wizardStep < 4 ? (
-                                <button className="btn-primary" onClick={() => setWizardStep(s => s + 1)} disabled={!wizName}>Siguiente</button>
+                            {wizardStep !== wizardSteps[0] && (
+                                <button
+                                    className="btn-ghost"
+                                    onClick={() => {
+                                        const idx = wizardSteps.indexOf(wizardStep);
+                                        if (idx > 0) setWizardStep(wizardSteps[idx - 1]);
+                                    }}
+                                >
+                                    Atrás
+                                </button>
+                            )}
+                            {wizardStep !== lastWizardStep ? (
+                                <button
+                                    className="btn-primary"
+                                    onClick={() => {
+                                        const idx = wizardSteps.indexOf(wizardStep);
+                                        if (idx >= 0 && idx < wizardSteps.length - 1) setWizardStep(wizardSteps[idx + 1]);
+                                    }}
+                                    disabled={!wizName}
+                                >
+                                    Siguiente
+                                </button>
                             ) : (
                                 <button className="btn-primary" onClick={handleSaveDashboard}>
                                     {isImporting && parsedTasks.length > 0 ? `Crear e Importar (${parsedTasks.length})` : "Crear Proyecto"}

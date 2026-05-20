@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CanvasDocument, CanvasEdge, CanvasNode, CanvasNodeStyle, CanvasPoint, CanvasPort, CanvasSize } from "@/lib/canvas";
+import type {
+    CanvasDocument,
+    CanvasEdge,
+    CanvasLineStyle,
+    CanvasNode,
+    CanvasNodeStyle,
+    CanvasNodeType,
+    CanvasPoint,
+    CanvasPort,
+    CanvasSize
+} from "@/lib/canvas";
 import { getNearestPort, getNodeRect, getPortPoint, normalizeCanvasDocument } from "@/lib/canvas";
 
 type Props = {
@@ -27,6 +37,24 @@ const GRID_WIDTH = 2200;
 const GRID_HEIGHT = 1400;
 const SNAP_THRESHOLD = 5;
 
+const NODE_TYPE_OPTIONS: Array<{ value: CanvasNodeType; label: string }> = [
+    { value: 'rectangle', label: 'Rectángulo' },
+    { value: 'diamond', label: 'Decisión (Rombo)' },
+    { value: 'pill', label: 'Inicio/Fin (Píldora)' },
+    { value: 'cylinder', label: 'Base de datos' },
+    { value: 'document', label: 'Documento' },
+    { value: 'parallelogram', label: 'Entrada/Salida' },
+    { value: 'sticky', label: 'Sticky note' },
+    { value: 'frame', label: 'Frame' },
+    { value: 'circle', label: 'Círculo' }
+];
+
+const CONNECTION_STYLE_OPTIONS: Array<{ value: CanvasLineStyle; label: string }> = [
+    { value: 'orthogonal', label: 'Ortogonal' },
+    { value: 'straight', label: 'Recta' },
+    { value: 'bezier', label: 'Curva' }
+];
+
 function cloneDocument(doc: CanvasDocument): CanvasDocument {
     return {
         nodes: doc.nodes.map((node) => ({
@@ -50,12 +78,6 @@ function makeNodeId() {
 
 function makeEdgeId() {
     return `edge_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function distance(a: CanvasPoint, b: CanvasPoint) {
-    const dx = a.x - b.x;
-    const dy = a.y - b.y;
-    return Math.sqrt((dx * dx) + (dy * dy));
 }
 
 function segmentIntersectsRect(a: CanvasPoint, b: CanvasPoint, rect: { x: number; y: number; width: number; height: number }): boolean {
@@ -122,17 +144,109 @@ function buildOrthogonalPoints(edge: CanvasEdge, nodesById: Map<string, CanvasNo
     return [start, { x: start.x, y: midY }, { x: end.x, y: midY }, end];
 }
 
-function pointsToPath(points: CanvasPoint[]): string {
+function pointsToPolylinePath(points: CanvasPoint[]): string {
     if (points.length === 0) return '';
     if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
     return points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+}
+
+function buildBezierPath(start: CanvasPoint, end: CanvasPoint): string {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const controlX = Math.abs(dx) * 0.45;
+    const controlY = Math.abs(dy) * 0.18;
+
+    const c1 = { x: start.x + (dx >= 0 ? controlX : -controlX), y: start.y + (dy >= 0 ? controlY : -controlY) };
+    const c2 = { x: end.x - (dx >= 0 ? controlX : -controlX), y: end.y - (dy >= 0 ? controlY : -controlY) };
+
+    return `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`;
+}
+
+function getNodeBaseStyle(node: CanvasNode): React.CSSProperties {
+    if (node.type === 'sticky') {
+        return {
+            borderRadius: 8,
+            color: '#0f172a',
+            boxShadow: '0 10px 20px rgba(0,0,0,0.15)',
+            background: '#fde68a'
+        };
+    }
+
+    if (node.type === 'frame') {
+        return {
+            borderRadius: 12,
+            color: '#0f172a',
+            boxShadow: 'none',
+            background: 'rgba(255,255,255,0.12)',
+            border: '2px dashed rgba(15,23,42,0.35)'
+        };
+    }
+
+    if (node.type === 'circle') {
+        return { borderRadius: '9999px', color: '#fff', boxShadow: '0 8px 20px rgba(0,0,0,0.2)', background: node.style.fill };
+    }
+
+    if (node.type === 'pill') {
+        return { borderRadius: 9999, color: '#fff', boxShadow: '0 8px 20px rgba(0,0,0,0.2)', background: node.style.fill };
+    }
+
+    if (node.type === 'diamond') {
+        return {
+            borderRadius: 0,
+            color: '#fff',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+            background: node.style.fill,
+            clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+        };
+    }
+
+    if (node.type === 'parallelogram') {
+        return {
+            borderRadius: 8,
+            color: '#fff',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+            background: node.style.fill,
+            clipPath: 'polygon(10% 0%, 100% 0%, 90% 100%, 0% 100%)'
+        };
+    }
+
+    if (node.type === 'document') {
+        return {
+            borderRadius: 8,
+            color: '#fff',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+            background: node.style.fill,
+            clipPath: 'polygon(0 0, 86% 0, 100% 16%, 100% 100%, 0 100%)'
+        };
+    }
+
+    if (node.type === 'cylinder') {
+        return {
+            borderRadius: 999,
+            color: '#fff',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+            background: node.style.fill
+        };
+    }
+
+    return {
+        borderRadius: node.style.radius,
+        color: '#fff',
+        boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+        background: node.style.fill
+    };
 }
 
 export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly = false, accentColor = '#3b82f6' }: Props) {
     const normalizedExternalDoc = useMemo(() => normalizeCanvasDocument(canvasDocument), [canvasDocument]);
     const [localDoc, setLocalDoc] = useState<CanvasDocument>(() => cloneDocument(normalizedExternalDoc));
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-    const [linkFrom, setLinkFrom] = useState<{ nodeId: string; port: CanvasPort } | null>(null);
+    const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+    const [linkFrom, setLinkFrom] = useState<{ nodeId: string; port: CanvasPort; lineStyle: CanvasLineStyle } | null>(null);
+    const [newNodeType, setNewNodeType] = useState<CanvasNodeType>('rectangle');
+    const [newConnectionStyle, setNewConnectionStyle] = useState<CanvasLineStyle>('orthogonal');
+    const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+    const [editingNodeContent, setEditingNodeContent] = useState('');
 
     const dragRef = useRef<DragState | null>(null);
     const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -140,10 +254,10 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     useEffect(() => {
         const incoming = cloneDocument(normalizedExternalDoc);
         setLocalDoc(incoming);
-        if (selectedNodeId && !incoming.nodes.some((node) => node.id === selectedNodeId)) {
-            setSelectedNodeId(null);
-        }
-    }, [normalizedExternalDoc, selectedNodeId]);
+
+        if (selectedNodeId && !incoming.nodes.some((node) => node.id === selectedNodeId)) setSelectedNodeId(null);
+        if (selectedEdgeId && !incoming.edges.some((edge) => edge.id === selectedEdgeId)) setSelectedEdgeId(null);
+    }, [normalizedExternalDoc, selectedNodeId, selectedEdgeId]);
 
     const nodesById = useMemo(
         () => new Map(localDoc.nodes.map((node) => [node.id, node] as const)),
@@ -151,6 +265,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     );
 
     const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) || null : null;
+    const selectedEdge = selectedEdgeId ? localDoc.edges.find((edge) => edge.id === selectedEdgeId) || null : null;
 
     const commit = (doc: CanvasDocument) => {
         const withTimestamp = { ...doc, updatedAt: new Date().toISOString() };
@@ -162,12 +277,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         const snapped = { ...position };
         for (const node of localDoc.nodes) {
             if (node.id === nodeId) continue;
-            if (Math.abs(snapped.x - node.position.x) <= SNAP_THRESHOLD) {
-                snapped.x = node.position.x;
-            }
-            if (Math.abs(snapped.y - node.position.y) <= SNAP_THRESHOLD) {
-                snapped.y = node.position.y;
-            }
+            if (Math.abs(snapped.x - node.position.x) <= SNAP_THRESHOLD) snapped.x = node.position.x;
+            if (Math.abs(snapped.y - node.position.y) <= SNAP_THRESHOLD) snapped.y = node.position.y;
         }
         return snapped;
     };
@@ -187,16 +298,28 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         commit(next);
     };
 
-    const addNode = (x = 240, y = 180) => {
+    const updateEdge = (edgeId: string, patch: Partial<CanvasEdge>) => {
+        const next = cloneDocument(localDoc);
+        next.edges = next.edges.map((edge) => edge.id === edgeId ? { ...edge, ...patch } : edge);
+        commit(next);
+    };
+
+    const addNode = (x = 240, y = 180, type: CanvasNodeType = newNodeType) => {
         if (readOnly) return;
+
+        const isSticky = type === 'sticky';
+        const isFrame = type === 'frame';
         const next = cloneDocument(localDoc);
         next.nodes.push({
             id: makeNodeId(),
-            type: 'rectangle',
+            type,
             position: { x, y },
-            size: { width: 220, height: 88 },
-            style: { fill: accentColor, radius: 12 },
-            content: 'Nuevo nodo'
+            size: {
+                width: isFrame ? 420 : (isSticky ? 200 : 220),
+                height: isFrame ? 260 : (isSticky ? 150 : 88)
+            },
+            style: { fill: isSticky ? '#fde68a' : accentColor, radius: 12 },
+            content: isFrame ? 'Frame' : 'Nuevo nodo'
         });
         commit(next);
     };
@@ -207,7 +330,16 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         next.nodes = next.nodes.filter((node) => node.id !== selectedNodeId);
         next.edges = next.edges.filter((edge) => edge.source.nodeId !== selectedNodeId && edge.target.nodeId !== selectedNodeId);
         setSelectedNodeId(null);
+        setSelectedEdgeId(null);
         setLinkFrom(null);
+        commit(next);
+    };
+
+    const deleteSelectedEdge = () => {
+        if (readOnly || !selectedEdgeId) return;
+        const next = cloneDocument(localDoc);
+        next.edges = next.edges.filter((edge) => edge.id !== selectedEdgeId);
+        setSelectedEdgeId(null);
         commit(next);
     };
 
@@ -215,6 +347,13 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         if (readOnly || !canvasRef.current) return;
         const rect = canvasRef.current.getBoundingClientRect();
         addNode(event.clientX - rect.left - 110, event.clientY - rect.top - 44);
+    };
+
+    const finishInlineEdit = () => {
+        if (!editingNodeId) return;
+        const content = editingNodeContent.trim() || 'Nodo';
+        updateNode(editingNodeId, { content });
+        setEditingNodeId(null);
     };
 
     const onNodeMouseDown = (event: React.MouseEvent<HTMLDivElement>, node: CanvasNode) => {
@@ -240,7 +379,9 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             type: 'connector',
                             source: { nodeId: linkFrom.nodeId, port: linkFrom.port },
                             target: { nodeId: node.id, port: targetPort },
-                            lineStyle: 'orthogonal'
+                            lineStyle: linkFrom.lineStyle,
+                            startArrow: false,
+                            endArrow: true
                         });
                         commit(next);
                     }
@@ -248,10 +389,13 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             }
             setLinkFrom(null);
             setSelectedNodeId(node.id);
+            setSelectedEdgeId(null);
             return;
         }
 
         setSelectedNodeId(node.id);
+        setSelectedEdgeId(null);
+
         if (!canvasRef.current) return;
         const rect = canvasRef.current.getBoundingClientRect();
         dragRef.current = {
@@ -263,7 +407,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
     useEffect(() => {
         const onMouseMove = (event: MouseEvent) => {
-            if (readOnly || !dragRef.current || !canvasRef.current) return;
+            if (readOnly || !dragRef.current || !canvasRef.current || editingNodeId) return;
             const rect = canvasRef.current.getBoundingClientRect();
             const { nodeId, dx, dy } = dragRef.current;
             const raw = {
@@ -285,14 +429,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
         };
-    }, [readOnly, localDoc]);
-
-    const removeEdge = (edgeId: string) => {
-        if (readOnly) return;
-        const next = cloneDocument(localDoc);
-        next.edges = next.edges.filter((edge) => edge.id !== edgeId);
-        commit(next);
-    };
+    }, [readOnly, localDoc, editingNodeId]);
 
     const exportAsPng = () => {
         const doc = normalizeCanvasDocument(localDoc);
@@ -327,26 +464,45 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         ctx.strokeStyle = '#64748b';
         ctx.lineWidth = 2;
         doc.edges.forEach((edge) => {
-            const points = buildOrthogonalPoints(edge, nodesMap, doc.nodes);
+            const source = nodesMap.get(edge.source.nodeId);
+            const target = nodesMap.get(edge.target.nodeId);
+            if (!source || !target) return;
+
+            const start = getPortPoint(source, edge.source.port);
+            const end = getPortPoint(target, edge.target.port);
+
+            if (edge.lineStyle === 'bezier') {
+                const dx = end.x - start.x;
+                const c1 = { x: start.x + dx * 0.4, y: start.y };
+                const c2 = { x: end.x - dx * 0.4, y: end.y };
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, end.x, end.y);
+                ctx.stroke();
+                return;
+            }
+
+            const points = edge.lineStyle === 'straight'
+                ? [start, end]
+                : buildOrthogonalPoints(edge, nodesMap, doc.nodes);
+
             if (points.length < 2) return;
             ctx.beginPath();
             ctx.moveTo(points[0].x, points[0].y);
-            for (let i = 1; i < points.length; i += 1) {
-                ctx.lineTo(points[i].x, points[i].y);
-            }
+            for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i].x, points[i].y);
             ctx.stroke();
         });
 
         doc.nodes.forEach((node) => {
-            ctx.fillStyle = node.style.fill || '#3b82f6';
+            ctx.fillStyle = node.type === 'sticky' ? '#fde68a' : (node.style.fill || '#3b82f6');
             ctx.fillRect(node.position.x, node.position.y, node.size.width, node.size.height);
             ctx.strokeStyle = '#0f172a';
             ctx.strokeRect(node.position.x, node.position.y, node.size.width, node.size.height);
 
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = node.type === 'sticky' || node.type === 'frame' ? '#0f172a' : '#ffffff';
             ctx.font = 'bold 16px sans-serif';
             ctx.textBaseline = 'middle';
-            ctx.fillText(node.content.slice(0, 30), node.position.x + 14, node.position.y + node.size.height / 2);
+            ctx.fillText(node.content.slice(0, 34), node.position.x + 14, node.position.y + node.size.height / 2);
         });
 
         const link = document.createElement('a');
@@ -356,11 +512,12 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     };
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 12, height: '100%' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 12, height: '100%' }}>
             <div
                 ref={canvasRef}
                 onClick={() => {
                     setSelectedNodeId(null);
+                    setSelectedEdgeId(null);
                     if (!readOnly) setLinkFrom(null);
                 }}
                 onDoubleClick={onCanvasDoubleClick}
@@ -376,46 +533,75 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 }}
             >
                 <svg width={GRID_WIDTH} height={GRID_HEIGHT} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                    <defs>
+                        <marker id="arrow-end" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L8,4 L0,8 Z" fill="#334155" />
+                        </marker>
+                        <marker id="arrow-start" markerWidth="8" markerHeight="8" refX="0" refY="4" orient="auto" markerUnits="strokeWidth">
+                            <path d="M8,0 L0,4 L8,8 Z" fill="#334155" />
+                        </marker>
+                    </defs>
+
                     {localDoc.edges.map((edge) => {
-                        const points = buildOrthogonalPoints(edge, nodesById, localDoc.nodes);
-                        if (points.length === 0) return null;
-                        const pathData = pointsToPath(points);
-                        const middle = points[Math.floor(points.length / 2)];
+                        const sourceNode = nodesById.get(edge.source.nodeId);
+                        const targetNode = nodesById.get(edge.target.nodeId);
+                        if (!sourceNode || !targetNode) return null;
+
+                        const start = getPortPoint(sourceNode, edge.source.port);
+                        const end = getPortPoint(targetNode, edge.target.port);
+
+                        let pathData = '';
+                        let centerPoint: CanvasPoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+
+                        if (edge.lineStyle === 'bezier') {
+                            pathData = buildBezierPath(start, end);
+                        } else if (edge.lineStyle === 'straight') {
+                            pathData = pointsToPolylinePath([start, end]);
+                        } else {
+                            const points = buildOrthogonalPoints(edge, nodesById, localDoc.nodes);
+                            pathData = pointsToPolylinePath(points);
+                            if (points.length > 0) centerPoint = points[Math.floor(points.length / 2)];
+                        }
 
                         return (
                             <g key={edge.id}>
-                                <path d={pathData} stroke="#64748b" strokeWidth={2} fill="none" />
+                                <path
+                                    d={pathData}
+                                    stroke={selectedEdgeId === edge.id ? '#2563eb' : '#64748b'}
+                                    strokeWidth={selectedEdgeId === edge.id ? 3 : 2}
+                                    fill="none"
+                                    markerStart={edge.startArrow ? 'url(#arrow-start)' : undefined}
+                                    markerEnd={edge.endArrow === false ? undefined : 'url(#arrow-end)'}
+                                    style={{ pointerEvents: 'stroke' }}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        setSelectedEdgeId(edge.id);
+                                        setSelectedNodeId(null);
+                                    }}
+                                />
+
                                 {edge.text && (
-                                    <text x={middle.x + 6} y={middle.y - 6} fontSize="12" fill="#334155" pointerEvents="none">{edge.text}</text>
-                                )}
-                                {!readOnly && (
-                                    <foreignObject
-                                        x={middle.x - 12}
-                                        y={middle.y - 12}
-                                        width={24}
-                                        height={24}
-                                        style={{ pointerEvents: 'auto' }}
+                                    <text
+                                        x={centerPoint.x + 6}
+                                        y={centerPoint.y - 6}
+                                        fontSize="12"
+                                        fill="#334155"
+                                        pointerEvents="none"
                                     >
-                                        <button
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                removeEdge(edge.id);
-                                            }}
-                                            style={{
-                                                width: 24,
-                                                height: 24,
-                                                borderRadius: 12,
-                                                border: 'none',
-                                                cursor: 'pointer',
-                                                background: 'rgba(239,68,68,0.9)',
-                                                color: 'white',
-                                                fontSize: 12
-                                            }}
-                                            title="Eliminar conexión"
-                                        >
-                                            x
-                                        </button>
-                                    </foreignObject>
+                                        {edge.text}
+                                    </text>
+                                )}
+
+                                {edge.comment && (
+                                    <text
+                                        x={centerPoint.x + 6}
+                                        y={centerPoint.y + 12}
+                                        fontSize="11"
+                                        fill="#64748b"
+                                        pointerEvents="none"
+                                    >
+                                        📝
+                                    </text>
                                 )}
                             </g>
                         );
@@ -426,23 +612,33 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     {localDoc.nodes.map((node) => {
                         const isSelected = selectedNodeId === node.id;
                         const isLinkSource = linkFrom?.nodeId === node.id;
+                        const isInlineEditing = editingNodeId === node.id;
+
+                        const baseStyle = getNodeBaseStyle(node);
+
                         return (
                             <div
                                 key={node.id}
                                 onMouseDown={(event) => onNodeMouseDown(event, node)}
+                                onDoubleClick={(event) => {
+                                    if (readOnly) return;
+                                    event.stopPropagation();
+                                    setSelectedNodeId(node.id);
+                                    setSelectedEdgeId(null);
+                                    setEditingNodeId(node.id);
+                                    setEditingNodeContent(node.content);
+                                }}
                                 style={{
                                     position: 'absolute',
                                     left: node.position.x,
                                     top: node.position.y,
                                     width: node.size.width,
                                     height: node.size.height,
-                                    borderRadius: node.type === 'circle' ? '9999px' : node.style.radius,
-                                    background: node.style.fill,
-                                    color: '#fff',
-                                    boxShadow: isSelected
-                                        ? '0 0 0 3px rgba(59,130,246,0.4), 0 10px 30px rgba(0,0,0,0.25)'
-                                        : '0 8px 20px rgba(0,0,0,0.2)',
-                                    border: isLinkSource ? '3px dashed #facc15' : '1px solid rgba(255,255,255,0.4)',
+                                    border: isLinkSource
+                                        ? '3px dashed #facc15'
+                                        : isSelected
+                                            ? '2px solid rgba(37,99,235,0.9)'
+                                            : '1px solid rgba(255,255,255,0.4)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -450,12 +646,46 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     padding: 10,
                                     fontWeight: 700,
                                     userSelect: 'none',
-                                    cursor: readOnly ? 'default' : 'grab',
-                                    clipPath: node.type === 'diamond' ? 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' : 'none'
+                                    cursor: readOnly ? 'default' : (isInlineEditing ? 'text' : 'grab'),
+                                    ...baseStyle
                                 }}
-                                title={readOnly ? 'Lectura' : 'Arrastrar'}
+                                title={readOnly ? 'Lectura' : 'Doble clic para editar'}
                             >
-                                <span style={{ transform: node.type === 'diamond' ? 'scale(0.88)' : 'none' }}>{node.content}</span>
+                                {isInlineEditing ? (
+                                    <textarea
+                                        autoFocus
+                                        value={editingNodeContent}
+                                        onChange={(event) => setEditingNodeContent(event.target.value)}
+                                        onBlur={finishInlineEdit}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter' && !event.shiftKey) {
+                                                event.preventDefault();
+                                                finishInlineEdit();
+                                            }
+                                            if (event.key === 'Escape') {
+                                                setEditingNodeId(null);
+                                            }
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            background: 'rgba(255,255,255,0.16)',
+                                            border: '1px solid rgba(255,255,255,0.45)',
+                                            borderRadius: 8,
+                                            color: node.type === 'sticky' || node.type === 'frame' ? '#0f172a' : '#fff',
+                                            fontWeight: 700,
+                                            textAlign: 'center',
+                                            padding: 8,
+                                            resize: 'none'
+                                        }}
+                                    />
+                                ) : (
+                                    <span style={{ transform: node.type === 'diamond' ? 'scale(0.88)' : 'none' }}>{node.content}</span>
+                                )}
+
+                                {node.comment && !isInlineEditing && (
+                                    <span style={{ position: 'absolute', top: 4, right: 6, fontSize: 12 }}>📝</span>
+                                )}
                             </div>
                         );
                     })}
@@ -471,7 +701,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                 className="btn-ghost"
                                 onClick={() => {
                                     if (!selectedNode) return;
-                                    setLinkFrom({ nodeId: selectedNode.id, port: 'right' });
+                                    setLinkFrom({ nodeId: selectedNode.id, port: 'right', lineStyle: newConnectionStyle });
                                 }}
                                 disabled={!selectedNode}
                                 style={{ padding: '6px 10px', fontSize: 12 }}
@@ -480,8 +710,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             </button>
                             <button
                                 className="btn-ghost"
-                                onClick={deleteSelectedNode}
-                                disabled={!selectedNode}
+                                onClick={selectedEdge ? deleteSelectedEdge : deleteSelectedNode}
+                                disabled={!selectedNode && !selectedEdge}
                                 style={{ padding: '6px 10px', fontSize: 12, color: '#ef4444' }}
                             >
                                 Eliminar
@@ -491,13 +721,43 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     <button className="btn-ghost" onClick={exportAsPng} style={{ padding: '6px 10px', fontSize: 12 }}>Exportar PNG</button>
                 </div>
 
+                <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
+                    <div>
+                        <label style={{ fontSize: 12 }}>Nuevo elemento</label>
+                        <select
+                            className="input-glass"
+                            value={newNodeType}
+                            onChange={(event) => setNewNodeType(event.target.value as CanvasNodeType)}
+                            disabled={readOnly}
+                        >
+                            {NODE_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: 12 }}>Conexión por defecto</label>
+                        <select
+                            className="input-glass"
+                            value={newConnectionStyle}
+                            onChange={(event) => setNewConnectionStyle(event.target.value as CanvasLineStyle)}
+                            disabled={readOnly}
+                        >
+                            {CONNECTION_STYLE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
                 {linkFrom && !readOnly && (
                     <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--text-dim)' }}>
-                        Selecciona un nodo destino para crear la conexión ortogonal.
+                        Selecciona un nodo destino para crear la conexión ({newConnectionStyle}).
                     </div>
                 )}
 
-                {selectedNode ? (
+                {selectedNode && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Nodo seleccionado</div>
 
@@ -507,7 +767,17 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             value={selectedNode.content}
                             onChange={(event) => updateNode(selectedNode.id, { content: event.target.value })}
                             disabled={readOnly}
-                            rows={3}
+                            rows={2}
+                        />
+
+                        <label style={{ fontSize: 12 }}>Comentario</label>
+                        <textarea
+                            className="input-glass"
+                            value={selectedNode.comment || ''}
+                            onChange={(event) => updateNode(selectedNode.id, { comment: event.target.value })}
+                            disabled={readOnly}
+                            rows={2}
+                            placeholder="Comentario del elemento"
                         />
 
                         <label style={{ fontSize: 12 }}>Tipo</label>
@@ -517,10 +787,9 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             onChange={(event) => updateNode(selectedNode.id, { type: event.target.value as CanvasNode['type'] })}
                             disabled={readOnly}
                         >
-                            <option value="rectangle">Rectángulo</option>
-                            <option value="pill">Pill</option>
-                            <option value="circle">Círculo</option>
-                            <option value="diamond">Rombo</option>
+                            {NODE_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
                         </select>
 
                         <label style={{ fontSize: 12 }}>Color</label>
@@ -531,37 +800,70 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             disabled={readOnly}
                             style={{ width: '100%', height: 34, borderRadius: 8, border: '1px solid var(--border-dim)' }}
                         />
+                    </div>
+                )}
+
+                {selectedEdge && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: selectedNode ? 14 : 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Conexión seleccionada</div>
+
+                        <label style={{ fontSize: 12 }}>Tipo de línea</label>
+                        <select
+                            className="input-glass"
+                            value={selectedEdge.lineStyle}
+                            onChange={(event) => updateEdge(selectedEdge.id, { lineStyle: event.target.value as CanvasLineStyle })}
+                            disabled={readOnly}
+                        >
+                            {CONNECTION_STYLE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+
+                        <label style={{ fontSize: 12 }}>Texto de conexión</label>
+                        <input
+                            className="input-glass"
+                            value={selectedEdge.text || ''}
+                            onChange={(event) => updateEdge(selectedEdge.id, { text: event.target.value })}
+                            disabled={readOnly}
+                            placeholder="Ej: Sí / No"
+                        />
+
+                        <label style={{ fontSize: 12 }}>Comentario</label>
+                        <textarea
+                            className="input-glass"
+                            value={selectedEdge.comment || ''}
+                            onChange={(event) => updateEdge(selectedEdge.id, { comment: event.target.value })}
+                            disabled={readOnly}
+                            rows={2}
+                            placeholder="Comentario de la conexión"
+                        />
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                            <div>
-                                <label style={{ fontSize: 12 }}>Ancho</label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                                 <input
-                                    className="input-glass"
-                                    type="number"
-                                    value={selectedNode.size.width}
+                                    type="checkbox"
+                                    checked={!!selectedEdge.startArrow}
+                                    onChange={(event) => updateEdge(selectedEdge.id, { startArrow: event.target.checked })}
                                     disabled={readOnly}
-                                    min={120}
-                                    max={440}
-                                    onChange={(event) => updateNode(selectedNode.id, { size: { width: Number(event.target.value) || 200 } })}
                                 />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: 12 }}>Alto</label>
+                                Flecha inicio
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                                 <input
-                                    className="input-glass"
-                                    type="number"
-                                    value={selectedNode.size.height}
+                                    type="checkbox"
+                                    checked={selectedEdge.endArrow !== false}
+                                    onChange={(event) => updateEdge(selectedEdge.id, { endArrow: event.target.checked })}
                                     disabled={readOnly}
-                                    min={64}
-                                    max={320}
-                                    onChange={(event) => updateNode(selectedNode.id, { size: { height: Number(event.target.value) || 88 } })}
                                 />
-                            </div>
+                                Flecha fin
+                            </label>
                         </div>
                     </div>
-                ) : (
+                )}
+
+                {!selectedNode && !selectedEdge && (
                     <div style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5 }}>
-                        Selecciona un nodo para editarlo. Doble clic sobre el lienzo para crear uno nuevo.
+                        Doble clic sobre un nodo para editarlo en línea. Selecciona nodos o conexiones para editar contenido, estilo y comentarios.
                     </div>
                 )}
             </aside>
