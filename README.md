@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# roadmap-4shine
 
-## Getting Started
+Plataforma colaborativa de roadmaps y tableros de proyecto. Permite organizar
+trabajo en carpetas y dashboards, gestionar tareas con asignados y comentarios,
+colaborar en tiempo real, y compartir tableros de forma pública o con usuarios
+concretos.
 
-First, run the development server:
+## Funcionalidades
+
+- **Workspace** con carpetas anidadas y dashboards (tableros tipo kanban y canvas colaborativo).
+- **Tareas** con estados, prioridades, asignados, fechas límite y notificaciones por correo.
+- **Comentarios** en tareas con menciones (`@usuario`).
+- **Tiempo real** vía SSE + Postgres `LISTEN/NOTIFY`.
+- **Compartir**: enlaces públicos por token y colaboración granular por dashboard/carpeta.
+- **Autenticación** propia (JWT en cookie httpOnly) y SSO OAuth2.
+- **Panel de administración**: usuarios, dashboards, ajustes, SSO, soporte y métricas.
+
+## Stack
+
+- [Next.js 16](https://nextjs.org) (App Router) · React 19 · TypeScript
+- Tailwind CSS v4
+- PostgreSQL (alojado en [Neon](https://neon.tech)) vía `pg`
+- Autenticación con `jose` (JWT) y `bcryptjs`
+- Correo con `nodemailer`
+- Despliegue en [Vercel](https://vercel.com)
+
+## Requisitos
+
+- Node.js 20+
+- Una base de datos PostgreSQL
+
+## Configuración
+
+Crea un archivo `.env.local` en la raíz con las siguientes variables:
+
+| Variable | Obligatoria | Descripción |
+|----------|-------------|-------------|
+| `DATABASE_URL` | Sí | Cadena de conexión a PostgreSQL. |
+| `JWT_SECRET` | Sí (en producción) | Secreto para firmar los JWT de sesión. En desarrollo usa un valor inseguro por defecto si falta. |
+| `CRON_SECRET` | Sí (para el cron) | Token que autentica el endpoint `/api/cron/notifications`. Vercel Cron lo envía como `Authorization: Bearer`. |
+| `NEXT_PUBLIC_APP_URL` | Opcional | URL pública de la app; se usa en los enlaces de los correos. |
+
+> La configuración de SMTP (host, usuario, contraseña, remitente) no se define por
+> variables de entorno: se gestiona desde el panel de administración y se almacena
+> en la tabla `system_settings`.
+
+### Base de datos
+
+Los scripts de esquema están en `scripts/`. `scripts/complete_schema.sql` contiene
+el esquema base; el resto de archivos `.sql` son migraciones incrementales.
+
+## Comandos
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev      # Servidor de desarrollo (http://localhost:3000)
+npm run build    # Build de producción
+npm run start    # Sirve el build de producción
+npm run lint     # ESLint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Pruebas
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run test:e2e:export     # E2E: exportación CSV y contrato de la API
+npm run test:e2e:realtime   # E2E: sincronización en tiempo real
+npm run test:smoke:remote   # Smoke test contra un entorno remoto
+npm run verify:release      # build + ambas suites E2E (puerta previa a release)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Las pruebas E2E levantan el servidor y se conectan a la base de datos real
+indicada en `DATABASE_URL`.
 
-## Learn More
+## Despliegue
 
-To learn more about Next.js, take a look at the following resources:
+La aplicación se despliega en Vercel. El cron de notificaciones está definido en
+`vercel.json` y se ejecuta cada hora; requiere que `CRON_SECRET` esté configurado
+en las variables de entorno del proyecto en Vercel.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+El estado del servicio puede consultarse en el endpoint `GET /api/health`.
