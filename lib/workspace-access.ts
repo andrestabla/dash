@@ -63,3 +63,12 @@ export async function memberWorkspaceIds(client: PoolClient, userId: string): Pr
     );
     return res.rows.map((r) => r.workspace_id as string);
 }
+
+/**
+ * True when the user may govern the workspace: a system admin governs every
+ * workspace; a gestor governs the ones where their membership role is 'gestor'.
+ */
+export async function canGovernWorkspace(client: PoolClient, session: AccessSession, workspaceId: string): Promise<boolean> {
+    if (session?.role === 'admin') return true;
+    return isGestorOf(client, session.id, workspaceId);
+}

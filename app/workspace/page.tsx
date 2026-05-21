@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
-import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check, Share2, UserPlus, Mail, BookOpen, Heart } from "lucide-react";
+import { Plus, X, Edit2, Trash2, ArrowRight, FolderOpen, Shield, User, LogOut, StopCircle, Folder, ChevronRight, Copy, Move, CornerUpLeft, Download, Link as LinkIcon, Check, Share2, UserPlus, Mail, BookOpen, Heart, Building2 } from "lucide-react";
 import SortControl, { SortOption } from "@/components/SortControl";
 import { createDefaultCanvasDocument, getDashboardKind, type DashboardKind } from "@/lib/canvas";
 
@@ -152,6 +152,7 @@ function WorkspaceContent() {
 
     const [showLogout, setShowLogout] = useState(false);
     const [user, setUser] = useState<any>(null);
+    const [canGovern, setCanGovern] = useState(false);
     const [availableUsers, setAvailableUsers] = useState<any[]>([]);
 
     // Folder Sharing State
@@ -217,6 +218,10 @@ function WorkspaceContent() {
     useEffect(() => {
         loadData();
         fetch('/api/auth/me').then(res => res.json()).then(data => setUser(data.user));
+        fetch('/api/workspaces')
+            .then(res => res.ok ? res.json() : [])
+            .then(list => setCanGovern(Array.isArray(list) && list.some((w: any) => w.my_role === 'gestor')))
+            .catch(() => { });
     }, []);
 
 
@@ -621,6 +626,11 @@ function WorkspaceContent() {
                         {user?.role === 'admin' && (
                             <Link href="/admin/users" style={{ textDecoration: 'none' }}>
                                 <button className="btn-ghost" title="Panel de Admin" style={{ padding: 6 }}><Shield size={18} /></button>
+                            </Link>
+                        )}
+                        {canGovern && (
+                            <Link href="/governance" style={{ textDecoration: 'none' }}>
+                                <button className="btn-ghost" title="Gobernanza" style={{ padding: 6 }}><Building2 size={18} /></button>
                             </Link>
                         )}
                         <Link href="/profile">
