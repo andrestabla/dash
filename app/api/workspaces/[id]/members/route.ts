@@ -75,9 +75,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                 return NextResponse.json({ success: true });
             }
 
+            // Reject a pending join request: drop the membership and, if the
+            // account is still globally pending with no workspace left, deny it.
+            if (action === 'reject') {
+                const { memberId } = body;
+                if (!memberId) return badRequest('memberId requerido');
+                const memberRes = await client.query(
+                    'SELECT user_id, status FROM workspace_members WHERE id = $1 AND workspace_id = $2',
+                    [memberId, workspaceId]
+                );
+                if (memberRes.rows.length === 0) return notFound('Solicitud no encontrada');
+                const userId = memberRes.rows[0].user_id;
+                await client.query('DELETE FROM workspace_members WHERE id = $1', [memberId]);
+                const remaining = await client.query(
+                    'SELECT 1 FROM workspace_members WHERE user_id = $1 LIMIT 1', [userId]
+                );
+                if (remaining.rows.length === 0) {
+                    await client.query(`UPDATE users SET status = 'denied' WHERE id = $1 AND status = 'pending'`, [userId]);
+                }
+                await logAction(workspaceId, 'WORKSPACE_MEMBER_REJECTED', `Solicitud de ${userId} rechazada`, session.id, client);
+                return NextResponse.json({ success: true });
+            }
+
             // Invite an existing account into the workspace.
             if (action === 'invite') {
                 const email = String(body.email || '').trim().toLowerCase();
+                const role = body.role === 'gestor' ? 'gestor' : 'member';
                 if (!email) return badRequest('Email requerido');
                 const userRes = await client.query('SELECT id FROM users WHERE lower(email) = $1', [email]);
                 if (userRes.rows.length === 0) {
@@ -86,10 +109,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                 const userId = userRes.rows[0].id;
                 const ins = await client.query(
                     `INSERT INTO workspace_members (workspace_id, user_id, role, status, invited_by)
-                     VALUES ($1, $2, 'member', 'active', $3)
+                     VALUES ($1, $2, $4, 'active', $3)
                      ON CONFLICT (workspace_id, user_id) DO NOTHING
                      RETURNING id`,
-                    [workspaceId, userId, session.id]
+                    [workspaceId, userId, session.id, role]
                 );
                 if (ins.rows.length === 0) return badRequest('El usuario ya es miembro de este workspace');
                 await client.query(
@@ -106,6 +129,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                 const email = String(body.email || '').trim().toLowerCase();
                 const name = String(body.name || '').trim();
                 const password = String(body.password || '');
+                const role = body.role === 'gestor' ? 'gestor' : 'member';
                 if (!email || !name || !password) return badRequest('Nombre, email y contraseña son obligatorios');
                 if (password.length < 6) return badRequest('La contraseña debe tener al menos 6 caracteres');
 
@@ -123,8 +147,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                     const userId = userRes.rows[0].id;
                     await client.query(
                         `INSERT INTO workspace_members (workspace_id, user_id, role, status, invited_by)
-                         VALUES ($1, $2, 'member', 'active', $3)`,
-                        [workspaceId, userId, session.id]
+                         VALUES ($1, $2, $4, 'active', $3)`,
+                        [workspaceId, userId, session.id, role]
                     );
                     await logAction(workspaceId, 'WORKSPACE_MEMBER_CREATED', `Usuario ${email} creado`, session.id, client);
                     await client.query('COMMIT');

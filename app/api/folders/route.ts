@@ -147,7 +147,7 @@ export async function PUT(request: Request) {
 
     try {
         const body = await request.json();
-        const { id, name, parent_id, icon, color } = body;
+        const { id, name, parent_id, icon, color, workspace_id } = body;
 
         if (!id || !name) return badRequest('ID and Name are required');
 
@@ -170,18 +170,37 @@ export async function PUT(request: Request) {
                 }
             }
 
+            let nextParentId: string | null = parent_id || null;
             let workspaceId: string = folder.workspace_id;
-            if (parent_id) {
+
+            if (workspace_id && workspace_id !== folder.workspace_id) {
+                // Explicit move to another workspace: validate the workspace and
+                // the caller's membership, then detach from the parent (which
+                // lives in the old workspace).
+                const wsExists = await client.query(
+                    'SELECT 1 FROM workspaces WHERE id = $1 AND deleted_at IS NULL', [workspace_id]
+                );
+                if (wsExists.rows.length === 0) return badRequest('El workspace destino no existe');
+                if (session.role !== 'admin') {
+                    const mem = await client.query(
+                        `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND status = 'active'`,
+                        [workspace_id, session.id]
+                    );
+                    if (mem.rows.length === 0) return forbidden('No perteneces al workspace destino');
+                }
+                nextParentId = null;
+                workspaceId = workspace_id;
+            } else if (nextParentId) {
                 // The new parent must not sit inside the folder's own subtree.
                 const subtree = await subtreeFolderIds(client, id);
-                if (subtree.includes(parent_id)) {
+                if (subtree.includes(nextParentId)) {
                     return badRequest('No puedes mover una carpeta dentro de sí misma');
                 }
-                const parent = await client.query('SELECT workspace_id FROM folders WHERE id = $1', [parent_id]);
+                const parent = await client.query('SELECT workspace_id FROM folders WHERE id = $1', [nextParentId]);
                 if (parent.rows.length === 0) return badRequest('Carpeta padre no encontrada');
-                if (!(await canAccessFolder(client, session, parent_id))) return forbidden();
+                if (!(await canAccessFolder(client, session, nextParentId))) return forbidden();
                 // parent depth + height of the moved subtree must stay <= MAX.
-                const parentDepth = await folderDepth(client, parent_id);
+                const parentDepth = await folderDepth(client, nextParentId);
                 const movedHeight = await subtreeHeight(client, id);
                 if (parentDepth + movedHeight > MAX_FOLDER_DEPTH) {
                     return badRequest(`Máximo ${MAX_FOLDER_DEPTH} niveles de carpetas`);
@@ -193,7 +212,7 @@ export async function PUT(request: Request) {
                 await client.query('BEGIN');
                 const res = await client.query(
                     'UPDATE folders SET name = $1, parent_id = $2, icon = $3, color = $4, workspace_id = $5 WHERE id = $6 RETURNING *',
-                    [name, parent_id || null, icon || '📁', color || '#3b82f6', workspaceId, id]
+                    [name, nextParentId, icon || '📁', color || '#3b82f6', workspaceId, id]
                 );
 
                 // When the move changes workspace, the whole subtree (folders
