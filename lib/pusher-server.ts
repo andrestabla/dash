@@ -10,7 +10,11 @@ export const pusherServer = new Pusher({
     useTLS: true,
 });
 
-/** Private channel that carries realtime updates for a single dashboard. */
+/**
+ * Presence channel for a single dashboard. It carries the realtime 'update'
+ * events and, being a presence channel, also tracks which users currently
+ * have the board open so collaborators can see each other live.
+ */
 export function dashboardChannel(dashboardId: string): string {
-    return `private-dashboard-${dashboardId}`;
+    return `presence-dashboard-${dashboardId}`;
 }

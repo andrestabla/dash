@@ -53,6 +53,28 @@ interface BoardSettings {
     canvas?: CanvasDocument;
 }
 
+/** A user currently connected to the same board (Pusher presence). */
+interface PresenceUser {
+    id: string;
+    name: string;
+    email: string;
+}
+
+/** Stable avatar color for a presence chip, derived from the user id. */
+function presenceColor(id: string): string {
+    let hash = 0;
+    for (let i = 0; i < id.length; i += 1) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+    return `hsl(${Math.abs(hash) % 360}, 62%, 45%)`;
+}
+
+/** Up to two initials for a presence chip. */
+function presenceInitials(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '??';
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 const DEFAULT_STATUSES: StatusColumn[] = [
     { id: "todo", name: "Por hacer", color: "#64748b", percentage: 0 },
     { id: "doing", name: "En proceso", color: "#3b82f6", percentage: 50 },
@@ -145,6 +167,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
     // Access State (moved from line 430)
     const [accessDenied, setAccessDenied] = useState(false);
+    const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
     const tasksSnapshotRef = useRef('');
     const settingsSnapshotRef = useRef('');
     const canvasSnapshotRef = useRef('');
@@ -608,8 +631,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         };
     }, [dashboardId, isModalOpen, isSettingsOpen, isColModalOpen]);
 
-    // Realtime board updates via Pusher Channels. Each board subscribes to its
-    // own private channel; any write elsewhere triggers an 'update' here.
+    // Realtime board updates + live presence via a Pusher presence channel.
+    // Every browser with this board open subscribes to the same channel: a
+    // write elsewhere triggers an 'update' refresh, and presence events keep
+    // `onlineUsers` in sync with whoever else is currently working here.
     useEffect(() => {
         if (!dashboardId || typeof window === 'undefined') return;
         const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
@@ -619,7 +644,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'us2',
             channelAuthorization: { endpoint: '/api/pusher/auth', transport: 'ajax' },
         });
-        const channelName = `private-dashboard-${dashboardId}`;
+        const channelName = `presence-dashboard-${dashboardId}`;
         const channel = pusher.subscribe(channelName);
 
         channel.bind('update', () => {
@@ -627,10 +652,36 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             void Promise.all([loadTasks(), loadDashboardSettings()]);
         });
 
+        const toPresenceUser = (m: any): PresenceUser => ({
+            id: String(m.id),
+            name: m.info?.name || m.info?.email || 'Usuario',
+            email: m.info?.email || '',
+        });
+
+        // Initial roster: everyone already on the board, minus myself.
+        channel.bind('pusher:subscription_succeeded', (members: any) => {
+            const others: PresenceUser[] = [];
+            members.each((m: any) => {
+                if (String(m.id) === String(members.myID)) return;
+                others.push(toPresenceUser(m));
+            });
+            setOnlineUsers(others);
+        });
+
+        channel.bind('pusher:member_added', (m: any) => {
+            const user = toPresenceUser(m);
+            setOnlineUsers((prev) => (prev.some((p) => p.id === user.id) ? prev : [...prev, user]));
+        });
+
+        channel.bind('pusher:member_removed', (m: any) => {
+            setOnlineUsers((prev) => prev.filter((p) => p.id !== String(m.id)));
+        });
+
         return () => {
             channel.unbind_all();
             pusher.unsubscribe(channelName);
             pusher.disconnect();
+            setOnlineUsers([]);
         };
     }, [dashboardId]);
 
@@ -1095,6 +1146,40 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
                     {/* TOP RIGHT CONTROLS - Now integrated into flex flow */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }} className="top-right-controls">
+                        {onlineUsers.length > 0 && (
+                            <div
+                                title={`Trabajando en este tablero ahora: ${onlineUsers.map((u) => u.name).join(', ')}`}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '4px 12px 4px 10px', borderRadius: 20,
+                                    background: 'rgba(16, 185, 129, 0.12)',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                }}
+                            >
+                                <span className="presence-dot" />
+                                <div className="flex -space-x-2">
+                                    {onlineUsers.slice(0, 3).map((u) => (
+                                        <div
+                                            key={u.id}
+                                            title={u.name}
+                                            style={{
+                                                width: 26, height: 26, borderRadius: '50%',
+                                                background: presenceColor(u.id), color: 'white',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: 10, fontWeight: 700,
+                                                border: '2px solid var(--bg-panel)',
+                                            }}
+                                        >
+                                            {presenceInitials(u.name)}
+                                        </div>
+                                    ))}
+                                </div>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>
+                                    {onlineUsers.length > 3 ? `+${onlineUsers.length - 3} · ` : ''}
+                                    {onlineUsers.length === 1 ? '1 en línea' : `${onlineUsers.length} en línea`}
+                                </span>
+                            </div>
+                        )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="desktop-actions">
                             <div className="flex -space-x-2 hide-mobile">
                                 {availableUsers.slice(0, 3).map((u, i) => (

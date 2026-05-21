@@ -91,7 +91,7 @@ async function loginAndGetCookie(email, password) {
     return setCookie.split(';')[0];
 }
 
-// POST a Pusher private-channel authorization request, mirroring pusher-js.
+// POST a Pusher presence-channel authorization request, mirroring pusher-js.
 async function requestChannelAuth(channelName, cookie) {
     const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
     if (cookie) headers.Cookie = cookie;
@@ -236,8 +236,8 @@ after(async () => {
     await pool.end();
 });
 
-test('autoriza la suscripción al canal privado del tablero para usuarios con acceso', async () => {
-    const channel = `private-dashboard-${fixture.dashboardId}`;
+test('autoriza la suscripción al canal de presencia del tablero para usuarios con acceso', async () => {
+    const channel = `presence-dashboard-${fixture.dashboardId}`;
 
     const collabRes = await requestChannelAuth(channel, fixture.collaboratorCookie);
     const collabText = await collabRes.text();
@@ -255,7 +255,7 @@ test('autoriza la suscripción al canal privado del tablero para usuarios con ac
 });
 
 test('rechaza la autorización del canal a usuarios sin acceso o sin sesión', async () => {
-    const channel = `private-dashboard-${fixture.dashboardId}`;
+    const channel = `presence-dashboard-${fixture.dashboardId}`;
 
     // Authenticated, but not a collaborator of this dashboard.
     const outsiderRes = await requestChannelAuth(channel, fixture.outsiderCookie);
