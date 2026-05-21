@@ -11,7 +11,7 @@ interface SortControlProps {
 
 export default function SortControl({ value, onChange }: SortControlProps) {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: 8, border: '1px solid var(--border-dim)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', background: 'var(--bg-panel)', padding: '4px', borderRadius: 8, border: '1px solid var(--border-dim)' }}>
             <button
                 className={`btn-ghost ${value === 'date_new' ? 'active' : ''}`}
                 onClick={() => onChange('date_new')}
