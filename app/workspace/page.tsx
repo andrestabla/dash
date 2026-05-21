@@ -685,7 +685,7 @@ function WorkspaceContent() {
                             {currentItems.folders.map(f => (
                                 <div
                                     key={f.id}
-                                    className="glass-panel hover-lift"
+                                    className="folder-card glass-panel hover-lift"
                                     onClick={() => setCurrentFolderId(f.id)}
                                     style={{
                                         padding: 16,
@@ -695,6 +695,8 @@ function WorkspaceContent() {
                                         cursor: 'pointer',
                                         border: '1px solid var(--border-dim)',
                                         minHeight: 60,
+                                        position: 'relative',
+                                        overflow: 'hidden',
                                         transition: 'all 0.2s ease'
                                     }}
                                 >
@@ -702,12 +704,17 @@ function WorkspaceContent() {
                                     <span style={{
                                         fontWeight: 600,
                                         flex: 1,
+                                        minWidth: 0,
                                         overflowWrap: 'break-word',
                                         lineHeight: 1.3,
-                                        fontSize: 14
+                                        fontSize: 14,
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden'
                                     }}>{f.name}</span>
 
-                                    <div className="folder-actions" onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                    <div className="folder-actions" onClick={e => e.stopPropagation()}>
                                         <button className="btn-ghost" onClick={(e) => {
                                             e.stopPropagation();
                                             setSharingFolder(f);
@@ -717,10 +724,10 @@ function WorkspaceContent() {
                                             // Select all dashboards by default
                                             setSelectedDashboards(foldDashboards.map(d => d.id));
                                             setIsSharingFolder(true);
-                                        }} style={{ padding: 4 }} title="Compartir"><Share2 size={12} /></button>
-                                        <button className="btn-ghost" onClick={(e) => handleExport(e, f.id, 'folder')} style={{ padding: 4 }} title="Descargar Reporte"><Download size={14} /></button>
-                                        <button className="btn-ghost" onClick={(e) => editFolder(e, f)} style={{ padding: 4 }}><Edit2 size={12} /></button>
-                                        <button className="btn-ghost" onClick={(e) => deleteFolder(e, f.id)} style={{ padding: 4, color: '#f87171' }}><Trash2 size={12} /></button>
+                                        }} title="Compartir"><Share2 size={12} /></button>
+                                        <button className="btn-ghost" onClick={(e) => handleExport(e, f.id, 'folder')} title="Descargar Reporte"><Download size={14} /></button>
+                                        <button className="btn-ghost" onClick={(e) => editFolder(e, f)} title="Editar"><Edit2 size={12} /></button>
+                                        <button className="btn-ghost" onClick={(e) => deleteFolder(e, f.id)} title="Eliminar" style={{ color: '#f87171' }}><Trash2 size={12} /></button>
                                     </div>
                                 </div>
                             ))}
@@ -1297,10 +1304,10 @@ function WorkspaceContent() {
                 }
 
                 /* Workspace Header Fix */
-                .workspace-header { 
-                    margin-bottom: 40px; 
-                    border-bottom: 1px solid rgba(255,255,255,0.1); 
-                    padding-bottom: 24px; 
+                .workspace-header {
+                    margin-bottom: 40px;
+                    border-bottom: 1px solid var(--border-dim);
+                    padding-bottom: 24px;
                     display: flex; 
                     justify-content: space-between; 
                     align-items: center; 
@@ -1317,11 +1324,40 @@ function WorkspaceContent() {
                     align-items: center; 
                     gap: 16px; 
                 }
-                .workspace-actions { 
-                    display: flex; 
-                    align-items: center; 
-                    gap: 12px; 
+                .workspace-actions {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
                     flex-wrap: wrap;
+                }
+
+                .folder-actions {
+                    position: absolute;
+                    right: 8px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    display: flex;
+                    gap: 2px;
+                    padding: 4px;
+                    border-radius: 10px;
+                    background: var(--bg-card);
+                    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+                }
+                .folder-actions button {
+                    border: none;
+                    background: transparent;
+                    min-height: 32px;
+                    padding: 6px;
+                    border-radius: 7px;
+                    color: var(--text-dim);
+                }
+                .folder-actions button:hover { background: var(--bg-panel); }
+                @media (hover: hover) {
+                    .folder-actions {
+                        opacity: 0;
+                        transition: opacity 0.15s ease;
+                    }
+                    .folder-card:hover .folder-actions { opacity: 1; }
                 }
 
                 @media (max-width: 992px) {
@@ -1329,12 +1365,9 @@ function WorkspaceContent() {
                         padding: max(24px, var(--safe-top)) 10px max(24px, var(--safe-bottom)) 10px !important;
                     }
                     .workspace-header { flex-direction: column; align-items: stretch; gap: 24px; }
-                    .workspace-header-right { align-items: stretch; }
+                    .workspace-header-right { flex-direction: column; align-items: stretch; }
                     .workspace-actions { justify-content: stretch; flex-wrap: wrap; }
                     .workspace-actions button { flex: 1 1 180px; min-width: 140px; }
-                    .folder-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-                    .folder-actions { width: 100%; justify-content: space-between; }
-                    .folder-actions button { flex: 1; }
                 }
                 @media (max-width: 768px) {
                     .workspace-header {
