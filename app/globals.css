@@ -430,19 +430,6 @@ select.input-glass option {
   border-color: var(--border-strong);
 }
 
-/* Priority indicators (refined in a later pass to chips) */
-.kanban-card.p-high {
-  border-left: 4px solid var(--danger);
-}
-
-.kanban-card.p-med {
-  border-left: 4px solid #f59e0b;
-}
-
-.kanban-card.p-low {
-  border-left: 4px solid var(--success);
-}
-
 /* Ghost add button */
 .btn-ghost-add {
   display: flex;

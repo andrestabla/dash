@@ -694,7 +694,6 @@ function WorkspaceContent() {
                                         gap: 12,
                                         cursor: 'pointer',
                                         border: '1px solid var(--border-dim)',
-                                        borderLeft: `4px solid ${f.color || '#fbbf24'}`,
                                         minHeight: 60,
                                         transition: 'all 0.2s ease'
                                     }}
@@ -739,8 +738,7 @@ function WorkspaceContent() {
                                 onClick={() => router.push("/board/" + d.id)}
                                 style={{
                                     textDecoration: "none", color: "inherit", cursor: "pointer",
-                                    padding: 24, height: "100%", display: "flex", flexDirection: "column", position: "relative",
-                                    borderTop: "4px solid " + (d.settings?.color || "#3b82f6")
+                                    padding: 24, height: "100%", display: "flex", flexDirection: "column", position: "relative"
                                 }}
                             >
                                 {/* Action Menus */}
@@ -754,6 +752,7 @@ function WorkspaceContent() {
 
                                 <div style={{ fontSize: 48, marginBottom: 16 }}>{d.settings?.icon || "🗺️"}</div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.settings?.color || '#3b82f6', flexShrink: 0 }} />
                                     <h3 style={{ margin: '0', fontSize: 20 }}>{d.name}</h3>
                                     <span style={{
                                         background: getDashboardKind(d.settings) === 'canvas' ? 'rgba(16,185,129,0.14)' : 'rgba(59,130,246,0.14)',
@@ -762,7 +761,6 @@ function WorkspaceContent() {
                                         fontWeight: 800,
                                         padding: '2px 6px',
                                         borderRadius: 4,
-                                        border: '1px solid rgba(255,255,255,0.25)',
                                         letterSpacing: '0.5px'
                                     }}>
                                         {getDashboardKind(d.settings) === 'canvas' ? 'CANVAS' : 'KANBAN'}
@@ -784,16 +782,16 @@ function WorkspaceContent() {
                                     {d.description || "Sin descripción"}
                                 </p>
 
-                                <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
+                                <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-dim)', fontSize: 12, color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
                                     <span>Actualizado: {new Date(d.created_at).toLocaleDateString()}</span>
-                                    <span style={{ fontWeight: 600, color: d.settings?.color || 'white', display: 'flex', alignItems: 'center', gap: 4 }}>Abrir <ArrowRight size={14} /></span>
+                                    <span style={{ fontWeight: 600, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 4 }}>Abrir <ArrowRight size={14} /></span>
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : (
                     !isLoading && currentItems.folders.length === 0 && (
-                        <div className="glass-panel" style={{ textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '2px dashed rgba(255,255,255,0.1)' }}>
+                        <div className="glass-panel" style={{ textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '1px dashed var(--border-strong)' }}>
                             <div style={{ marginBottom: 16, opacity: 0.5, display: 'inline-block' }}><FolderOpen size={48} /></div>
                             <h3 style={{ color: 'var(--text-main)' }}>Carpeta Vacía</h3>
                             <p>Crea un proyecto o una subcarpeta aquí.</p>
@@ -842,7 +840,7 @@ function WorkspaceContent() {
                                                     cursor: 'pointer',
                                                     padding: 8,
                                                     borderRadius: 8,
-                                                    background: folderIcon === ic ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.05)',
+                                                    background: folderIcon === ic ? 'var(--primary-soft)' : 'var(--bg-panel)',
                                                     border: folderIcon === ic ? '2px solid var(--primary)' : '1px solid transparent',
                                                     transition: 'all 0.2s',
                                                     fontSize: 20,

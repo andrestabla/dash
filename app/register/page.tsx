@@ -181,9 +181,9 @@ export default function RegisterPage() {
                     {ssoConfig.enabled && (
                         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                                <div style={{ flex: 1, height: 1, background: 'var(--border-dim)' }} />
                                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>O continuar con</span>
-                                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                                <div style={{ flex: 1, height: 1, background: 'var(--border-dim)' }} />
                             </div>
 
                             <button
@@ -194,7 +194,6 @@ export default function RegisterPage() {
                                     height: 48,
                                     fontSize: 14,
                                     fontWeight: 600,
-                                    borderColor: 'rgba(255,255,255,0.1)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',

@@ -35,7 +35,7 @@ export default function UserTour({ steps, onComplete }: UserTourProps) {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="h-2 bg-gradient-to-r from-blue-500 to-purple-500" style={{ width: `${((currentStep + 1) / steps.length) * 100}%`, transition: 'width 0.3s ease' }} />
+                <div className="h-2 bg-blue-600" style={{ width: `${((currentStep + 1) / steps.length) * 100}%`, transition: 'width 0.3s ease' }} />
 
                 <div className="p-8">
                     <div className="flex justify-between items-start mb-6">

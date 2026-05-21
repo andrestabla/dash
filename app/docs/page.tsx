@@ -140,8 +140,8 @@ export default function DocsPage() {
 
             <style jsx>{`
         .docs-root {
-          background: #0f172a;
-          color: white;
+          background: #ffffff;
+          color: #1a1d21;
           min-height: 100vh;
           font-family: 'Outfit', sans-serif;
         }
@@ -156,9 +156,9 @@ export default function DocsPage() {
           height: 80px;
           display: flex;
           align-items: center;
-          background: rgba(15, 23, 42, 0.85);
-          backdrop-filter: blur(24px);
-          border-bottom: 1px solid rgba(255,255,255,0.05);
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid #e4e6e9;
           position: sticky;
           top: 0;
           z-index: 100;
@@ -172,7 +172,7 @@ export default function DocsPage() {
         }
 
         .back-link {
-          color: #94a3b8;
+          color: #6b7280;
           text-decoration: none;
           font-size: 14px;
           display: flex;
@@ -182,7 +182,7 @@ export default function DocsPage() {
         }
 
         .back-link:hover {
-          color: white;
+          color: #1a1d21;
         }
 
         .docs-main {
@@ -205,7 +205,7 @@ export default function DocsPage() {
           font-size: 12px;
           text-transform: uppercase;
           letter-spacing: 2px;
-          color: #3b82f6;
+          color: #2563eb;
           margin-bottom: 16px;
           font-weight: 800;
         }
@@ -221,14 +221,14 @@ export default function DocsPage() {
         }
 
         .docs-nav a {
-          color: #94a3b8;
+          color: #6b7280;
           text-decoration: none;
           font-size: 15px;
           transition: all 0.2s;
         }
 
         .docs-nav a:hover {
-          color: white;
+          color: #1a1d21;
           padding-left: 4px;
         }
 
@@ -252,7 +252,7 @@ export default function DocsPage() {
 
         .lead {
           font-size: 20px;
-          color: #94a3b8;
+          color: #6b7280;
           line-height: 1.6;
           margin-bottom: 40px;
         }
@@ -266,11 +266,11 @@ export default function DocsPage() {
         .doc-card h3 {
           font-size: 20px;
           margin-bottom: 16px;
-          color: #e2e8f0;
+          color: #1a1d21;
         }
 
         .doc-card p {
-          color: #94a3b8;
+          color: #6b7280;
           line-height: 1.7;
         }
 
@@ -302,7 +302,8 @@ export default function DocsPage() {
         .step-num {
           width: 32px;
           height: 32px;
-          background: #3b82f6;
+          background: #2563eb;
+          color: #ffffff;
           border-radius: 8px;
           display: flex;
           align-items: center;
@@ -313,12 +314,12 @@ export default function DocsPage() {
         }
 
         .step-text {
-          color: #94a3b8;
+          color: #6b7280;
           line-height: 1.6;
         }
 
         .step-text strong {
-          color: white;
+          color: #1a1d21;
           display: block;
           margin-bottom: 4px;
         }
@@ -337,11 +338,11 @@ export default function DocsPage() {
           gap: 12px;
           align-items: center;
           font-size: 14px;
-          color: #94a3b8;
+          color: #6b7280;
         }
 
         .feature-item strong {
-          color: white;
+          color: #1a1d21;
         }
 
         .check-list {
@@ -351,7 +352,7 @@ export default function DocsPage() {
 
         .check-list li {
           margin-bottom: 12px;
-          color: #94a3b8;
+          color: #6b7280;
           display: flex;
           align-items: center;
           gap: 12px;
@@ -364,12 +365,11 @@ export default function DocsPage() {
         }
 
         .glass-panel {
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(10px);
+          background: #f6f7f9;
+          border: 1px solid #e4e6e9;
         }
 
-        .icon-blue { color: #3b82f6; }
+        .icon-blue { color: #2563eb; }
         .icon-orange { color: #f59e0b; }
         .icon-purple { color: #8b5cf6; }
         .icon-green { color: #10b981; }

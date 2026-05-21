@@ -1225,9 +1225,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     const isBottleneck = colTasks.length > 10;
 
                                     return (
-                                        <div key={st.id} className="lane" style={{ minWidth: isMobileView ? 280 : 320, display: 'flex', flexDirection: 'column', borderTop: `3px solid ${st.color}` }}>
+                                        <div key={st.id} className="lane" style={{ minWidth: isMobileView ? 280 : 320, display: 'flex', flexDirection: 'column' }}>
                                             <div className="lane-head group">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: st.color, flexShrink: 0 }} />
                                                     <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>{st.name}</span>
                                                     <span className={`counter-badge ${isBottleneck ? "warning" : ""}`}>{colTasks.length}</span>
                                                 </div>
@@ -1279,12 +1280,12 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                                                                 marginBottom: 12,
                                                                                 opacity: snapshot.isDragging ? 0.9 : 1,
                                                                                 transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'none',
-                                                                                borderLeft: (!isComplete && dueDateColor) ? `4px solid ${dueDateColor}` : undefined,
                                                                             }}
                                                                         >
                                                                             {/* Main Title Hierachy */}
-                                                                            <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 15, lineHeight: 1.4, color: 'var(--text-main)' }}>
-                                                                                {t.name}
+                                                                            <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 15, lineHeight: 1.4, color: 'var(--text-main)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                                                                {(!isComplete && dueDateColor) && <span title="Vencimiento próximo" style={{ width: 8, height: 8, borderRadius: '50%', background: dueDateColor, flexShrink: 0, marginTop: 5 }} />}
+                                                                                <span>{t.name}</span>
                                                                             </div>
 
                                                                             {/* Secondary Info Row */}
@@ -1373,14 +1374,11 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                         <div className="tl-cards-grid">
                                             {weekTasks.map(t => {
                                                 const taskStatus = statuses.find(s => s.id === t.status) || DEFAULT_STATUSES[0];
-                                                const dueDateColor = getDueDateColor(t.due);
-                                                const isComplete = taskStatus.percentage === 100;
                                                 return (
                                                     <div
                                                         key={t.id}
                                                         className="tl-card"
                                                         onClick={() => openModal(t)}
-                                                        style={{ borderLeft: (!isComplete && dueDateColor) ? `4px solid ${dueDateColor}` : undefined }}
                                                     >
                                                         <div className="tl-card-top">
                                                             <div className="tl-status-dot" style={{ background: taskStatus.color }}></div>
@@ -1637,7 +1635,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                         <button
                                             onClick={handleAddComment}
                                             disabled={!newComment.trim()}
-                                            className="shadow-glow hover-lift"
+                                            className="hover-lift"
                                             style={{
                                                 height: 40,
                                                 width: 40,
