@@ -238,7 +238,7 @@ export default function DashboardChat({ dashboardId, currentUser }: { dashboardI
                     id="chat-send-btn"
                     type="submit"
                     disabled={!newMessage.trim() || sending}
-                    className="shadow-glow hover-lift"
+                    className="hover-lift"
                     style={{
                         width: 48,
                         height: 48,

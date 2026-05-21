@@ -76,7 +76,7 @@ export default function SupportWidget() {
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="shadow-glow hover-lift"
+                    className="hover-lift"
                     style={{
                         width: 56,
                         height: 56,
