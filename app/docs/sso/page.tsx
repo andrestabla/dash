@@ -102,8 +102,8 @@ export default function SSODocs() {
 
                         <div id="troubleshooting" className="doc-section">
                             <h2><AlertCircle className="icon-orange" /> Solución de Problemas</h2>
-                            <div className="doc-card glass-panel" style={{ borderLeft: '4px solid #f59e0b' }}>
-                                <h4 style={{ color: 'white', marginBottom: 8 }}>Error: redirect_uri_mismatch</h4>
+                            <div className="doc-card" style={{ padding: 32, borderRadius: 24, marginTop: 24, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                                <h4 style={{ color: '#1a1d21', marginBottom: 8 }}>Error: redirect_uri_mismatch</h4>
                                 <p>
                                     Asegúrate de que la URL configurada en el proveedor de identidad coincida exactamente con la URL desde la que se accede a la aplicación (incluyendo HTTP vs HTTPS).
                                 </p>
@@ -114,36 +114,36 @@ export default function SSODocs() {
             </main>
 
             <style jsx>{`
-                .docs-root { background: #0f172a; color: white; min-height: 100vh; font-family: 'Outfit', sans-serif; }
+                .docs-root { background: #ffffff; color: #1a1d21; min-height: 100vh; font-family: 'Outfit', sans-serif; }
                 .container { max-width: 1240px; margin: 0 auto; padding: 0 40px; }
-                .docs-header { height: 80px; display: flex; align-items: center; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(24px); border-bottom: 1px solid rgba(255,255,255,0.05); position: sticky; top: 0; z-index: 100; }
+                .docs-header { height: 80px; display: flex; align-items: center; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid #e4e6e9; position: sticky; top: 0; z-index: 100; }
                 .header-content { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-                .back-link { color: #94a3b8; text-decoration: none; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: color 0.2s; }
-                .back-link:hover { color: white; }
+                .back-link { color: #6b7280; text-decoration: none; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: color 0.2s; }
+                .back-link:hover { color: #1a1d21; }
                 .docs-main { padding: 60px 0; }
                 .docs-layout { display: grid; grid-template-columns: 280px 1fr; gap: 60px; }
                 .docs-sidebar { position: sticky; top: 140px; height: fit-content; }
-                .docs-nav h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #3b82f6; margin-bottom: 16px; font-weight: 800; }
+                .docs-nav h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #2563eb; margin-bottom: 16px; font-weight: 800; }
                 .docs-nav ul { list-style: none; padding: 0; margin-bottom: 32px; }
                 .docs-nav li { margin-bottom: 10px; }
-                .docs-nav a { color: #94a3b8; text-decoration: none; font-size: 15px; transition: all 0.2s; }
-                .docs-nav a:hover { color: white; padding-left: 4px; }
+                .docs-nav a { color: #6b7280; text-decoration: none; font-size: 15px; transition: all 0.2s; }
+                .docs-nav a:hover { color: #1a1d21; padding-left: 4px; }
                 .docs-content { max-width: 800px; }
                 .doc-section { margin-bottom: 80px; scroll-margin-top: 120px; }
                 .doc-title { font-size: 48px; font-weight: 800; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; }
-                .lead { font-size: 20px; color: #94a3b8; line-height: 1.6; margin-bottom: 40px; }
+                .lead { font-size: 20px; color: #6b7280; line-height: 1.6; margin-bottom: 40px; }
                 .doc-card { padding: 32px; border-radius: 24px; margin-top: 24px; }
-                .glass-panel { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); }
+                .glass-panel { background: #f6f7f9; border: 1px solid #e4e6e9; }
                 h2 { font-size: 28px; font-weight: 800; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
                 .steps-list { display: flex; flex-direction: column; gap: 20px; }
                 .step-item { display: flex; gap: 20px; align-items: flex-start; }
-                .step-num { width: 32px; height: 32px; background: #3b82f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0; }
-                .step-text { color: #94a3b8; line-height: 1.6; }
-                .step-text strong { color: white; display: block; margin-bottom: 4px; }
+                .step-num { width: 32px; height: 32px; background: #2563eb; color: #ffffff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0; }
+                .step-text { color: #6b7280; line-height: 1.6; }
+                .step-text strong { color: #1a1d21; display: block; margin-bottom: 4px; }
                 .check-list { list-style: none; padding: 0; }
-                .check-list li { margin-bottom: 12px; color: #94a3b8; display: flex; align-items: center; gap: 12px; font-size: 15px; }
+                .check-list li { margin-bottom: 12px; color: #6b7280; display: flex; align-items: center; gap: 12px; font-size: 15px; }
                 .check-list li::before { content: '✓'; color: #10b981; font-weight: 800; }
-                .icon-blue { color: #3b82f6; }
+                .icon-blue { color: #2563eb; }
                 .icon-purple { color: #8b5cf6; }
                 .icon-orange { color: #f59e0b; }
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

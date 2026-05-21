@@ -224,9 +224,10 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                 {statuses.map((st: StatusColumn) => {
                     const colTasks = filteredTasks.filter((t: Task) => t.status === st.id);
                     return (
-                        <div key={st.id} className="lane w-[320px] flex flex-col bg-slate-50 rounded-2xl shadow-sm border border-slate-200" style={{ borderTop: `4px solid ${st.color}` }}>
+                        <div key={st.id} className="lane w-[320px] flex flex-col bg-slate-50 rounded-2xl shadow-sm border border-slate-200">
                             <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-white rounded-t-2xl">
                                 <div className="flex items-center gap-3">
+                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: st.color }} />
                                     <span className="font-bold text-sm uppercase text-slate-700">{st.name}</span>
                                     <span className="px-2.5 py-0.5 bg-slate-100 rounded-full text-xs font-bold text-slate-600 shadow-sm border border-slate-200">{colTasks.length}</span>
                                 </div>
@@ -244,10 +245,13 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                     colTasks.map((t: Task) => (
                                         <div
                                             key={t.id}
-                                            className={`kanban-card p-4 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer transition-all hover:shadow-md hover:border-blue-400 relative overflow-hidden group ${t.prio === 'high' ? 'border-l-4 border-red-500' : t.prio === 'med' ? 'border-l-4 border-amber-500' : 'border-l-4 border-blue-500'}`}
+                                            className="kanban-card p-4 bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer transition-all hover:shadow-md hover:border-blue-400 relative overflow-hidden group"
                                             onClick={() => setSelectedTask(t)}
                                         >
-                                            <h4 className="font-semibold text-slate-800 mb-2 leading-tight pr-2">{t.name}</h4>
+                                            <div className="flex items-start gap-2 mb-2">
+                                                <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${t.prio === 'high' ? 'bg-red-500' : t.prio === 'med' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                                                <h4 className="font-semibold text-slate-800 leading-tight pr-2">{t.name}</h4>
+                                            </div>
                                             <div className="flex justify-between items-center text-xs text-slate-500 mt-3">
                                                 <div className="flex items-center gap-2">
                                                     <span className="px-2 py-0.5 bg-slate-100 rounded text-[11px] font-semibold text-slate-600 border border-slate-200">{t.week}</span>
@@ -660,7 +664,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                             <div>
                                                 <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Responsable</p>
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-[10px] text-white font-bold">
+                                                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] text-white font-bold">
                                                         {selectedTask.owner.charAt(0)}
                                                     </div>
                                                     <p className="font-semibold text-slate-900">{selectedTask.owner}</p>
@@ -690,7 +694,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                                     .filter(c => String(c.task_id) === String(selectedTask.id))
                                                     .map((comment) => (
                                                         <div key={comment.id} className="flex gap-4 group">
-                                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-xs text-white font-bold shrink-0 shadow-sm border-2 border-white">
+                                                            <div className="w-8 h-8 rounded-full bg-slate-500 flex items-center justify-center text-xs text-white font-bold shrink-0 shadow-sm border-2 border-white">
                                                                 {comment.user_name ? comment.user_name.charAt(0).toUpperCase() : '?'}
                                                             </div>
                                                             <div className="flex-1">

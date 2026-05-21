@@ -125,8 +125,8 @@ export default function HelpPage() {
 
       <style jsx>{`
         .help-root {
-          background: #0f172a;
-          color: white;
+          background: #ffffff;
+          color: #1a1d21;
           min-height: 100vh;
           font-family: 'Outfit', sans-serif;
         }
@@ -141,9 +141,9 @@ export default function HelpPage() {
           height: 80px;
           display: flex;
           align-items: center;
-          background: rgba(15, 23, 42, 0.85);
-          backdrop-filter: blur(24px);
-          border-bottom: 1px solid rgba(255,255,255,0.05);
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid #e4e6e9;
           position: sticky;
           top: 0;
           z-index: 100;
@@ -157,7 +157,7 @@ export default function HelpPage() {
         }
 
         .back-link {
-          color: #94a3b8;
+          color: #6b7280;
           text-decoration: none;
           font-size: 14px;
           display: flex;
@@ -167,7 +167,7 @@ export default function HelpPage() {
         }
 
         .back-link:hover {
-          color: white;
+          color: #1a1d21;
         }
 
         .help-main {
@@ -191,7 +191,7 @@ export default function HelpPage() {
 
         .help-subtitle {
           font-size: 20px;
-          color: #94a3b8;
+          color: #6b7280;
           max-width: 600px;
           margin: 0 auto;
         }
@@ -206,7 +206,7 @@ export default function HelpPage() {
           font-size: 24px;
           font-weight: 800;
           margin-bottom: 32px;
-          color: #e2e8f0;
+          color: #1a1d21;
         }
 
         /* FAQ */
@@ -238,7 +238,7 @@ export default function HelpPage() {
         }
 
         .faq-chevron {
-          color: #94a3b8;
+          color: #6b7280;
           transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -250,7 +250,7 @@ export default function HelpPage() {
           max-height: 0;
           overflow: hidden;
           transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-          background: rgba(255,255,255,0.01);
+          background: #f6f7f9;
         }
 
         .faq-item.active .faq-answer {
@@ -259,7 +259,7 @@ export default function HelpPage() {
 
         .faq-answer p {
           padding: 0 24px 24px 60px;
-          color: #94a3b8;
+          color: #6b7280;
           line-height: 1.6;
           margin: 0;
         }
@@ -289,7 +289,7 @@ export default function HelpPage() {
         }
 
         .support-icon-box.whatsapp { background: #10b981; color: white; }
-        .support-icon-box.email { background: #3b82f6; color: white; }
+        .support-icon-box.email { background: #2563eb; color: white; }
 
         .support-card h3 {
           font-size: 20px;
@@ -298,14 +298,14 @@ export default function HelpPage() {
         }
 
         .support-card p {
-          color: #94a3b8;
+          color: #6b7280;
           font-size: 15px;
           line-height: 1.6;
           margin-bottom: 24px;
         }
 
         .support-action {
-          color: #3b82f6;
+          color: #2563eb;
           font-weight: 700;
           font-size: 14px;
           letter-spacing: 1px;
@@ -313,22 +313,22 @@ export default function HelpPage() {
         }
 
         .glass-panel {
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(10px);
+          background: #ffffff;
+          border: 1px solid #e4e6e9;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
 
         .hover-lift {
-          transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+          transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
         .hover-lift:hover {
-          transform: translateY(-8px);
-          border-color: rgba(59, 130, 246, 0.4);
-          box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+          transform: translateY(-2px);
+          border-color: #d3d6da;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.08);
         }
 
-        .icon-blue { color: #3b82f6; }
+        .icon-blue { color: #2563eb; }
         .icon-purple { color: #8b5cf6; }
         .icon-orange { color: #f59e0b; }
         .icon-green { color: #10b981; }

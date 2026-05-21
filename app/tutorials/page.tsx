@@ -104,28 +104,25 @@ export default function TutorialsPage() {
     const [activeSection, setActiveSection] = useState(sections[0].id);
 
     return (
-        <div className="min-h-screen bg-[#0f172a] text-white">
+        <div className="min-h-screen bg-[#f6f7f9] text-[#1a1d21]">
             <style jsx global>{`
                 .glass-card {
-                    background: rgba(30, 41, 59, 0.7);
-                    backdrop-filter: blur(12px);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    background: #ffffff;
+                    border: 1px solid #e4e6e9;
                     border-radius: 20px;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
                 }
                 .sidebar-item {
-                    transition: all 0.2s ease;
+                    transition: all 0.15s ease;
                 }
                 .sidebar-item:hover {
-                    background: rgba(255, 255, 255, 0.05);
+                    background: #f1f2f4;
                 }
                 .sidebar-item.active {
-                    background: rgba(59, 130, 246, 0.15);
-                    border-left: 4px solid #3b82f6;
+                    background: rgba(37, 99, 235, 0.08);
                 }
                 .text-gradient {
-                    background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
+                    color: #1a1d21;
                 }
                 .section-header {
                     display: flex;
@@ -136,7 +133,7 @@ export default function TutorialsPage() {
                 .content-p {
                     font-size: 1.1rem;
                     line-height: 1.8;
-                    color: #94a3b8;
+                    color: #374151;
                     white-space: pre-line;
                 }
                 @keyframes fadeIn {
@@ -151,13 +148,13 @@ export default function TutorialsPage() {
             <div className="max-w-7xl mx-auto px-6 py-12">
                 {/* Header Navigation */}
                 <div className="flex items-center justify-between mb-12">
-                    <Link href="/workspace" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                    <Link href="/workspace" className="flex items-center gap-2 text-slate-500 hover:text-[#1a1d21] transition-colors">
                         <ArrowLeft size={20} />
                         <span>Volver al Workspace</span>
                     </Link>
                     <div className="flex items-center gap-4">
                         <div className="px-4 py-2 rounded-full glass-card flex items-center gap-2 text-sm">
-                            <BookOpen size={16} className="text-blue-400" />
+                            <BookOpen size={16} className="text-blue-600" />
                             <span>Guía Completa 2026</span>
                         </div>
                     </div>
@@ -165,20 +162,20 @@ export default function TutorialsPage() {
 
                 <div className="mb-16">
                     <h1 className="text-5xl font-bold mb-4 text-gradient">Centro de Aprendizaje</h1>
-                    <p className="text-lg text-slate-400 max-w-2xl">
+                    <p className="text-lg text-slate-500 max-w-2xl">
                         Descubre cómo dominar Dash para gestionar tus proyectos con máxima eficiencia. Aprende desde los conceptos básicos hasta las funciones avanzadas.
                     </p>
                 </div>
 
                 {/* Demo Dashboard CTA */}
-                <div className="mb-12 glass-card p-8 border-2 border-blue-500/30 bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+                <div className="mb-12 glass-card p-8">
                     <div className="flex items-center justify-between flex-wrap gap-6">
                         <div className="flex-1 min-w-[300px]">
                             <div className="flex items-center gap-3 mb-3">
-                                <PlayCircle size={32} className="text-blue-400" />
+                                <PlayCircle size={32} className="text-blue-600" />
                                 <h3 className="text-2xl font-bold">🎯 Explora el Demo Interactivo</h3>
                             </div>
-                            <p className="text-slate-300 mb-4">
+                            <p className="text-slate-600 mb-4">
                                 Descubre todas las funcionalidades de Dash en acción. Tablero demo con 17 tareas reales,
                                 múltiples vistas (Kanban, Timeline, Analítica) y flujos de trabajo profesionales.
                             </p>
@@ -186,12 +183,12 @@ export default function TutorialsPage() {
                                 <Link
                                     href="/public/board/b64b9858-70db-41ac-b6a5-5e309c9033b4"
                                     target="_blank"
-                                    className="px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all flex items-center gap-2"
                                 >
                                     <PlayCircle size={20} />
                                     Ver Demo en Vivo
                                 </Link>
-                                <div className="px-4 py-3 bg-slate-800/50 rounded-xl text-sm text-slate-400 flex items-center gap-2">
+                                <div className="px-4 py-3 bg-slate-100 rounded-xl text-sm text-slate-500 flex items-center gap-2">
                                     <MousePointer2 size={16} />
                                     Sin registro · Acceso público
                                 </div>
@@ -214,10 +211,10 @@ export default function TutorialsPage() {
                                 <div style={{ color: section.color }}>
                                     {section.icon}
                                 </div>
-                                <span className={`font-medium ${activeSection === section.id ? 'text-blue-400' : 'text-slate-400'}`}>
+                                <span className={`font-medium ${activeSection === section.id ? 'text-blue-600' : 'text-slate-500'}`}>
                                     {section.title}
                                 </span>
-                                {activeSection === section.id && <ChevronRight size={16} className="ml-auto text-blue-400" />}
+                                {activeSection === section.id && <ChevronRight size={16} className="ml-auto text-blue-600" />}
                             </button>
                         ))}
                     </div>
@@ -240,9 +237,9 @@ export default function TutorialsPage() {
                                         </div>
 
                                         {/* Visual/Demo Placeholder */}
-                                        <div className="mt-12 p-8 rounded-2xl bg-[#0f172a] border border-slate-800 flex flex-col items-center justify-center text-center">
-                                            <PlayCircle size={48} className="text-slate-700 mb-4" />
-                                            <h4 className="text-lg font-medium text-slate-300">Video Tutorial Próximamente</h4>
+                                        <div className="mt-12 p-8 rounded-2xl bg-[#f6f7f9] border border-[#e4e6e9] flex flex-col items-center justify-center text-center">
+                                            <PlayCircle size={48} className="text-slate-300 mb-4" />
+                                            <h4 className="text-lg font-medium text-slate-700">Video Tutorial Próximamente</h4>
                                             <p className="text-slate-500 max-w-sm">Estamos preparando guías visuales paso a paso para que no te pierdas ningún detalle.</p>
                                         </div>
                                     </div>
@@ -252,20 +249,20 @@ export default function TutorialsPage() {
 
                         {/* Quick Tips */}
                         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="glass-card p-6 border-l-4 border-amber-400">
-                                <Settings size={24} className="text-amber-400 mb-4" />
+                            <div className="glass-card p-6">
+                                <Settings size={24} className="text-amber-500 mb-4" />
                                 <h5 className="font-bold mb-2">Editor Rápido</h5>
-                                <p className="text-sm text-slate-400">Usa el ícono de lápiz para editar cualquier elemento sin salir de tu vista actual.</p>
+                                <p className="text-sm text-slate-500">Usa el ícono de lápiz para editar cualquier elemento sin salir de tu vista actual.</p>
                             </div>
-                            <div className="glass-card p-6 border-l-4 border-blue-400">
-                                <Search size={24} className="text-blue-400 mb-4" />
+                            <div className="glass-card p-6">
+                                <Search size={24} className="text-blue-600 mb-4" />
                                 <h5 className="font-bold mb-2">Filtros Inteligentes</h5>
-                                <p className="text-sm text-slate-400">Combina filtros de semana, responsable y texto para encontrar tareas específicas en segundos.</p>
+                                <p className="text-sm text-slate-500">Combina filtros de semana, responsable y texto para encontrar tareas específicas en segundos.</p>
                             </div>
-                            <div className="glass-card p-6 border-l-4 border-purple-400">
-                                <UserPlus size={24} className="text-purple-400 mb-4" />
+                            <div className="glass-card p-6">
+                                <UserPlus size={24} className="text-purple-600 mb-4" />
                                 <h5 className="font-bold mb-2">Permisos Flexibles</h5>
-                                <p className="text-sm text-slate-400">Configura quién puede ver o editar cada proyecto desde el panel de colaboradores.</p>
+                                <p className="text-sm text-slate-500">Configura quién puede ver o editar cada proyecto desde el panel de colaboradores.</p>
                             </div>
                         </div>
                     </div>
@@ -273,12 +270,12 @@ export default function TutorialsPage() {
             </div>
 
             {/* Footer */}
-            <footer className="mt-20 border-t border-slate-800 py-12 text-center text-slate-500">
+            <footer className="mt-20 border-t border-[#e4e6e9] py-12 text-center text-slate-500">
                 <p>&copy; 2026 Dash Platform · Todos los derechos reservados</p>
                 <div className="flex justify-center gap-6 mt-4">
-                    <Link href="/help" className="hover:text-white">Ayuda</Link>
-                    <Link href="/docs" className="hover:text-white">Documentación</Link>
-                    <Link href="/workspace" className="hover:text-white">Workspace</Link>
+                    <Link href="/help" className="hover:text-[#1a1d21]">Ayuda</Link>
+                    <Link href="/docs" className="hover:text-[#1a1d21]">Documentación</Link>
+                    <Link href="/workspace" className="hover:text-[#1a1d21]">Workspace</Link>
                 </div>
             </footer>
         </div>

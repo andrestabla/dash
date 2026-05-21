@@ -103,7 +103,7 @@ export default function LoginPage() {
     // Determine Background Style
     const bgStyle = branding.brand_login_bg?.startsWith('http')
         ? { backgroundImage: `url(${branding.brand_login_bg})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-        : { background: branding.brand_login_bg || 'radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%)' };
+        : { background: branding.brand_login_bg || 'var(--bg-main)' };
 
     return (
         <div style={{
@@ -119,22 +119,13 @@ export default function LoginPage() {
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
             )}
 
-            {/* Abstract Background Shapes (Only if gradient/default) */}
-            {!branding.brand_login_bg?.startsWith('http') && (
-                <>
-                    <div style={{ position: 'absolute', top: -100, right: -100, width: 600, height: 600, background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(80px)' }} />
-                    <div style={{ position: 'absolute', bottom: -100, left: -100, width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(80px)' }} />
-                </>
-            )}
-
             {/* Main Content */}
             <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
                 <div
                     className="glass-panel animate-slide-up"
                     style={{
                         width: 'min(420px, 100%)',
-                        padding: 'clamp(20px, 5vw, 40px)',
-                        border: '1px solid rgba(255,255,255,0.08)'
+                        padding: 'clamp(20px, 5vw, 40px)'
                     }}
                 >
 
@@ -183,7 +174,7 @@ export default function LoginPage() {
                                 borderRadius: 12,
                                 fontSize: 13
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#f87171', fontWeight: 700 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#dc2626', fontWeight: 700 }}>
                                     <span style={{ fontSize: 18 }}>⚠️</span>
                                     <span>{error}</span>
                                 </div>
@@ -209,9 +200,9 @@ export default function LoginPage() {
                         {ssoConfig.enabled && (
                             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 16 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                                    <div style={{ flex: 1, height: 1, background: 'var(--border-dim)' }} />
                                     <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>O continuar con</span>
-                                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                                    <div style={{ flex: 1, height: 1, background: 'var(--border-dim)' }} />
                                 </div>
 
                                 <button
@@ -222,7 +213,6 @@ export default function LoginPage() {
                                         height: 48,
                                         fontSize: 14,
                                         fontWeight: 600,
-                                        borderColor: 'rgba(255,255,255,0.1)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
