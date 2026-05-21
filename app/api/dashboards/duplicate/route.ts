@@ -16,71 +16,70 @@ export async function POST(request: Request) {
         if (!dashboardId) return badRequest('Dashboard ID required');
 
         const client = await pool.connect();
-
-        // 1. Get original dashboard
-        const originalRes = await client.query('SELECT * FROM dashboards WHERE id = $1', [dashboardId]);
-        if (originalRes.rows.length === 0) {
-            client.release();
-            return notFound('Dashboard not found');
-        }
-        const original = originalRes.rows[0];
-
-        // Verify the caller may access the dashboard being duplicated.
-        if (session.role !== 'admin') {
-            const accessRes = await client.query(
-                `SELECT 1 FROM dashboards d
-                 WHERE d.id = $1 AND (
-                     d.owner_id = $2 OR
-                     EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
-                     EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
-                 )`,
-                [dashboardId, session.id]
-            );
-            if (accessRes.rows.length === 0) {
-                client.release();
-                return forbidden('Access denied');
+        try {
+            // 1. Get original dashboard
+            const originalRes = await client.query('SELECT * FROM dashboards WHERE id = $1', [dashboardId]);
+            if (originalRes.rows.length === 0) {
+                return notFound('Dashboard not found');
             }
-        }
+            const original = originalRes.rows[0];
 
-        // 2. Determine new name
-        const newName = name || `${original.name} (Copia)`;
+            // Verify the caller may access the dashboard being duplicated.
+            if (session.role !== 'admin') {
+                const accessRes = await client.query(
+                    `SELECT 1 FROM dashboards d
+                     WHERE d.id = $1 AND (
+                         d.owner_id = $2 OR
+                         EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
+                         EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+                     )`,
+                    [dashboardId, session.id]
+                );
+                if (accessRes.rows.length === 0) {
+                    return forbidden('Access denied');
+                }
+            }
 
-        // Keep the copy in the original folder only when the caller owns the
-        // source; otherwise place it at the root of the caller's workspace.
-        const copyFolderId = original.owner_id === session.id ? original.folder_id : null;
+            // 2. Determine new name
+            const newName = name || `${original.name} (Copia)`;
 
-        // 3. Insert Copy
-        const res = await client.query(
-            `INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             RETURNING *`,
-            [newName, original.description, original.settings, copyFolderId, session.id, original.start_date, original.end_date, false]
-        );
+            // Keep the copy in the original folder only when the caller owns the
+            // source; otherwise place it at the root of the caller's workspace.
+            const copyFolderId = original.owner_id === session.id ? original.folder_id : null;
 
-        const newDashboard = res.rows[0];
-
-        // 4. Clone Tasks
-        const tasksRes = await client.query('SELECT * FROM tasks WHERE dashboard_id = $1', [dashboardId]);
-        const tasks = tasksRes.rows;
-
-        for (let i = 0; i < tasks.length; i++) {
-            const task = tasks[i];
-            const newTaskId = crypto.randomUUID();
-            await client.query(
-                `INSERT INTO tasks (
-                    id, name, status, prio, owner, type, week, gate, 
-                    dashboard_id, description, due
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                [
-                    newTaskId, task.name, task.status, task.prio, task.owner, task.type, task.week, task.gate,
-                    newDashboard.id, task.description, task.due
-                ]
+            // 3. Insert Copy
+            const res = await client.query(
+                `INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 RETURNING *`,
+                [newName, original.description, original.settings, copyFolderId, session.id, original.start_date, original.end_date, false]
             );
+
+            const newDashboard = res.rows[0];
+
+            // 4. Clone Tasks
+            const tasksRes = await client.query('SELECT * FROM tasks WHERE dashboard_id = $1', [dashboardId]);
+            const tasks = tasksRes.rows;
+
+            for (let i = 0; i < tasks.length; i++) {
+                const task = tasks[i];
+                const newTaskId = crypto.randomUUID();
+                await client.query(
+                    `INSERT INTO tasks (
+                        id, name, status, prio, owner, type, week, gate,
+                        dashboard_id, description, due
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                    [
+                        newTaskId, task.name, task.status, task.prio, task.owner, task.type, task.week, task.gate,
+                        newDashboard.id, task.description, task.due
+                    ]
+                );
+            }
+
+            return NextResponse.json(newDashboard);
+        } finally {
+            client.release();
         }
-
-        client.release();
-
-        return NextResponse.json(newDashboard);
     } catch (error) {
         console.error(error);
         return serverError('Failed to duplicate dashboard');

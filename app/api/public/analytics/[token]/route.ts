@@ -10,49 +10,51 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
 
     try {
         const client = await pool.connect();
+        try {
 
-        // 1. Resolve Token to Folder ID
-        const folderRes = await client.query('SELECT id, name, is_public FROM folders WHERE public_token = $1', [token]);
+            // 1. Resolve Token to Folder ID
+            const folderRes = await client.query('SELECT id, name, is_public FROM folders WHERE public_token = $1', [token]);
 
-        if (folderRes.rows.length === 0 || !folderRes.rows[0].is_public) {
+            if (folderRes.rows.length === 0 || !folderRes.rows[0].is_public) {
+                return notFound('Not found or not public');
+            }
+
+            const folder = folderRes.rows[0];
+            const folderId = folder.id;
+
+            // 2. Recursive Fetch (Same logic as /api/tasks but without user session checks)
+            // We only fetch tasks for dashboards within the public folder tree.
+
+            const query = `
+                WITH RECURSIVE folder_tree AS (
+                    -- Base case: the shared folder
+                    SELECT id
+                    FROM folders
+                    WHERE id = $1
+                    UNION ALL
+                    -- Recursive step: subfolders
+                    SELECT f.id
+                    FROM folders f
+                    INNER JOIN folder_tree ft ON f.parent_id = ft.id
+                )
+                SELECT
+                    t.id, t.name, t.status, t.prio, t.owner, t.type,
+                    d.id as dashboard_id, d.name as dashboard_name,
+                    d.settings as dashboard_settings
+                FROM tasks t
+                JOIN dashboards d ON t.dashboard_id = d.id
+                WHERE d.folder_id IN (SELECT id FROM folder_tree);
+            `;
+
+            const tasksRes = await client.query(query, [folderId]);
+
+            return NextResponse.json({
+                folderName: folder.name,
+                tasks: tasksRes.rows
+            });
+        } finally {
             client.release();
-            return notFound('Not found or not public');
         }
-
-        const folder = folderRes.rows[0];
-        const folderId = folder.id;
-
-        // 2. Recursive Fetch (Same logic as /api/tasks but without user session checks)
-        // We only fetch tasks for dashboards within the public folder tree.
-
-        const query = `
-            WITH RECURSIVE folder_tree AS (
-                -- Base case: the shared folder
-                SELECT id 
-                FROM folders 
-                WHERE id = $1
-                UNION ALL
-                -- Recursive step: subfolders
-                SELECT f.id 
-                FROM folders f
-                INNER JOIN folder_tree ft ON f.parent_id = ft.id
-            )
-            SELECT 
-                t.id, t.name, t.status, t.prio, t.owner, t.type,
-                d.id as dashboard_id, d.name as dashboard_name,
-                d.settings as dashboard_settings
-            FROM tasks t
-            JOIN dashboards d ON t.dashboard_id = d.id
-            WHERE d.folder_id IN (SELECT id FROM folder_tree);
-        `;
-
-        const tasksRes = await client.query(query, [folderId]);
-
-        client.release();
-        return NextResponse.json({
-            folderName: folder.name,
-            tasks: tasksRes.rows
-        });
 
     } catch (error) {
         console.error("Public Analytics API Error:", error);

@@ -34,13 +34,16 @@ export async function POST(request: Request) {
         if (success) {
             // Auto-resolve ticket
             const client = await pool.connect();
-            await client.query(
-                "UPDATE support_tickets SET status = 'resolved' WHERE id = $1",
-                [ticketId]
-            );
-            client.release();
+            try {
+                await client.query(
+                    "UPDATE support_tickets SET status = 'resolved' WHERE id = $1",
+                    [ticketId]
+                );
 
-            return NextResponse.json({ success: true });
+                return NextResponse.json({ success: true });
+            } finally {
+                client.release();
+            }
         } else {
             return serverError('Failed to send email');
         }

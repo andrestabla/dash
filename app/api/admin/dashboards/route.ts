@@ -9,17 +9,20 @@ export async function GET() {
 
     try {
         const client = await pool.connect();
-        // Get boards + basic stats
-        const res = await client.query(`
-            SELECT d.id, d.name, d.description, d.created_at, 
-                   (SELECT COUNT(*) FROM tasks t WHERE t.dashboard_id = d.id) as task_count,
-                   u.name as owner_name, u.email as owner_email
-            FROM dashboards d
-            LEFT JOIN users u ON d.owner_id = u.id
-            ORDER BY d.created_at DESC
-        `);
-        client.release();
-        return NextResponse.json(res.rows);
+        try {
+            // Get boards + basic stats
+            const res = await client.query(`
+                SELECT d.id, d.name, d.description, d.created_at,
+                       (SELECT COUNT(*) FROM tasks t WHERE t.dashboard_id = d.id) as task_count,
+                       u.name as owner_name, u.email as owner_email
+                FROM dashboards d
+                LEFT JOIN users u ON d.owner_id = u.id
+                ORDER BY d.created_at DESC
+            `);
+            return NextResponse.json(res.rows);
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error('[AdminDashboard] GET error:', error);
         return serverError('Failed');
@@ -36,9 +39,12 @@ export async function DELETE(request: Request) {
 
     try {
         const client = await pool.connect();
-        await client.query('DELETE FROM dashboards WHERE id = $1', [id]);
-        client.release();
-        return NextResponse.json({ success: true });
+        try {
+            await client.query('DELETE FROM dashboards WHERE id = $1', [id]);
+            return NextResponse.json({ success: true });
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error('[AdminDashboard] DELETE error:', error);
         return serverError('Failed');
@@ -59,6 +65,7 @@ export async function PUT(request: Request) {
         const client = await pool.connect();
 
         try {
+          try {
             await client.query('BEGIN');
 
             // 1. Update Dashboard basic info
@@ -111,7 +118,6 @@ export async function PUT(request: Request) {
             }
 
             await client.query('COMMIT');
-            client.release();
 
             // 3. Send Invites
             if (sendInvite && owners && owners.length > 0) {
@@ -145,11 +151,13 @@ export async function PUT(request: Request) {
             }
 
             return NextResponse.json({ success: true });
-        } catch (error) {
+          } catch (error) {
             await client.query('ROLLBACK');
-            client.release();
             console.error('[AdminDashboard] Transaction Failed:', error);
             throw error;
+          }
+        } finally {
+            client.release();
         }
     } catch (error: any) {
         console.error('[AdminDashboard] Top-level Error:', error);

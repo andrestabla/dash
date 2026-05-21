@@ -11,27 +11,30 @@ export async function GET() {
 
     try {
         const client = await pool.connect();
+        try {
 
-        let query;
-        let params: any[] = [];
+            let query;
+            let params: any[] = [];
 
 
-        if (session.role === 'admin') {
-            query = 'SELECT * FROM dashboards ORDER BY created_at DESC';
-        } else {
-            query = `
-                SELECT d.* FROM dashboards d
-                WHERE d.owner_id = $1 
-                OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $1)
-                OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
-                ORDER BY d.created_at DESC
-            `;
-            params = [session.id];
+            if (session.role === 'admin') {
+                query = 'SELECT * FROM dashboards ORDER BY created_at DESC';
+            } else {
+                query = `
+                    SELECT d.* FROM dashboards d
+                    WHERE d.owner_id = $1
+                    OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $1)
+                    OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
+                    ORDER BY d.created_at DESC
+                `;
+                params = [session.id];
+            }
+
+            const result = await client.query(query, params);
+            return NextResponse.json(result.rows);
+        } finally {
+            client.release();
         }
-
-        const result = await client.query(query, params);
-        client.release();
-        return NextResponse.json(result.rows);
 
     } catch (error) {
         console.error("Dashboard Fetch Error", error);
@@ -120,64 +123,64 @@ export async function PUT(request: Request) {
         if (!id || !name) return badRequest('ID and Name required');
 
         const client = await pool.connect();
+        try {
 
-        // Check permission: Admin, Owner, or Collaborator
-        const check = await client.query('SELECT owner_id, folder_id, is_demo, start_date, end_date, description, settings, name FROM dashboards WHERE id = $1', [id]);
-        if (check.rows.length === 0) {
-            client.release();
-            return notFound('Dashboard not found');
-        }
-
-        const dashboard = check.rows[0];
-        const isOwner = dashboard.owner_id === session.id;
-        const isAdmin = session.role === 'admin';
-
-        if (dashboard.is_demo && !isAdmin) {
-            client.release();
-            return forbidden('Cannot modify demo dashboard');
-        }
-
-        let isCollaborator = false;
-        if (!isOwner && !isAdmin) {
-            // Check direct dashboard collaboration
-            const collRes = await client.query(
-                'SELECT id FROM dashboard_user_permissions WHERE dashboard_id = $1 AND user_id = $2',
-                [id, session.id]
-            );
-            isCollaborator = collRes.rows.length > 0;
-
-            // If not directly shared, check if parent folder is shared
-            if (!isCollaborator && dashboard.folder_id) {
-                const folderCollRes = await client.query(
-                    'SELECT id FROM folder_collaborators WHERE folder_id = $1 AND user_id = $2',
-                    [dashboard.folder_id, session.id]
-                );
-                isCollaborator = folderCollRes.rows.length > 0;
+            // Check permission: Admin, Owner, or Collaborator
+            const check = await client.query('SELECT owner_id, folder_id, is_demo, start_date, end_date, description, settings, name FROM dashboards WHERE id = $1', [id]);
+            if (check.rows.length === 0) {
+                return notFound('Dashboard not found');
             }
-        }
 
-        if (!isAdmin && !isOwner && !isCollaborator) {
+            const dashboard = check.rows[0];
+            const isOwner = dashboard.owner_id === session.id;
+            const isAdmin = session.role === 'admin';
+
+            if (dashboard.is_demo && !isAdmin) {
+                return forbidden('Cannot modify demo dashboard');
+            }
+
+            let isCollaborator = false;
+            if (!isOwner && !isAdmin) {
+                // Check direct dashboard collaboration
+                const collRes = await client.query(
+                    'SELECT id FROM dashboard_user_permissions WHERE dashboard_id = $1 AND user_id = $2',
+                    [id, session.id]
+                );
+                isCollaborator = collRes.rows.length > 0;
+
+                // If not directly shared, check if parent folder is shared
+                if (!isCollaborator && dashboard.folder_id) {
+                    const folderCollRes = await client.query(
+                        'SELECT id FROM folder_collaborators WHERE folder_id = $1 AND user_id = $2',
+                        [dashboard.folder_id, session.id]
+                    );
+                    isCollaborator = folderCollRes.rows.length > 0;
+                }
+            }
+
+            if (!isAdmin && !isOwner && !isCollaborator) {
+                return forbidden();
+            }
+
+            const normalizedSettings = buildCanvasSettings(
+                { ...(settings || {}), dashboardType: getDashboardKind(settings || dashboard.settings) },
+                String(name || dashboard.name || 'Idea Principal')
+            );
+            const nextDescription = description === undefined ? dashboard.description || '' : description || '';
+            const nextStartDate = body.start_date === undefined ? dashboard.start_date : body.start_date || null;
+            const nextEndDate = body.end_date === undefined ? dashboard.end_date : body.end_date || null;
+            const nextIsDemo = body.is_demo ?? dashboard.is_demo;
+
+            const result = await client.query(
+                'UPDATE dashboards SET name = $1, description = $2, settings = $3, start_date = $4, end_date = $5, is_demo = $6 WHERE id = $7 RETURNING *',
+                [name, nextDescription, normalizedSettings, nextStartDate, nextEndDate, nextIsDemo, id]
+            );
+            publishDashboardRealtime(String(id), 'dashboard_changed');
+
+            return NextResponse.json(result.rows[0]);
+        } finally {
             client.release();
-            return forbidden();
         }
-
-        const normalizedSettings = buildCanvasSettings(
-            { ...(settings || {}), dashboardType: getDashboardKind(settings || dashboard.settings) },
-            String(name || dashboard.name || 'Idea Principal')
-        );
-        const nextDescription = description === undefined ? dashboard.description || '' : description || '';
-        const nextStartDate = body.start_date === undefined ? dashboard.start_date : body.start_date || null;
-        const nextEndDate = body.end_date === undefined ? dashboard.end_date : body.end_date || null;
-        const nextIsDemo = body.is_demo ?? dashboard.is_demo;
-
-        const result = await client.query(
-            'UPDATE dashboards SET name = $1, description = $2, settings = $3, start_date = $4, end_date = $5, is_demo = $6 WHERE id = $7 RETURNING *',
-            [name, nextDescription, normalizedSettings, nextStartDate, nextEndDate, nextIsDemo, id]
-        );
-        client.release();
-        publishDashboardRealtime(String(id), 'dashboard_changed');
-
-        return NextResponse.json(result.rows[0]);
     } catch (error) {
         console.error("Dashboard Update Error", error);
         return serverError('Failed to update dashboard');
@@ -195,30 +198,30 @@ export async function DELETE(request: Request) {
         if (!id) return badRequest('ID required');
 
         const client = await pool.connect();
+        try {
 
-        // Check permission: Admin or Owner
-        const check = await client.query('SELECT owner_id, is_demo FROM dashboards WHERE id = $1', [id]);
-        if (check.rows.length === 0) {
+            // Check permission: Admin or Owner
+            const check = await client.query('SELECT owner_id, is_demo FROM dashboards WHERE id = $1', [id]);
+            if (check.rows.length === 0) {
+                return notFound('Dashboard not found');
+            }
+
+            const dashboard = check.rows[0];
+            if (dashboard.is_demo && session.role !== 'admin') {
+                return forbidden('Cannot delete demo dashboard');
+            }
+
+            if (session.role !== 'admin' && dashboard.owner_id !== session.id) {
+                return forbidden();
+            }
+
+            const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
+            publishDashboardRealtime(String(id), 'dashboard_deleted');
+
+            return NextResponse.json({ success: true, id });
+        } finally {
             client.release();
-            return notFound('Dashboard not found');
         }
-
-        const dashboard = check.rows[0];
-        if (dashboard.is_demo && session.role !== 'admin') {
-            client.release();
-            return forbidden('Cannot delete demo dashboard');
-        }
-
-        if (session.role !== 'admin' && dashboard.owner_id !== session.id) {
-            client.release();
-            return forbidden();
-        }
-
-        const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
-        client.release();
-        publishDashboardRealtime(String(id), 'dashboard_deleted');
-
-        return NextResponse.json({ success: true, id });
     } catch (error) {
         console.error("Dashboard Delete Error", error);
         return serverError('Failed to delete dashboard');

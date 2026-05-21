@@ -9,10 +9,13 @@ export async function GET() {
 
     try {
         const client = await pool.connect();
-        // Return minimal user data for selection
-        const result = await client.query('SELECT id, email, name FROM users WHERE status = \'active\' ORDER BY name ASC');
-        client.release();
-        return NextResponse.json(result.rows);
+        try {
+            // Return minimal user data for selection
+            const result = await client.query('SELECT id, email, name FROM users WHERE status = \'active\' ORDER BY name ASC');
+            return NextResponse.json(result.rows);
+        } finally {
+            client.release();
+        }
 
 
     } catch (error) {

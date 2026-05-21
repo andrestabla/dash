@@ -23,6 +23,7 @@ export async function GET(request: Request) {
     const client = await pool.connect();
 
     try {
+      try {
         await client.query('BEGIN');
 
         // Find tasks that need notification (include dashboard owner email for fallback)
@@ -130,13 +131,14 @@ export async function GET(request: Request) {
         }
 
         await client.query('COMMIT');
-        client.release();
 
         return NextResponse.json({ message: 'Processed notifications', sentCount: sentIds.length, log });
-    } catch (error) {
+      } catch (error) {
         await client.query('ROLLBACK');
-        client.release();
         console.error('Cron Error:', error);
         return serverError('Notification process failed');
+      }
+    } finally {
+        client.release();
     }
 }

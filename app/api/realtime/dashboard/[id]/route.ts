@@ -14,12 +14,9 @@ export async function GET(
 
     const { id: dashboardId } = await params;
     if (!dashboardId) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
-    const connectionAttempt = openRealtimeConnection(dashboardId, String(session.id), 12);
-    if (!connectionAttempt.ok) {
-        return NextResponse.json({ error: 'Too many realtime connections for this dashboard/user' }, { status: 429 });
-    }
-    const connectionId = connectionAttempt.connectionId;
 
+    // Verify access first — before reserving a realtime connection slot, so a
+    // denied request never leaks a slot from the per-user connection counter.
     const client = await pool.connect();
     try {
         const accessQuery = session.role === 'admin'
@@ -38,6 +35,12 @@ export async function GET(
     } finally {
         client.release();
     }
+
+    const connectionAttempt = openRealtimeConnection(dashboardId, String(session.id), 12);
+    if (!connectionAttempt.ok) {
+        return NextResponse.json({ error: 'Too many realtime connections for this dashboard/user' }, { status: 429 });
+    }
+    const connectionId = connectionAttempt.connectionId;
 
     const encoder = new TextEncoder();
 
