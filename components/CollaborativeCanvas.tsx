@@ -426,6 +426,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [editorOpen, setEditorOpen] = useState(false);
     const [openCommentNodeId, setOpenCommentNodeId] = useState<string | null>(null);
     const [commentModalEditing, setCommentModalEditing] = useState(false);
+    // Fullscreen image viewer for comment images, so users can inspect detail.
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
     const [editingCommentText, setEditingCommentText] = useState('');
     const [editingCommentImage, setEditingCommentImage] = useState<string | undefined>(undefined);
 
@@ -474,6 +476,19 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     useEffect(() => { pastRef.current = past; }, [past]);
     useEffect(() => { futureRef.current = future; }, [future]);
     useEffect(() => { editingNodeIdRef.current = editingNodeId; }, [editingNodeId]);
+
+    // Close the fullscreen comment-image viewer with the Escape key.
+    useEffect(() => {
+        if (!lightboxImage) return;
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.stopPropagation();
+                setLightboxImage(null);
+            }
+        };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [lightboxImage]);
 
     useEffect(() => {
         const incoming = cloneDocument(normalizedExternalDoc);
@@ -2307,7 +2322,26 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     </>
                                 ) : (
                                     <>
-                                        {node.commentImage && <img src={node.commentImage} alt="Comentario" style={{ width: '100%', borderRadius: 8, display: 'block' }} />}
+                                        {node.commentImage && (
+                                            <div style={{ position: 'relative' }}>
+                                                <img
+                                                    src={node.commentImage}
+                                                    alt="Comentario"
+                                                    onClick={() => setLightboxImage(node.commentImage || null)}
+                                                    title="Ampliar imagen"
+                                                    style={{ width: '100%', borderRadius: 8, display: 'block', cursor: 'zoom-in' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setLightboxImage(node.commentImage || null)}
+                                                    title="Ver en pantalla completa"
+                                                    aria-label="Ver imagen en pantalla completa"
+                                                    style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                    ⛶
+                                                </button>
+                                            </div>
+                                        )}
                                         {node.comment && <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.5 }}>{node.comment}</div>}
                                         {!hasContent && <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Sin contenido.</div>}
                                     </>
@@ -2331,6 +2365,39 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     </div>
                 );
             })()}
+
+            {lightboxImage && (
+                <div
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={() => setLightboxImage(null)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 1100,
+                        background: 'rgba(2,6,23,0.92)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 24,
+                        cursor: 'zoom-out'
+                    }}
+                >
+                    <img
+                        src={lightboxImage}
+                        alt="Comentario"
+                        onClick={(event) => event.stopPropagation()}
+                        style={{ maxWidth: '96vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 24px 60px rgba(0,0,0,0.55)' }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setLightboxImage(null)}
+                        aria-label="Cerrar"
+                        style={{ position: 'fixed', top: 18, right: 22, width: 40, height: 40, borderRadius: '9999px', border: 'none', background: 'rgba(255,255,255,0.16)', color: '#fff', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
