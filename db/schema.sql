@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS dashboards (
     is_demo boolean DEFAULT false,
     deleted_at timestamp with time zone,
     updated_at timestamp without time zone DEFAULT now(),
+    workspace_id uuid NOT NULL DEFAULT '11111111-1111-1111-1111-111111111111'::uuid,
     CONSTRAINT dashboards_pkey PRIMARY KEY (id),
     CONSTRAINT dashboards_public_token_key UNIQUE (public_token)
 );
@@ -117,6 +118,7 @@ CREATE TABLE IF NOT EXISTS folders (
     public_token text,
     deleted_at timestamp with time zone,
     updated_at timestamp without time zone DEFAULT now(),
+    workspace_id uuid NOT NULL DEFAULT '11111111-1111-1111-1111-111111111111'::uuid,
     CONSTRAINT folders_pkey PRIMARY KEY (id),
     CONSTRAINT folders_public_token_key UNIQUE (public_token)
 );
@@ -232,6 +234,33 @@ CREATE TABLE IF NOT EXISTS users (
     CONSTRAINT users_email_key UNIQUE (email)
 );
 
+-- Table: workspaces
+CREATE TABLE IF NOT EXISTS workspaces (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    name character varying(255) NOT NULL,
+    description text,
+    created_by uuid,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    deleted_at timestamp with time zone,
+    CONSTRAINT workspaces_pkey PRIMARY KEY (id)
+);
+
+-- Table: workspace_members
+CREATE TABLE IF NOT EXISTS workspace_members (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    workspace_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    role character varying(20) NOT NULL DEFAULT 'member',
+    status character varying(20) NOT NULL DEFAULT 'active',
+    invited_by uuid,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT workspace_members_pkey PRIMARY KEY (id),
+    CONSTRAINT workspace_members_workspace_user_key UNIQUE (workspace_id, user_id),
+    CONSTRAINT workspace_members_role_check CHECK (role IN ('gestor', 'member')),
+    CONSTRAINT workspace_members_status_check CHECK (status IN ('active', 'pending'))
+);
+
 -- Foreign keys
 ALTER TABLE audit_log ADD CONSTRAINT audit_log_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_performed_by_fkey FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL;
@@ -255,6 +284,12 @@ ALTER TABLE task_assignees ADD CONSTRAINT fk_task_assignees_task FOREIGN KEY (ta
 ALTER TABLE task_assignees ADD CONSTRAINT task_assignees_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE task_comments ADD CONSTRAINT fk_task_comments_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE;
 ALTER TABLE tasks ADD CONSTRAINT fk_tasks_dashboard_vfinal FOREIGN KEY (dashboard_id) REFERENCES dashboards(id) ON DELETE CASCADE;
+ALTER TABLE workspaces ADD CONSTRAINT workspaces_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE workspace_members ADD CONSTRAINT workspace_members_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE;
+ALTER TABLE workspace_members ADD CONSTRAINT workspace_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE workspace_members ADD CONSTRAINT workspace_members_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE folders ADD CONSTRAINT folders_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES workspaces(id);
+ALTER TABLE dashboards ADD CONSTRAINT dashboards_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES workspaces(id);
 
 -- Indexes
 CREATE INDEX idx_audit_log_action ON public.audit_log USING btree (action);
@@ -291,3 +326,7 @@ CREATE INDEX idx_tasks_week ON public.tasks USING btree (week);
 CREATE INDEX idx_users_email_lower ON public.users USING btree (lower((email)::text));
 CREATE INDEX idx_users_privacy_policy ON public.users USING btree (accepted_privacy_policy);
 CREATE INDEX idx_users_privacy_viewed ON public.users USING btree (privacy_policy_viewed_at);
+CREATE INDEX idx_workspace_members_workspace ON public.workspace_members USING btree (workspace_id);
+CREATE INDEX idx_workspace_members_user ON public.workspace_members USING btree (user_id);
+CREATE INDEX idx_folders_workspace ON public.folders USING btree (workspace_id);
+CREATE INDEX idx_dashboards_workspace ON public.dashboards USING btree (workspace_id);
