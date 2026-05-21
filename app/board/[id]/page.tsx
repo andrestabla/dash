@@ -392,10 +392,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             name: dashboardName,
             description: dashboardMeta.description || "",
             icon: settings.icon || "🚀",
-            weekCount: settings.weeks.length,
-            owners: settings.owners.join(", "),
-            gates: settings.gates.join(", "),
-            types: settings.types.join(", "),
+            weekCount: settings.weeks?.length || 1,
+            owners: (settings.owners || []).join(", "),
+            gates: (settings.gates || []).join(", "),
+            types: (settings.types || []).join(", "),
             start_date: dashboardMeta.start_date ? dashboardMeta.start_date.split('T')[0] : ""
         });
         setTempStatuses(settings.statuses || []);
@@ -1730,7 +1730,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     <div className="backdrop fade-in" onClick={() => setIsSettingsOpen(false)}>
                         <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(600px, calc(100vw - 24px))' }}>
                             <div className="modal-header">
-                                <h3 className="modal-title">Configurar Tablero</h3>
+                                <h3 className="modal-title">{isCanvasBoard ? 'Configurar Lienzo' : 'Configurar Tablero'}</h3>
                                 <button className="btn-ghost" onClick={() => setIsSettingsOpen(false)}>✕</button>
                             </div>
                             <div className="modal-body">
@@ -1754,45 +1754,57 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     <input className="input-glass" value={editSettings.description || ""} onChange={e => setEditSettings({ ...editSettings, description: e.target.value })} placeholder="Breve descripción del objetivo..." />
                                 </div>
 
-                                <div className="form-grid">
-                                    <div className="form-group">
-                                        <label className="form-label">Duración (Semanas)</label>
-                                        <input className="input-glass" type="number" value={editSettings.weekCount} onChange={e => setEditSettings({ ...editSettings, weekCount: parseInt(e.target.value) || 1 })} min={1} max={20} />
-                                    </div>
+                                {isCanvasBoard ? (
                                     <div className="form-group">
                                         <label className="form-label">Equipo (Separado por comas)</label>
                                         <input className="input-glass" value={editSettings.owners} onChange={e => setEditSettings({ ...editSettings, owners: e.target.value })} placeholder="Ana, Luis, Pedro..." />
+                                        <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>
+                                            El contenido del lienzo (nodos y conexiones) se edita directamente en el lienzo.
+                                        </p>
                                     </div>
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label">Fecha de Inicio</label>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                                        <input
-                                            className="input-glass"
-                                            type="date"
-                                            value={editSettings.start_date}
-                                            onChange={e => setEditSettings({ ...editSettings, start_date: e.target.value })}
-                                        />
-                                        <div className="input-glass" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}>
-                                            {editSettings.start_date ? (() => {
-                                                const d = new Date(editSettings.start_date);
-                                                d.setDate(d.getDate() + (editSettings.weekCount * 7));
-                                                return "Fin: " + d.toISOString().split('T')[0];
-                                            })() : "Sin fecha fin"}
+                                ) : (
+                                    <>
+                                        <div className="form-grid">
+                                            <div className="form-group">
+                                                <label className="form-label">Duración (Semanas)</label>
+                                                <input className="input-glass" type="number" value={editSettings.weekCount} onChange={e => setEditSettings({ ...editSettings, weekCount: parseInt(e.target.value) || 1 })} min={1} max={20} />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Equipo (Separado por comas)</label>
+                                                <input className="input-glass" value={editSettings.owners} onChange={e => setEditSettings({ ...editSettings, owners: e.target.value })} placeholder="Ana, Luis, Pedro..." />
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
 
-                                <div className="form-group">
-                                    <label className="form-label">Gates / Hitos (Separados por comas)</label>
-                                    <input className="input-glass" value={editSettings.gates} onChange={e => setEditSettings({ ...editSettings, gates: e.target.value })} placeholder="Gate 1, Gate 2, Gate 3..." />
-                                </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Fecha de Inicio</label>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                                <input
+                                                    className="input-glass"
+                                                    type="date"
+                                                    value={editSettings.start_date}
+                                                    onChange={e => setEditSettings({ ...editSettings, start_date: e.target.value })}
+                                                />
+                                                <div className="input-glass" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}>
+                                                    {editSettings.start_date ? (() => {
+                                                        const d = new Date(editSettings.start_date);
+                                                        d.setDate(d.getDate() + (editSettings.weekCount * 7));
+                                                        return "Fin: " + d.toISOString().split('T')[0];
+                                                    })() : "Sin fecha fin"}
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                <div className="form-group">
-                                    <label className="form-label">Tipos de Tarea (Separados por comas)</label>
-                                    <input className="input-glass" value={editSettings.types} onChange={e => setEditSettings({ ...editSettings, types: e.target.value })} placeholder="Feature, Bug, Spike..." />
-                                </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Gates / Hitos (Separados por comas)</label>
+                                            <input className="input-glass" value={editSettings.gates} onChange={e => setEditSettings({ ...editSettings, gates: e.target.value })} placeholder="Gate 1, Gate 2, Gate 3..." />
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="form-label">Tipos de Tarea (Separados por comas)</label>
+                                            <input className="input-glass" value={editSettings.types} onChange={e => setEditSettings({ ...editSettings, types: e.target.value })} placeholder="Feature, Bug, Spike..." />
+                                        </div>
+                                    </>
+                                )}
                             </div>
                             <div className="modal-footer">
                                 <button className="btn-primary" onClick={saveDashboardSettings}>Guardar Cambios</button>
