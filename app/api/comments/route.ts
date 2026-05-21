@@ -5,6 +5,10 @@ import { getSession } from '@/lib/auth';
 import { unauthorized, forbidden, notFound, badRequest, serverError } from '@/lib/api-error';
 import { gestorClause } from '@/lib/workspace-access';
 
+function escapeHtml(str: string): string {
+    return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
+}
+
 // Resolves whether the session user may access the dashboard a task belongs to.
 async function resolveTaskAccess(client: PoolClient, session: any, taskId: string) {
     const taskRes = await client.query('SELECT dashboard_id FROM tasks WHERE id = $1', [taskId]);
@@ -97,73 +101,91 @@ export async function POST(request: Request) {
                 [taskId, userEmail, userName, content]
             );
 
-            // --- NOTIFICATIONS ---
+            // --- NOTIFICATIONS: email + in-app for assignees and @mentions ---
             try {
                 const { sendEmail } = await import('@/lib/email');
                 const { generateEmailHtml, getBaseUrl } = await import('@/lib/email-templates');
 
-                // 1. Get Task details (Name & Dashboard ID)
                 const taskRes = await client.query('SELECT name, dashboard_id FROM tasks WHERE id = $1', [taskId]);
                 const taskName = taskRes.rows[0]?.name || 'Tarea';
                 const dashboardId = taskRes.rows[0]?.dashboard_id;
 
-                // 2. Identify Recipients
-                const recipientEmails = new Set<string>();
+                // Recipients keyed by email; `mentioned` flags explicit @tags —
+                // those also get an in-app notification, not just an email.
+                const recipients = new Map<string, { email: string; userId: string | null; mentioned: boolean }>();
 
-                // A. Assignees
-                const assigneesRes = await client.query(`
-                    SELECT u.email
-                    FROM task_assignees ta
-                    JOIN users u ON ta.user_id = u.id
-                    WHERE ta.task_id = $1
-                `, [taskId]);
+                // A. Task assignees.
+                const assigneesRes = await client.query(
+                    `SELECT u.id, u.email FROM task_assignees ta
+                     JOIN users u ON ta.user_id = u.id
+                     WHERE ta.task_id = $1 AND u.email IS NOT NULL`,
+                    [taskId]
+                );
+                for (const row of assigneesRes.rows) {
+                    recipients.set(row.email, { email: row.email, userId: row.id, mentioned: false });
+                }
 
-                assigneesRes.rows.forEach(r => recipientEmails.add(r.email));
-
-                // B. Mentions (@Name)
-                const mentions = content.match(/@([a-zA-Z0-9_ñÑ]+)/g);
-                if (mentions && dashboardId) {
-                    for (const mention of mentions) {
-                        const namePart = mention.substring(1); // remove @
-                        const userMatch = await client.query(`
-                            SELECT u.email FROM users u
-                            JOIN dashboard_user_permissions dc ON u.id = dc.user_id
-                            WHERE dc.dashboard_id = $1 AND u.name ILIKE $2
-                            LIMIT 1
-                         `, [dashboardId, `%${namePart}%`]);
-
-                        if (userMatch.rows.length > 0) {
-                            recipientEmails.add(userMatch.rows[0].email);
+                // B. @mentions — resolved by exact, longest name match. The
+                // mention picker inserts each user's full name (spaces and
+                // accents included), so matching names as written is reliable
+                // where the old regex broke on accented or compound names.
+                if (typeof content === 'string' && content.includes('@')) {
+                    const usersRes = await client.query(
+                        'SELECT id, name, email FROM users WHERE name IS NOT NULL AND email IS NOT NULL'
+                    );
+                    const allUsers = usersRes.rows as { id: string; name: string; email: string }[];
+                    for (let i = 0; i < content.length; i += 1) {
+                        if (content[i] !== '@') continue;
+                        const rest = content.slice(i + 1);
+                        let best: { id: string; name: string; email: string } | null = null;
+                        for (const candidate of allUsers) {
+                            const name = String(candidate.name);
+                            if (!name || rest.slice(0, name.length).toLowerCase() !== name.toLowerCase()) continue;
+                            const after = rest[name.length];
+                            const boundaryOk = after === undefined || /[\s.,;:!?)\]'"]/.test(after);
+                            if (boundaryOk && (!best || name.length > best.name.length)) best = candidate;
+                        }
+                        if (best) {
+                            recipients.set(best.email, { email: best.email, userId: best.id, mentioned: true });
                         }
                     }
                 }
 
-                // Remove sender from recipients
-                recipientEmails.delete(userEmail);
+                recipients.delete(userEmail); // never notify the comment's author
 
-                // 3. Send Emails
-                const subject = `💬 Nuevo comentario en: ${taskName}`;
-                const baseUrl = getBaseUrl();
-                const link = `${baseUrl}/board/${dashboardId}?taskId=${taskId}`;
+                const list = Array.from(recipients.values());
+                if (list.length > 0) {
+                    const baseUrl = getBaseUrl();
+                    const link = `${baseUrl}/board/${dashboardId}?taskId=${taskId}`;
+                    const subject = `💬 Nuevo comentario en: ${taskName}`;
+                    const html = generateEmailHtml({
+                        title: `Nuevo comentario en ${taskName}`,
+                        previewText: `${userName} comentó en la tarea.`,
+                        bodyContent: `
+                            <strong>${escapeHtml(userName)}</strong> escribió:
+                            <br/><br/>
+                            <blockquote>${escapeHtml(content)}</blockquote>
+                        `,
+                        ctaLink: link,
+                        ctaText: 'Ver Comentario',
+                        footerText: 'Gestión de Tareas'
+                    });
 
-                const html = generateEmailHtml({
-                    title: `Nuevo comentario en ${taskName}`,
-                    previewText: `${userName} comentó en la tarea.`,
-                    bodyContent: `
-                        <strong>${userName}</strong> escribió:
-                        <br/><br/>
-                        <blockquote>${content}</blockquote>
-                    `,
-                    ctaLink: link,
-                    ctaText: "Ver Comentario",
-                    footerText: "Gestión de Tareas"
-                });
+                    await Promise.allSettled(list.map((r) => sendEmail(r.email, subject, html)));
 
-                await Promise.allSettled(Array.from(recipientEmails).map(email => sendEmail(email, subject, html)));
-
+                    // In-app notification for the people explicitly @mentioned.
+                    const preview = content.length > 140 ? `${content.slice(0, 140)}…` : content;
+                    for (const r of list) {
+                        if (!r.mentioned || !r.userId) continue;
+                        await client.query(
+                            'INSERT INTO notifications (user_id, title, message, link) VALUES ($1, $2, $3, $4)',
+                            [r.userId, `💬 Te mencionaron en "${taskName}"`, `${userName}: ${preview}`, link]
+                        );
+                    }
+                }
             } catch (notifError) {
-                console.error("Notification Error:", notifError);
-                // Don't fail the request if notification fails
+                console.error('Notification Error:', notifError);
+                // Don't fail the request if notification fails.
             }
 
             return NextResponse.json(result.rows[0], { status: 201 });
