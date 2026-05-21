@@ -169,8 +169,8 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
         return Math.round((doneTasks / tasks.length) * 100);
     };
 
-    // TOUR STEPS
-    const tourSteps = [
+    // TOUR STEPS — adapted to the board type (kanban vs. canvas/lienzo)
+    const kanbanTourSteps = [
         {
             title: "👋 Bienvenido a Dash!",
             description: "Este es un tablero de demostración interactivo. Aquí podrás ver cómo se organizan los proyectos reales en nuestra plataforma. Tienes acceso completo de lectura a todas las tareas detalladas."
@@ -196,6 +196,35 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             description: "Como es un demo público, estás en modo 'Solo Lectura'. Puedes explorar todo, abrir tareas y ver comentarios, pero no podrás editar ni mover tarjetas. ¡Crea tu cuenta para tener tu propio espacio!"
         }
     ];
+
+    const canvasTourSteps = [
+        {
+            title: "👋 Bienvenido a Dash!",
+            description: "Este es un lienzo interactivo: un diagrama de flujo que representa un proceso real. Tienes acceso completo de lectura a todo su contenido."
+        },
+        {
+            title: "🗺️ Recorre el lienzo",
+            description: "Arrastra con el cursor para desplazarte libremente por el diagrama. Es un espacio amplio, así que muévete con total libertad para explorarlo."
+        },
+        {
+            title: "🔎 Zoom y encuadre",
+            description: "Con los controles de la esquina inferior izquierda puedes acercar, alejar o pulsar 'Encuadrar' para ver todo el flujo de un vistazo."
+        },
+        {
+            title: "🧩 Elementos y conexiones",
+            description: "Cada figura es un paso, decisión o documento del proceso. Las flechas indican cómo se conecta el flujo, de principio a fin."
+        },
+        {
+            title: "➕ Plega y despliega ramas",
+            description: "Los nodos con el botón − / + te permiten plegar o desplegar ramas del flujo para concentrarte en la parte que te interesa. Las burbujas 💬 muestran comentarios."
+        },
+        {
+            title: "🔒 Modo Lectura",
+            description: "Como es un demo público, estás en modo 'Solo Lectura'. Puedes navegar, hacer zoom, plegar ramas y ver comentarios, pero no editar. ¡Crea tu cuenta para tener tu propio espacio!"
+        }
+    ];
+
+    const tourSteps = dashboardType === 'canvas' ? canvasTourSteps : kanbanTourSteps;
 
     if (loading) {
         return (
