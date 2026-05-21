@@ -22,9 +22,10 @@ type Props = {
 };
 
 type DragState = {
-    nodeId: string;
-    dx: number;
-    dy: number;
+    primaryId: string;
+    startWorldX: number;
+    startWorldY: number;
+    origins: Record<string, CanvasPoint>;
 };
 
 type PanDragState = {
@@ -35,6 +36,26 @@ type PanDragState = {
     moved: boolean;
 };
 
+type ResizeCorner = 'nw' | 'ne' | 'sw' | 'se';
+
+type ResizeState = {
+    nodeId: string;
+    corner: ResizeCorner;
+    startW: number;
+    startH: number;
+    startX: number;
+    startY: number;
+    startWorldX: number;
+    startWorldY: number;
+};
+
+type MarqueeState = {
+    startX: number;
+    startY: number;
+    moved: boolean;
+};
+
+type MarqueeRect = { x: number; y: number; width: number; height: number };
 type AlignmentGuide = { axis: 'x' | 'y'; pos: number };
 
 type CanvasNodePatch = Partial<Omit<CanvasNode, 'position' | 'size' | 'style'>> & {
@@ -48,6 +69,10 @@ const WORLD_HEIGHT = 4000;
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2.5;
 const GUIDE_THRESHOLD = 6;
+const MIN_NODE_SIZE = 40;
+const HISTORY_LIMIT = 50;
+const HISTORY_COALESCE_MS = 500;
+const DUPLICATE_OFFSET = 28;
 
 const NODE_TYPE_OPTIONS: Array<{ value: CanvasNodeType; label: string }> = [
     { value: 'rectangle', label: 'Rectángulo' },
@@ -94,6 +119,10 @@ function makeNodeId() {
 
 function makeEdgeId() {
     return `edge_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function rectsIntersect(a: MarqueeRect, b: MarqueeRect): boolean {
+    return !(a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y);
 }
 
 function segmentIntersectsRect(a: CanvasPoint, b: CanvasPoint, rect: { x: number; y: number; width: number; height: number }): boolean {
@@ -260,10 +289,17 @@ function isTypingTarget(): boolean {
     return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement).isContentEditable;
 }
 
+const RESIZE_CORNERS: Array<{ corner: ResizeCorner; cursor: string }> = [
+    { corner: 'nw', cursor: 'nwse-resize' },
+    { corner: 'ne', cursor: 'nesw-resize' },
+    { corner: 'sw', cursor: 'nesw-resize' },
+    { corner: 'se', cursor: 'nwse-resize' }
+];
+
 export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly = false, accentColor = '#3b82f6' }: Props) {
     const normalizedExternalDoc = useMemo(() => normalizeCanvasDocument(canvasDocument), [canvasDocument]);
     const [localDoc, setLocalDoc] = useState<CanvasDocument>(() => cloneDocument(normalizedExternalDoc));
-    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+    const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
     const [linkFrom, setLinkFrom] = useState<{ nodeId: string; port: CanvasPort; lineStyle: CanvasLineStyle } | null>(null);
     const [newNodeType, setNewNodeType] = useState<CanvasNodeType>('rectangle');
@@ -271,45 +307,110 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const [editingNodeContent, setEditingNodeContent] = useState('');
 
-    // Viewport state: the world is rendered through a translate+scale transform.
+    // Viewport state (Phase 1).
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState<CanvasPoint>({ x: 0, y: 0 });
     const [isSpaceDown, setIsSpaceDown] = useState(false);
     const [isPanning, setIsPanning] = useState(false);
     const [guides, setGuides] = useState<AlignmentGuide[]>([]);
 
+    // Editing state (Phase 2).
+    const [past, setPast] = useState<CanvasDocument[]>([]);
+    const [future, setFuture] = useState<CanvasDocument[]>([]);
+    const [marquee, setMarquee] = useState<MarqueeRect | null>(null);
+
     const dragRef = useRef<DragState | null>(null);
     const panDragRef = useRef<PanDragState | null>(null);
+    const resizeRef = useRef<ResizeState | null>(null);
+    const marqueeRef = useRef<MarqueeState | null>(null);
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const zoomRef = useRef(1);
     const panRef = useRef<CanvasPoint>({ x: 0, y: 0 });
     const isSpaceDownRef = useRef(false);
     const suppressClickRef = useRef(false);
 
+    const localDocRef = useRef(localDoc);
+    const selectedNodeIdsRef = useRef<string[]>([]);
+    const selectedEdgeIdRef = useRef<string | null>(null);
+    const pastRef = useRef<CanvasDocument[]>([]);
+    const futureRef = useRef<CanvasDocument[]>([]);
+    const editingNodeIdRef = useRef<string | null>(null);
+    const clipboardRef = useRef<CanvasNode[]>([]);
+    const lastHistoryAtRef = useRef(0);
+
     useEffect(() => { zoomRef.current = zoom; }, [zoom]);
     useEffect(() => { panRef.current = pan; }, [pan]);
+    useEffect(() => { localDocRef.current = localDoc; }, [localDoc]);
+    useEffect(() => { selectedNodeIdsRef.current = selectedNodeIds; }, [selectedNodeIds]);
+    useEffect(() => { selectedEdgeIdRef.current = selectedEdgeId; }, [selectedEdgeId]);
+    useEffect(() => { pastRef.current = past; }, [past]);
+    useEffect(() => { futureRef.current = future; }, [future]);
+    useEffect(() => { editingNodeIdRef.current = editingNodeId; }, [editingNodeId]);
 
     useEffect(() => {
         const incoming = cloneDocument(normalizedExternalDoc);
         setLocalDoc(incoming);
+        localDocRef.current = incoming;
 
-        if (selectedNodeId && !incoming.nodes.some((node) => node.id === selectedNodeId)) setSelectedNodeId(null);
+        setSelectedNodeIds((ids) => ids.filter((id) => incoming.nodes.some((node) => node.id === id)));
         if (selectedEdgeId && !incoming.edges.some((edge) => edge.id === selectedEdgeId)) setSelectedEdgeId(null);
-    }, [normalizedExternalDoc, selectedNodeId, selectedEdgeId]);
+    }, [normalizedExternalDoc, selectedEdgeId]);
 
     const nodesById = useMemo(
         () => new Map(localDoc.nodes.map((node) => [node.id, node] as const)),
         [localDoc.nodes]
     );
 
-    const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) || null : null;
+    const selectedNode = selectedNodeIds.length === 1 ? nodesById.get(selectedNodeIds[0]) || null : null;
     const selectedEdge = selectedEdgeId ? localDoc.edges.find((edge) => edge.id === selectedEdgeId) || null : null;
 
-    const commit = (doc: CanvasDocument) => {
+    const applyDoc = useCallback((doc: CanvasDocument) => {
+        localDocRef.current = doc;
+        setLocalDoc(doc);
+        setSelectedNodeIds((ids) => ids.filter((id) => doc.nodes.some((node) => node.id === id)));
+        onChange(doc);
+    }, [onChange]);
+
+    const commit = useCallback((doc: CanvasDocument) => {
         const withTimestamp = { ...doc, updatedAt: new Date().toISOString() };
+        localDocRef.current = withTimestamp;
         setLocalDoc(withTimestamp);
         onChange(withTimestamp);
-    };
+    }, [onChange]);
+
+    const pushHistory = useCallback(() => {
+        const snapshot = cloneDocument(localDocRef.current);
+        setPast((prev) => [...prev.slice(-(HISTORY_LIMIT - 1)), snapshot]);
+        setFuture([]);
+        lastHistoryAtRef.current = Date.now();
+    }, []);
+
+    const commitWithHistory = useCallback((doc: CanvasDocument, coalesce = false) => {
+        if (!coalesce || Date.now() - lastHistoryAtRef.current > HISTORY_COALESCE_MS) {
+            pushHistory();
+        }
+        commit(doc);
+    }, [commit, pushHistory]);
+
+    const undo = useCallback(() => {
+        if (readOnly) return;
+        const prev = pastRef.current;
+        if (prev.length === 0) return;
+        const restored = prev[prev.length - 1];
+        setPast(prev.slice(0, -1));
+        setFuture([cloneDocument(localDocRef.current), ...futureRef.current].slice(0, HISTORY_LIMIT));
+        applyDoc(restored);
+    }, [applyDoc, readOnly]);
+
+    const redo = useCallback(() => {
+        if (readOnly) return;
+        const next = futureRef.current;
+        if (next.length === 0) return;
+        const restored = next[0];
+        setFuture(next.slice(1));
+        setPast([...pastRef.current.slice(-(HISTORY_LIMIT - 1)), cloneDocument(localDocRef.current)]);
+        applyDoc(restored);
+    }, [applyDoc, readOnly]);
 
     const screenToWorld = useCallback((clientX: number, clientY: number): CanvasPoint => {
         const rect = viewportRef.current?.getBoundingClientRect();
@@ -328,7 +429,6 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         setPan(nextPan);
     }, []);
 
-    // Zoom toward a screen anchor so the point under the cursor stays fixed.
     const zoomToward = useCallback((nextZoomRaw: number, anchorClientX: number, anchorClientY: number) => {
         const rect = viewportRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -370,7 +470,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         });
     }, [localDoc.nodes, setViewport]);
 
-    // Cmd/Ctrl + wheel zooms; plain wheel/trackpad pans. Native listener so we can preventDefault.
+    // Cmd/Ctrl + wheel zooms; plain wheel/trackpad pans.
     useEffect(() => {
         const el = viewportRef.current;
         if (!el) return;
@@ -388,39 +488,16 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         return () => el.removeEventListener('wheel', onWheel);
     }, [zoomToward]);
 
-    // Hold space to switch to pan mode.
     useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.code === 'Space' && !isTypingTarget()) {
-                event.preventDefault();
-                isSpaceDownRef.current = true;
-                setIsSpaceDown(true);
-            }
-        };
         const onKeyUp = (event: KeyboardEvent) => {
             if (event.code === 'Space') {
                 isSpaceDownRef.current = false;
                 setIsSpaceDown(false);
             }
         };
-        window.addEventListener('keydown', onKeyDown);
         window.addEventListener('keyup', onKeyUp);
-        return () => {
-            window.removeEventListener('keydown', onKeyDown);
-            window.removeEventListener('keyup', onKeyUp);
-        };
+        return () => window.removeEventListener('keyup', onKeyUp);
     }, []);
-
-    const startPan = (clientX: number, clientY: number) => {
-        panDragRef.current = {
-            startX: clientX,
-            startY: clientY,
-            startPanX: panRef.current.x,
-            startPanY: panRef.current.y,
-            moved: false
-        };
-        setIsPanning(true);
-    };
 
     const applyMagneticSnap = (nodeId: string, size: CanvasSize, position: CanvasPoint): { position: CanvasPoint; guides: AlignmentGuide[] } => {
         const draggedX = [position.x, position.x + size.width / 2, position.x + size.width];
@@ -429,7 +506,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         let bestX: { diff: number; pos: number } | null = null;
         let bestY: { diff: number; pos: number } | null = null;
 
-        for (const node of localDoc.nodes) {
+        for (const node of localDocRef.current.nodes) {
             if (node.id === nodeId) continue;
             const otherX = [node.position.x, node.position.x + node.size.width / 2, node.position.x + node.size.width];
             const otherY = [node.position.y, node.position.y + node.size.height / 2, node.position.y + node.size.height];
@@ -465,8 +542,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         return { position: snapped, guides: nextGuides };
     };
 
-    const updateNode = (nodeId: string, patch: CanvasNodePatch) => {
-        const next = cloneDocument(localDoc);
+    const updateNode = (nodeId: string, patch: CanvasNodePatch, coalesce = false) => {
+        const next = cloneDocument(localDocRef.current);
         next.nodes = next.nodes.map((node) => {
             if (node.id !== nodeId) return node;
             return {
@@ -477,13 +554,13 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 style: patch.style ? { ...node.style, ...patch.style } : node.style
             };
         });
-        commit(next);
+        commitWithHistory(next, coalesce);
     };
 
-    const updateEdge = (edgeId: string, patch: Partial<CanvasEdge>) => {
-        const next = cloneDocument(localDoc);
+    const updateEdge = (edgeId: string, patch: Partial<CanvasEdge>, coalesce = false) => {
+        const next = cloneDocument(localDocRef.current);
         next.edges = next.edges.map((edge) => edge.id === edgeId ? { ...edge, ...patch } : edge);
-        commit(next);
+        commitWithHistory(next, coalesce);
     };
 
     const addNode = (x = 240, y = 180, type: CanvasNodeType = newNodeType) => {
@@ -491,7 +568,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
         const isSticky = type === 'sticky';
         const isFrame = type === 'frame';
-        const next = cloneDocument(localDoc);
+        const next = cloneDocument(localDocRef.current);
         const id = makeNodeId();
         next.nodes.push({
             id,
@@ -504,8 +581,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             style: { fill: isSticky ? '#fde68a' : accentColor, radius: 12 },
             content: isFrame ? 'Frame' : 'Nuevo nodo'
         });
-        commit(next);
-        setSelectedNodeId(id);
+        commitWithHistory(next);
+        setSelectedNodeIds([id]);
         setSelectedEdgeId(null);
     };
 
@@ -519,29 +596,85 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         addNode(center.x - 110, center.y - 44);
     };
 
-    const deleteSelectedNode = () => {
-        if (readOnly || !selectedNodeId) return;
-        const next = cloneDocument(localDoc);
-        next.nodes = next.nodes.filter((node) => node.id !== selectedNodeId);
-        next.edges = next.edges.filter((edge) => edge.source.nodeId !== selectedNodeId && edge.target.nodeId !== selectedNodeId);
-        setSelectedNodeId(null);
+    const deleteSelection = () => {
+        if (readOnly) return;
+        const ids = selectedNodeIdsRef.current;
+        const edgeId = selectedEdgeIdRef.current;
+        if (ids.length === 0 && !edgeId) return;
+        const idSet = new Set(ids);
+        const next = cloneDocument(localDocRef.current);
+        next.nodes = next.nodes.filter((node) => !idSet.has(node.id));
+        next.edges = next.edges.filter((edge) =>
+            edge.id !== edgeId && !idSet.has(edge.source.nodeId) && !idSet.has(edge.target.nodeId)
+        );
+        setSelectedNodeIds([]);
         setSelectedEdgeId(null);
         setLinkFrom(null);
-        commit(next);
+        commitWithHistory(next);
     };
 
-    const deleteSelectedEdge = () => {
-        if (readOnly || !selectedEdgeId) return;
-        const next = cloneDocument(localDoc);
-        next.edges = next.edges.filter((edge) => edge.id !== selectedEdgeId);
+    const duplicateSelection = () => {
+        if (readOnly) return;
+        const ids = selectedNodeIdsRef.current;
+        if (ids.length === 0) return;
+        const idSet = new Set(ids);
+        const next = cloneDocument(localDocRef.current);
+        const created: string[] = [];
+        for (const node of localDocRef.current.nodes) {
+            if (!idSet.has(node.id)) continue;
+            const id = makeNodeId();
+            created.push(id);
+            next.nodes.push({
+                ...node,
+                id,
+                position: { x: node.position.x + DUPLICATE_OFFSET, y: node.position.y + DUPLICATE_OFFSET },
+                size: { ...node.size },
+                style: { ...node.style }
+            });
+        }
+        if (created.length === 0) return;
+        commitWithHistory(next);
+        setSelectedNodeIds(created);
         setSelectedEdgeId(null);
-        commit(next);
     };
 
-    const onViewportDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        if (readOnly || isSpaceDownRef.current) return;
-        const world = screenToWorld(event.clientX, event.clientY);
-        addNode(world.x - 110, world.y - 44);
+    const copySelection = () => {
+        const ids = new Set(selectedNodeIdsRef.current);
+        clipboardRef.current = localDocRef.current.nodes
+            .filter((node) => ids.has(node.id))
+            .map((node) => ({ ...node, position: { ...node.position }, size: { ...node.size }, style: { ...node.style } }));
+    };
+
+    const pasteClipboard = () => {
+        if (readOnly || clipboardRef.current.length === 0) return;
+        const next = cloneDocument(localDocRef.current);
+        const created: string[] = [];
+        for (const node of clipboardRef.current) {
+            const id = makeNodeId();
+            created.push(id);
+            next.nodes.push({
+                ...node,
+                id,
+                position: { x: node.position.x + DUPLICATE_OFFSET, y: node.position.y + DUPLICATE_OFFSET },
+                size: { ...node.size },
+                style: { ...node.style }
+            });
+        }
+        commitWithHistory(next);
+        setSelectedNodeIds(created);
+        setSelectedEdgeId(null);
+    };
+
+    const nudgeSelection = (dx: number, dy: number) => {
+        if (readOnly) return;
+        const ids = new Set(selectedNodeIdsRef.current);
+        if (ids.size === 0) return;
+        const next = cloneDocument(localDocRef.current);
+        next.nodes = next.nodes.map((node) => ids.has(node.id)
+            ? { ...node, position: { x: Math.max(0, node.position.x + dx), y: Math.max(0, node.position.y + dy) } }
+            : node
+        );
+        commitWithHistory(next, true);
     };
 
     const finishInlineEdit = () => {
@@ -551,15 +684,37 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         setEditingNodeId(null);
     };
 
+    const startPan = (clientX: number, clientY: number) => {
+        panDragRef.current = {
+            startX: clientX,
+            startY: clientY,
+            startPanX: panRef.current.x,
+            startPanY: panRef.current.y,
+            moved: false
+        };
+        setIsPanning(true);
+    };
+
     const onViewportMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
         if (isSpaceDownRef.current || event.button === 1) {
             event.preventDefault();
             startPan(event.clientX, event.clientY);
+            return;
         }
+        if (event.button !== 0) return;
+        // Empty-canvas drag starts a marquee selection.
+        const world = screenToWorld(event.clientX, event.clientY);
+        marqueeRef.current = { startX: world.x, startY: world.y, moved: false };
+        setMarquee({ x: world.x, y: world.y, width: 0, height: 0 });
+    };
+
+    const onViewportDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (readOnly || isSpaceDownRef.current) return;
+        const world = screenToWorld(event.clientX, event.clientY);
+        addNode(world.x - 110, world.y - 44);
     };
 
     const onNodeMouseDown = (event: React.MouseEvent<HTMLDivElement>, node: CanvasNode) => {
-        if (readOnly) return;
         event.stopPropagation();
 
         if (isSpaceDownRef.current || event.button === 1) {
@@ -567,8 +722,9 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             startPan(event.clientX, event.clientY);
             return;
         }
+        if (event.button !== 0) return;
 
-        if (linkFrom) {
+        if (linkFrom && !readOnly) {
             if (linkFrom.nodeId !== node.id) {
                 const sourceNode = nodesById.get(linkFrom.nodeId);
                 if (sourceNode) {
@@ -581,7 +737,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         edge.target.port === targetPort
                     );
                     if (!exists) {
-                        const next = cloneDocument(localDoc);
+                        const next = cloneDocument(localDocRef.current);
                         next.edges.push({
                             id: makeEdgeId(),
                             type: 'connector',
@@ -591,24 +747,60 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             startArrow: false,
                             endArrow: true
                         });
-                        commit(next);
+                        commitWithHistory(next);
                     }
                 }
             }
             setLinkFrom(null);
-            setSelectedNodeId(node.id);
+            setSelectedNodeIds([node.id]);
             setSelectedEdgeId(null);
             return;
         }
 
-        setSelectedNodeId(node.id);
+        const additive = event.shiftKey;
+        let nextSelection: string[];
+        if (additive) {
+            nextSelection = selectedNodeIdsRef.current.includes(node.id)
+                ? selectedNodeIdsRef.current.filter((id) => id !== node.id)
+                : [...selectedNodeIdsRef.current, node.id];
+            setSelectedNodeIds(nextSelection);
+            setSelectedEdgeId(null);
+            return;
+        }
+
+        nextSelection = selectedNodeIdsRef.current.includes(node.id)
+            ? selectedNodeIdsRef.current
+            : [node.id];
+        setSelectedNodeIds(nextSelection);
         setSelectedEdgeId(null);
 
+        if (readOnly) return;
+
         const world = screenToWorld(event.clientX, event.clientY);
-        dragRef.current = {
+        const origins: Record<string, CanvasPoint> = {};
+        for (const id of nextSelection) {
+            const target = nodesById.get(id);
+            if (target) origins[id] = { ...target.position };
+        }
+        pushHistory();
+        dragRef.current = { primaryId: node.id, startWorldX: world.x, startWorldY: world.y, origins };
+    };
+
+    const onResizeHandleMouseDown = (event: React.MouseEvent<HTMLDivElement>, node: CanvasNode, corner: ResizeCorner) => {
+        if (readOnly) return;
+        event.stopPropagation();
+        event.preventDefault();
+        const world = screenToWorld(event.clientX, event.clientY);
+        pushHistory();
+        resizeRef.current = {
             nodeId: node.id,
-            dx: world.x - node.position.x,
-            dy: world.y - node.position.y
+            corner,
+            startW: node.size.width,
+            startH: node.size.height,
+            startX: node.position.x,
+            startY: node.position.y,
+            startWorldX: world.x,
+            startWorldY: world.y
         };
     };
 
@@ -625,29 +817,133 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 return;
             }
 
-            if (readOnly || !dragRef.current || editingNodeId) return;
-            const { nodeId, dx, dy } = dragRef.current;
-            const world = screenToWorld(event.clientX, event.clientY);
-            const raw = {
-                x: Math.max(0, world.x - dx),
-                y: Math.max(0, world.y - dy)
-            };
-            const node = nodesById.get(nodeId);
-            if (!node) return;
-            const { position, guides: nextGuides } = applyMagneticSnap(nodeId, node.size, raw);
-            setGuides(nextGuides);
-            updateNode(nodeId, { position });
+            if (readOnly) return;
+
+            if (resizeRef.current) {
+                const state = resizeRef.current;
+                const world = screenToWorld(event.clientX, event.clientY);
+                const dx = world.x - state.startWorldX;
+                const dy = world.y - state.startWorldY;
+                let width = state.startW;
+                let height = state.startH;
+                let x = state.startX;
+                let y = state.startY;
+                if (state.corner === 'se') {
+                    width = state.startW + dx;
+                    height = state.startH + dy;
+                } else if (state.corner === 'sw') {
+                    width = state.startW - dx;
+                    height = state.startH + dy;
+                    x = state.startX + dx;
+                } else if (state.corner === 'ne') {
+                    width = state.startW + dx;
+                    height = state.startH - dy;
+                    y = state.startY + dy;
+                } else {
+                    width = state.startW - dx;
+                    height = state.startH - dy;
+                    x = state.startX + dx;
+                    y = state.startY + dy;
+                }
+                if (width < MIN_NODE_SIZE) {
+                    if (state.corner === 'nw' || state.corner === 'sw') x = state.startX + (state.startW - MIN_NODE_SIZE);
+                    width = MIN_NODE_SIZE;
+                }
+                if (height < MIN_NODE_SIZE) {
+                    if (state.corner === 'nw' || state.corner === 'ne') y = state.startY + (state.startH - MIN_NODE_SIZE);
+                    height = MIN_NODE_SIZE;
+                }
+                const next = cloneDocument(localDocRef.current);
+                next.nodes = next.nodes.map((node) => node.id === state.nodeId
+                    ? { ...node, position: { x: Math.max(0, x), y: Math.max(0, y) }, size: { width, height } }
+                    : node
+                );
+                commit(next);
+                return;
+            }
+
+            if (dragRef.current && !editingNodeId) {
+                const state = dragRef.current;
+                const world = screenToWorld(event.clientX, event.clientY);
+                const rawDelta = { x: world.x - state.startWorldX, y: world.y - state.startWorldY };
+                const primaryOrigin = state.origins[state.primaryId];
+                const primaryNode = nodesById.get(state.primaryId);
+                let finalDelta = rawDelta;
+                let nextGuides: AlignmentGuide[] = [];
+                if (primaryOrigin && primaryNode) {
+                    const rawPrimary = { x: primaryOrigin.x + rawDelta.x, y: primaryOrigin.y + rawDelta.y };
+                    const snap = applyMagneticSnap(state.primaryId, primaryNode.size, rawPrimary);
+                    finalDelta = {
+                        x: rawDelta.x + (snap.position.x - rawPrimary.x),
+                        y: rawDelta.y + (snap.position.y - rawPrimary.y)
+                    };
+                    nextGuides = snap.guides;
+                }
+                setGuides(nextGuides);
+                const next = cloneDocument(localDocRef.current);
+                next.nodes = next.nodes.map((node) => {
+                    const origin = state.origins[node.id];
+                    if (!origin) return node;
+                    return {
+                        ...node,
+                        position: {
+                            x: Math.max(0, origin.x + finalDelta.x),
+                            y: Math.max(0, origin.y + finalDelta.y)
+                        }
+                    };
+                });
+                commit(next);
+                return;
+            }
+
+            if (marqueeRef.current) {
+                const state = marqueeRef.current;
+                const world = screenToWorld(event.clientX, event.clientY);
+                if (Math.abs(world.x - state.startX) > 3 || Math.abs(world.y - state.startY) > 3) state.moved = true;
+                setMarquee({
+                    x: Math.min(state.startX, world.x),
+                    y: Math.min(state.startY, world.y),
+                    width: Math.abs(world.x - state.startX),
+                    height: Math.abs(world.y - state.startY)
+                });
+            }
         };
 
-        const onMouseUp = () => {
+        const onMouseUp = (event: MouseEvent) => {
             if (panDragRef.current) {
                 if (panDragRef.current.moved) suppressClickRef.current = true;
                 panDragRef.current = null;
                 setIsPanning(false);
             }
+            if (resizeRef.current) {
+                resizeRef.current = null;
+            }
             if (dragRef.current) {
                 dragRef.current = null;
                 setGuides([]);
+            }
+            if (marqueeRef.current) {
+                const state = marqueeRef.current;
+                marqueeRef.current = null;
+                if (state.moved) {
+                    const world = screenToWorld(event.clientX, event.clientY);
+                    const rect: MarqueeRect = {
+                        x: Math.min(state.startX, world.x),
+                        y: Math.min(state.startY, world.y),
+                        width: Math.abs(world.x - state.startX),
+                        height: Math.abs(world.y - state.startY)
+                    };
+                    const hits = localDocRef.current.nodes
+                        .filter((node) => rectsIntersect(rect, { x: node.position.x, y: node.position.y, width: node.size.width, height: node.size.height }))
+                        .map((node) => node.id);
+                    setSelectedNodeIds(hits);
+                    setSelectedEdgeId(null);
+                } else {
+                    setSelectedNodeIds([]);
+                    setSelectedEdgeId(null);
+                    if (!readOnly) setLinkFrom(null);
+                }
+                setMarquee(null);
             }
         };
 
@@ -658,18 +954,77 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
         };
-    }, [readOnly, localDoc, editingNodeId, nodesById, screenToWorld]);
+    }, [readOnly, editingNodeId, nodesById, screenToWorld, commit]);
 
-    const onViewportClick = () => {
-        if (suppressClickRef.current) {
-            suppressClickRef.current = false;
-            return;
-        }
-        if (isSpaceDownRef.current) return;
-        setSelectedNodeId(null);
-        setSelectedEdgeId(null);
-        if (!readOnly) setLinkFrom(null);
-    };
+    // Keyboard shortcuts.
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.code === 'Space' && !isTypingTarget()) {
+                event.preventDefault();
+                isSpaceDownRef.current = true;
+                setIsSpaceDown(true);
+                return;
+            }
+            if (isTypingTarget()) return;
+
+            const mod = event.metaKey || event.ctrlKey;
+
+            if (mod && event.key.toLowerCase() === 'z') {
+                event.preventDefault();
+                if (event.shiftKey) redo();
+                else undo();
+                return;
+            }
+            if (mod && event.key.toLowerCase() === 'y') {
+                event.preventDefault();
+                redo();
+                return;
+            }
+            if (mod && event.key.toLowerCase() === 'a') {
+                event.preventDefault();
+                setSelectedNodeIds(localDocRef.current.nodes.map((node) => node.id));
+                setSelectedEdgeId(null);
+                return;
+            }
+            if (mod && event.key.toLowerCase() === 'd') {
+                event.preventDefault();
+                duplicateSelection();
+                return;
+            }
+            if (mod && event.key.toLowerCase() === 'c') {
+                copySelection();
+                return;
+            }
+            if (mod && event.key.toLowerCase() === 'v') {
+                event.preventDefault();
+                pasteClipboard();
+                return;
+            }
+            if (event.key === 'Delete' || event.key === 'Backspace') {
+                event.preventDefault();
+                deleteSelection();
+                return;
+            }
+            if (event.key === 'Escape') {
+                setSelectedNodeIds([]);
+                setSelectedEdgeId(null);
+                setLinkFrom(null);
+                setEditingNodeId(null);
+                return;
+            }
+            if (event.key.startsWith('Arrow') && selectedNodeIdsRef.current.length > 0) {
+                event.preventDefault();
+                const step = event.shiftKey ? 10 : 1;
+                if (event.key === 'ArrowUp') nudgeSelection(0, -step);
+                else if (event.key === 'ArrowDown') nudgeSelection(0, step);
+                else if (event.key === 'ArrowLeft') nudgeSelection(-step, 0);
+                else if (event.key === 'ArrowRight') nudgeSelection(step, 0);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [undo, redo]);
 
     const exportAsPng = () => {
         const doc = normalizeCanvasDocument(localDoc);
@@ -752,6 +1107,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     };
 
     const viewportCursor = isPanning ? 'grabbing' : (isSpaceDown ? 'grab' : 'default');
+    const selectedSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
+    const resizeTarget = (!readOnly && !editingNodeId && selectedNodeIds.length === 1) ? selectedNode : null;
 
     const zoomControlButton: React.CSSProperties = {
         width: 30,
@@ -772,7 +1129,6 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             <div
                 ref={viewportRef}
                 onMouseDown={onViewportMouseDown}
-                onClick={onViewportClick}
                 onDoubleClick={onViewportDoubleClick}
                 style={{
                     position: 'relative',
@@ -840,33 +1196,22 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                         markerStart={edge.startArrow ? 'url(#arrow-start)' : undefined}
                                         markerEnd={edge.endArrow === false ? undefined : 'url(#arrow-end)'}
                                         style={{ pointerEvents: 'stroke' }}
+                                        onMouseDown={(event) => event.stopPropagation()}
                                         onClick={(event) => {
                                             event.stopPropagation();
                                             setSelectedEdgeId(edge.id);
-                                            setSelectedNodeId(null);
+                                            setSelectedNodeIds([]);
                                         }}
                                     />
 
                                     {edge.text && (
-                                        <text
-                                            x={centerPoint.x + 6}
-                                            y={centerPoint.y - 6}
-                                            fontSize="12"
-                                            fill="#334155"
-                                            pointerEvents="none"
-                                        >
+                                        <text x={centerPoint.x + 6} y={centerPoint.y - 6} fontSize="12" fill="#334155" pointerEvents="none">
                                             {edge.text}
                                         </text>
                                     )}
 
                                     {edge.comment && (
-                                        <text
-                                            x={centerPoint.x + 6}
-                                            y={centerPoint.y + 12}
-                                            fontSize="11"
-                                            fill="#64748b"
-                                            pointerEvents="none"
-                                        >
+                                        <text x={centerPoint.x + 6} y={centerPoint.y + 12} fontSize="11" fill="#64748b" pointerEvents="none">
                                             📝
                                         </text>
                                     )}
@@ -878,34 +1223,35 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             guide.axis === 'x' ? (
                                 <line
                                     key={`guide-x-${index}`}
-                                    x1={guide.pos}
-                                    y1={0}
-                                    x2={guide.pos}
-                                    y2={WORLD_HEIGHT}
-                                    stroke="#ec4899"
-                                    strokeWidth={1 / zoom}
-                                    strokeDasharray={`${4 / zoom} ${4 / zoom}`}
-                                    pointerEvents="none"
+                                    x1={guide.pos} y1={0} x2={guide.pos} y2={WORLD_HEIGHT}
+                                    stroke="#ec4899" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${4 / zoom}`} pointerEvents="none"
                                 />
                             ) : (
                                 <line
                                     key={`guide-y-${index}`}
-                                    x1={0}
-                                    y1={guide.pos}
-                                    x2={WORLD_WIDTH}
-                                    y2={guide.pos}
-                                    stroke="#ec4899"
-                                    strokeWidth={1 / zoom}
-                                    strokeDasharray={`${4 / zoom} ${4 / zoom}`}
-                                    pointerEvents="none"
+                                    x1={0} y1={guide.pos} x2={WORLD_WIDTH} y2={guide.pos}
+                                    stroke="#ec4899" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${4 / zoom}`} pointerEvents="none"
                                 />
                             )
                         ))}
+
+                        {marquee && (
+                            <rect
+                                x={marquee.x}
+                                y={marquee.y}
+                                width={marquee.width}
+                                height={marquee.height}
+                                fill="rgba(37,99,235,0.12)"
+                                stroke="#2563eb"
+                                strokeWidth={1 / zoom}
+                                pointerEvents="none"
+                            />
+                        )}
                     </svg>
 
                     <div style={{ position: 'absolute', inset: 0 }}>
                         {localDoc.nodes.map((node) => {
-                            const isSelected = selectedNodeId === node.id;
+                            const isSelected = selectedSet.has(node.id);
                             const isLinkSource = linkFrom?.nodeId === node.id;
                             const isInlineEditing = editingNodeId === node.id;
 
@@ -918,7 +1264,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     onDoubleClick={(event) => {
                                         if (readOnly) return;
                                         event.stopPropagation();
-                                        setSelectedNodeId(node.id);
+                                        setSelectedNodeIds([node.id]);
                                         setSelectedEdgeId(null);
                                         setEditingNodeId(node.id);
                                         setEditingNodeContent(node.content);
@@ -984,6 +1330,34 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                 </div>
                             );
                         })}
+
+                        {resizeTarget && RESIZE_CORNERS.map(({ corner, cursor }) => {
+                            const handleSize = 11 / zoom;
+                            const cx = corner === 'nw' || corner === 'sw'
+                                ? resizeTarget.position.x
+                                : resizeTarget.position.x + resizeTarget.size.width;
+                            const cy = corner === 'nw' || corner === 'ne'
+                                ? resizeTarget.position.y
+                                : resizeTarget.position.y + resizeTarget.size.height;
+                            return (
+                                <div
+                                    key={corner}
+                                    onMouseDown={(event) => onResizeHandleMouseDown(event, resizeTarget, corner)}
+                                    style={{
+                                        position: 'absolute',
+                                        left: cx - handleSize / 2,
+                                        top: cy - handleSize / 2,
+                                        width: handleSize,
+                                        height: handleSize,
+                                        background: '#fff',
+                                        border: `${2 / zoom}px solid #2563eb`,
+                                        borderRadius: 2 / zoom,
+                                        cursor,
+                                        zIndex: 5
+                                    }}
+                                />
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -1018,6 +1392,28 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         Encuadrar
                     </button>
                 </div>
+
+                {!readOnly && (
+                    <div
+                        onMouseDown={(event) => event.stopPropagation()}
+                        style={{
+                            position: 'absolute',
+                            right: 12,
+                            bottom: 12,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 2,
+                            padding: 3,
+                            borderRadius: 12,
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border-dim)',
+                            boxShadow: '0 6px 18px rgba(0,0,0,0.18)'
+                        }}
+                    >
+                        <button type="button" onClick={undo} disabled={past.length === 0} style={{ ...zoomControlButton, opacity: past.length === 0 ? 0.4 : 1 }} title="Deshacer (Cmd/Ctrl+Z)" aria-label="Deshacer">↶</button>
+                        <button type="button" onClick={redo} disabled={future.length === 0} style={{ ...zoomControlButton, opacity: future.length === 0 ? 0.4 : 1 }} title="Rehacer (Cmd/Ctrl+Shift+Z)" aria-label="Rehacer">↷</button>
+                    </div>
+                )}
             </div>
 
             <aside className="glass-panel" style={{ padding: 12, border: '1px solid var(--border-dim)' }}>
@@ -1038,8 +1434,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             </button>
                             <button
                                 className="btn-ghost"
-                                onClick={selectedEdge ? deleteSelectedEdge : deleteSelectedNode}
-                                disabled={!selectedNode && !selectedEdge}
+                                onClick={deleteSelection}
+                                disabled={selectedNodeIds.length === 0 && !selectedEdge}
                                 style={{ padding: '6px 10px', fontSize: 12, color: '#ef4444' }}
                             >
                                 Eliminar
@@ -1050,7 +1446,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 </div>
 
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.5 }}>
-                    Rueda/trackpad para desplazar · Cmd/Ctrl + rueda para zoom · barra espaciadora + arrastrar para mover el lienzo.
+                    Arrastrar en vacío para seleccionar varios · Shift+clic para sumar · Supr para borrar · Cmd/Ctrl+Z deshacer · Cmd/Ctrl+D duplicar · flechas para mover.
                 </div>
 
                 <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
@@ -1089,6 +1485,12 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     </div>
                 )}
 
+                {selectedNodeIds.length > 1 && (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>
+                        {selectedNodeIds.length} nodos seleccionados
+                    </div>
+                )}
+
                 {selectedNode && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Nodo seleccionado</div>
@@ -1097,7 +1499,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         <textarea
                             className="input-glass"
                             value={selectedNode.content}
-                            onChange={(event) => updateNode(selectedNode.id, { content: event.target.value })}
+                            onChange={(event) => updateNode(selectedNode.id, { content: event.target.value }, true)}
                             disabled={readOnly}
                             rows={2}
                         />
@@ -1106,7 +1508,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         <textarea
                             className="input-glass"
                             value={selectedNode.comment || ''}
-                            onChange={(event) => updateNode(selectedNode.id, { comment: event.target.value })}
+                            onChange={(event) => updateNode(selectedNode.id, { comment: event.target.value }, true)}
                             disabled={readOnly}
                             rows={2}
                             placeholder="Comentario del elemento"
@@ -1128,7 +1530,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         <input
                             type="color"
                             value={selectedNode.style.fill}
-                            onChange={(event) => updateNode(selectedNode.id, { style: { fill: event.target.value } })}
+                            onChange={(event) => updateNode(selectedNode.id, { style: { fill: event.target.value } }, true)}
                             disabled={readOnly}
                             style={{ width: '100%', height: 34, borderRadius: 8, border: '1px solid var(--border-dim)' }}
                         />
@@ -1155,7 +1557,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         <input
                             className="input-glass"
                             value={selectedEdge.text || ''}
-                            onChange={(event) => updateEdge(selectedEdge.id, { text: event.target.value })}
+                            onChange={(event) => updateEdge(selectedEdge.id, { text: event.target.value }, true)}
                             disabled={readOnly}
                             placeholder="Ej: Sí / No"
                         />
@@ -1164,7 +1566,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         <textarea
                             className="input-glass"
                             value={selectedEdge.comment || ''}
-                            onChange={(event) => updateEdge(selectedEdge.id, { comment: event.target.value })}
+                            onChange={(event) => updateEdge(selectedEdge.id, { comment: event.target.value }, true)}
                             disabled={readOnly}
                             rows={2}
                             placeholder="Comentario de la conexión"
@@ -1193,7 +1595,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     </div>
                 )}
 
-                {!selectedNode && !selectedEdge && (
+                {selectedNodeIds.length === 0 && !selectedEdge && (
                     <div style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5 }}>
                         Doble clic en el lienzo para crear un nodo. Selecciona nodos o conexiones para editar contenido, estilo y comentarios.
                     </div>
