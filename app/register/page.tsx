@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { User, Mail, Lock, ArrowRight, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import { User, Mail, Lock, ArrowRight, CheckCircle2, Loader2, ShieldCheck, Building2 } from "lucide-react";
 
 export default function RegisterPage() {
     const [name, setName] = useState("");
@@ -13,6 +13,8 @@ export default function RegisterPage() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
     const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean, platform: string | null }>({ enabled: false, platform: null });
+    const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
+    const [workspaceId, setWorkspaceId] = useState("");
 
     useEffect(() => {
         const checkSso = async () => {
@@ -27,6 +29,20 @@ export default function RegisterPage() {
             }
         };
         checkSso();
+
+        const loadWorkspaces = async () => {
+            try {
+                const res = await fetch('/api/workspaces/public');
+                if (res.ok) {
+                    const data = await res.json();
+                    setWorkspaces(Array.isArray(data) ? data : []);
+                    if (Array.isArray(data) && data.length === 1) setWorkspaceId(data[0].id);
+                }
+            } catch (err) {
+                console.error('Error loading workspaces:', err);
+            }
+        };
+        loadWorkspaces();
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -38,13 +54,18 @@ export default function RegisterPage() {
             return;
         }
 
+        if (!workspaceId) {
+            setError("Elige un workspace");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
             const res = await fetch("/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, email, password }),
+                body: JSON.stringify({ name, email, password, workspaceId }),
             });
 
             const data = await res.json();
@@ -132,6 +153,28 @@ export default function RegisterPage() {
                                 required
                             />
                         </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Workspace</label>
+                        <div style={{ position: 'relative' }}>
+                            <Building2 size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                            <select
+                                className="input-glass"
+                                style={{ paddingLeft: 44 }}
+                                value={workspaceId}
+                                onChange={e => setWorkspaceId(e.target.value)}
+                                required
+                            >
+                                <option value="">Selecciona un workspace…</option>
+                                {workspaces.map(w => (
+                                    <option key={w.id} value={w.id}>{w.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>
+                            Un gestor del workspace revisará tu solicitud.
+                        </p>
                     </div>
 
                     <div className="form-group">

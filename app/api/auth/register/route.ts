@@ -15,10 +15,13 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { email, password, name } = body;
+        const { email, password, name, workspaceId } = body;
 
         if (!email || !password || !name) {
             return badRequest('Todos los campos son obligatorios');
+        }
+        if (!workspaceId) {
+            return badRequest('Debes elegir un workspace');
         }
 
         const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -62,6 +65,22 @@ export async function POST(request: Request) {
             );
 
             const newUser = result.rows[0];
+
+            // 2b. Request membership in the chosen workspace (pending until a
+            // gestor or admin of that workspace accepts it).
+            const wsCheck = await client.query(
+                'SELECT id FROM workspaces WHERE id = $1 AND deleted_at IS NULL',
+                [workspaceId]
+            );
+            if (wsCheck.rows.length === 0) {
+                return badRequest('El workspace seleccionado no existe');
+            }
+            await client.query(
+                `INSERT INTO workspace_members (workspace_id, user_id, role, status)
+                 VALUES ($1, $2, 'member', 'pending')
+                 ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+                [workspaceId, newUser.id]
+            );
 
             // 3. Log the registration request
             await logAction(newUser.id, 'USER_REGISTERED', 'Usuario se registró vía formulario público', newUser.id, client);
