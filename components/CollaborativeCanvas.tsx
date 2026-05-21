@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
     CanvasDocument,
     CanvasEdge,
@@ -27,15 +27,27 @@ type DragState = {
     dy: number;
 };
 
+type PanDragState = {
+    startX: number;
+    startY: number;
+    startPanX: number;
+    startPanY: number;
+    moved: boolean;
+};
+
+type AlignmentGuide = { axis: 'x' | 'y'; pos: number };
+
 type CanvasNodePatch = Partial<Omit<CanvasNode, 'position' | 'size' | 'style'>> & {
     position?: Partial<CanvasPoint>;
     size?: Partial<CanvasSize>;
     style?: Partial<CanvasNodeStyle>;
 };
 
-const GRID_WIDTH = 2200;
-const GRID_HEIGHT = 1400;
-const SNAP_THRESHOLD = 5;
+const WORLD_WIDTH = 6000;
+const WORLD_HEIGHT = 4000;
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 2.5;
+const GUIDE_THRESHOLD = 6;
 
 const NODE_TYPE_OPTIONS: Array<{ value: CanvasNodeType; label: string }> = [
     { value: 'rectangle', label: 'Rectángulo' },
@@ -54,6 +66,10 @@ const CONNECTION_STYLE_OPTIONS: Array<{ value: CanvasLineStyle; label: string }>
     { value: 'straight', label: 'Recta' },
     { value: 'bezier', label: 'Curva' }
 ];
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
+}
 
 function cloneDocument(doc: CanvasDocument): CanvasDocument {
     return {
@@ -237,6 +253,13 @@ function getNodeBaseStyle(node: CanvasNode): React.CSSProperties {
     };
 }
 
+function isTypingTarget(): boolean {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement).isContentEditable;
+}
+
 export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly = false, accentColor = '#3b82f6' }: Props) {
     const normalizedExternalDoc = useMemo(() => normalizeCanvasDocument(canvasDocument), [canvasDocument]);
     const [localDoc, setLocalDoc] = useState<CanvasDocument>(() => cloneDocument(normalizedExternalDoc));
@@ -248,8 +271,23 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const [editingNodeContent, setEditingNodeContent] = useState('');
 
+    // Viewport state: the world is rendered through a translate+scale transform.
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState<CanvasPoint>({ x: 0, y: 0 });
+    const [isSpaceDown, setIsSpaceDown] = useState(false);
+    const [isPanning, setIsPanning] = useState(false);
+    const [guides, setGuides] = useState<AlignmentGuide[]>([]);
+
     const dragRef = useRef<DragState | null>(null);
-    const canvasRef = useRef<HTMLDivElement | null>(null);
+    const panDragRef = useRef<PanDragState | null>(null);
+    const viewportRef = useRef<HTMLDivElement | null>(null);
+    const zoomRef = useRef(1);
+    const panRef = useRef<CanvasPoint>({ x: 0, y: 0 });
+    const isSpaceDownRef = useRef(false);
+    const suppressClickRef = useRef(false);
+
+    useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+    useEffect(() => { panRef.current = pan; }, [pan]);
 
     useEffect(() => {
         const incoming = cloneDocument(normalizedExternalDoc);
@@ -273,14 +311,158 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         onChange(withTimestamp);
     };
 
-    const applyMagneticSnap = (nodeId: string, position: CanvasPoint): CanvasPoint => {
-        const snapped = { ...position };
+    const screenToWorld = useCallback((clientX: number, clientY: number): CanvasPoint => {
+        const rect = viewportRef.current?.getBoundingClientRect();
+        const left = rect?.left ?? 0;
+        const top = rect?.top ?? 0;
+        return {
+            x: (clientX - left - panRef.current.x) / zoomRef.current,
+            y: (clientY - top - panRef.current.y) / zoomRef.current
+        };
+    }, []);
+
+    const setViewport = useCallback((nextZoom: number, nextPan: CanvasPoint) => {
+        zoomRef.current = nextZoom;
+        panRef.current = nextPan;
+        setZoom(nextZoom);
+        setPan(nextPan);
+    }, []);
+
+    // Zoom toward a screen anchor so the point under the cursor stays fixed.
+    const zoomToward = useCallback((nextZoomRaw: number, anchorClientX: number, anchorClientY: number) => {
+        const rect = viewportRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const nextZoom = clamp(nextZoomRaw, MIN_ZOOM, MAX_ZOOM);
+        const ax = anchorClientX - rect.left;
+        const ay = anchorClientY - rect.top;
+        const wx = (ax - panRef.current.x) / zoomRef.current;
+        const wy = (ay - panRef.current.y) / zoomRef.current;
+        setViewport(nextZoom, { x: ax - wx * nextZoom, y: ay - wy * nextZoom });
+    }, [setViewport]);
+
+    const zoomByStep = useCallback((factor: number) => {
+        const rect = viewportRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        zoomToward(zoomRef.current * factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
+    }, [zoomToward]);
+
+    const zoomToFit = useCallback(() => {
+        const rect = viewportRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        if (localDoc.nodes.length === 0) {
+            setViewport(1, { x: 40, y: 40 });
+            return;
+        }
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const node of localDoc.nodes) {
+            minX = Math.min(minX, node.position.x);
+            minY = Math.min(minY, node.position.y);
+            maxX = Math.max(maxX, node.position.x + node.size.width);
+            maxY = Math.max(maxY, node.position.y + node.size.height);
+        }
+        const bw = Math.max(1, maxX - minX);
+        const bh = Math.max(1, maxY - minY);
+        const pad = 80;
+        const z = clamp(Math.min((rect.width - pad * 2) / bw, (rect.height - pad * 2) / bh), MIN_ZOOM, MAX_ZOOM);
+        setViewport(z, {
+            x: (rect.width - bw * z) / 2 - minX * z,
+            y: (rect.height - bh * z) / 2 - minY * z
+        });
+    }, [localDoc.nodes, setViewport]);
+
+    // Cmd/Ctrl + wheel zooms; plain wheel/trackpad pans. Native listener so we can preventDefault.
+    useEffect(() => {
+        const el = viewportRef.current;
+        if (!el) return;
+        const onWheel = (event: WheelEvent) => {
+            event.preventDefault();
+            if (event.ctrlKey || event.metaKey) {
+                zoomToward(zoomRef.current * Math.exp(-event.deltaY * 0.0015), event.clientX, event.clientY);
+            } else {
+                const next = { x: panRef.current.x - event.deltaX, y: panRef.current.y - event.deltaY };
+                panRef.current = next;
+                setPan(next);
+            }
+        };
+        el.addEventListener('wheel', onWheel, { passive: false });
+        return () => el.removeEventListener('wheel', onWheel);
+    }, [zoomToward]);
+
+    // Hold space to switch to pan mode.
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.code === 'Space' && !isTypingTarget()) {
+                event.preventDefault();
+                isSpaceDownRef.current = true;
+                setIsSpaceDown(true);
+            }
+        };
+        const onKeyUp = (event: KeyboardEvent) => {
+            if (event.code === 'Space') {
+                isSpaceDownRef.current = false;
+                setIsSpaceDown(false);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener('keyup', onKeyUp);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('keyup', onKeyUp);
+        };
+    }, []);
+
+    const startPan = (clientX: number, clientY: number) => {
+        panDragRef.current = {
+            startX: clientX,
+            startY: clientY,
+            startPanX: panRef.current.x,
+            startPanY: panRef.current.y,
+            moved: false
+        };
+        setIsPanning(true);
+    };
+
+    const applyMagneticSnap = (nodeId: string, size: CanvasSize, position: CanvasPoint): { position: CanvasPoint; guides: AlignmentGuide[] } => {
+        const draggedX = [position.x, position.x + size.width / 2, position.x + size.width];
+        const draggedY = [position.y, position.y + size.height / 2, position.y + size.height];
+
+        let bestX: { diff: number; pos: number } | null = null;
+        let bestY: { diff: number; pos: number } | null = null;
+
         for (const node of localDoc.nodes) {
             if (node.id === nodeId) continue;
-            if (Math.abs(snapped.x - node.position.x) <= SNAP_THRESHOLD) snapped.x = node.position.x;
-            if (Math.abs(snapped.y - node.position.y) <= SNAP_THRESHOLD) snapped.y = node.position.y;
+            const otherX = [node.position.x, node.position.x + node.size.width / 2, node.position.x + node.size.width];
+            const otherY = [node.position.y, node.position.y + node.size.height / 2, node.position.y + node.size.height];
+
+            for (const d of draggedX) {
+                for (const o of otherX) {
+                    const diff = o - d;
+                    if (Math.abs(diff) <= GUIDE_THRESHOLD && (bestX === null || Math.abs(diff) < Math.abs(bestX.diff))) {
+                        bestX = { diff, pos: o };
+                    }
+                }
+            }
+            for (const d of draggedY) {
+                for (const o of otherY) {
+                    const diff = o - d;
+                    if (Math.abs(diff) <= GUIDE_THRESHOLD && (bestY === null || Math.abs(diff) < Math.abs(bestY.diff))) {
+                        bestY = { diff, pos: o };
+                    }
+                }
+            }
         }
-        return snapped;
+
+        const snapped = { ...position };
+        const nextGuides: AlignmentGuide[] = [];
+        if (bestX) {
+            snapped.x = position.x + bestX.diff;
+            nextGuides.push({ axis: 'x', pos: bestX.pos });
+        }
+        if (bestY) {
+            snapped.y = position.y + bestY.diff;
+            nextGuides.push({ axis: 'y', pos: bestY.pos });
+        }
+        return { position: snapped, guides: nextGuides };
     };
 
     const updateNode = (nodeId: string, patch: CanvasNodePatch) => {
@@ -310,10 +492,11 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         const isSticky = type === 'sticky';
         const isFrame = type === 'frame';
         const next = cloneDocument(localDoc);
+        const id = makeNodeId();
         next.nodes.push({
-            id: makeNodeId(),
+            id,
             type,
-            position: { x, y },
+            position: { x: Math.max(0, x), y: Math.max(0, y) },
             size: {
                 width: isFrame ? 420 : (isSticky ? 200 : 220),
                 height: isFrame ? 260 : (isSticky ? 150 : 88)
@@ -322,6 +505,18 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             content: isFrame ? 'Frame' : 'Nuevo nodo'
         });
         commit(next);
+        setSelectedNodeId(id);
+        setSelectedEdgeId(null);
+    };
+
+    const addNodeCentered = () => {
+        const rect = viewportRef.current?.getBoundingClientRect();
+        if (!rect) {
+            addNode();
+            return;
+        }
+        const center = screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        addNode(center.x - 110, center.y - 44);
     };
 
     const deleteSelectedNode = () => {
@@ -343,10 +538,10 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         commit(next);
     };
 
-    const onCanvasDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        if (readOnly || !canvasRef.current) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        addNode(event.clientX - rect.left - 110, event.clientY - rect.top - 44);
+    const onViewportDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (readOnly || isSpaceDownRef.current) return;
+        const world = screenToWorld(event.clientX, event.clientY);
+        addNode(world.x - 110, world.y - 44);
     };
 
     const finishInlineEdit = () => {
@@ -356,9 +551,22 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         setEditingNodeId(null);
     };
 
+    const onViewportMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (isSpaceDownRef.current || event.button === 1) {
+            event.preventDefault();
+            startPan(event.clientX, event.clientY);
+        }
+    };
+
     const onNodeMouseDown = (event: React.MouseEvent<HTMLDivElement>, node: CanvasNode) => {
         if (readOnly) return;
         event.stopPropagation();
+
+        if (isSpaceDownRef.current || event.button === 1) {
+            event.preventDefault();
+            startPan(event.clientX, event.clientY);
+            return;
+        }
 
         if (linkFrom) {
             if (linkFrom.nodeId !== node.id) {
@@ -396,30 +604,51 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         setSelectedNodeId(node.id);
         setSelectedEdgeId(null);
 
-        if (!canvasRef.current) return;
-        const rect = canvasRef.current.getBoundingClientRect();
+        const world = screenToWorld(event.clientX, event.clientY);
         dragRef.current = {
             nodeId: node.id,
-            dx: event.clientX - rect.left - node.position.x,
-            dy: event.clientY - rect.top - node.position.y
+            dx: world.x - node.position.x,
+            dy: world.y - node.position.y
         };
     };
 
     useEffect(() => {
         const onMouseMove = (event: MouseEvent) => {
-            if (readOnly || !dragRef.current || !canvasRef.current || editingNodeId) return;
-            const rect = canvasRef.current.getBoundingClientRect();
+            if (panDragRef.current) {
+                const state = panDragRef.current;
+                const dx = event.clientX - state.startX;
+                const dy = event.clientY - state.startY;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) state.moved = true;
+                const next = { x: state.startPanX + dx, y: state.startPanY + dy };
+                panRef.current = next;
+                setPan(next);
+                return;
+            }
+
+            if (readOnly || !dragRef.current || editingNodeId) return;
             const { nodeId, dx, dy } = dragRef.current;
+            const world = screenToWorld(event.clientX, event.clientY);
             const raw = {
-                x: Math.max(8, event.clientX - rect.left - dx),
-                y: Math.max(8, event.clientY - rect.top - dy)
+                x: Math.max(0, world.x - dx),
+                y: Math.max(0, world.y - dy)
             };
-            const snapped = applyMagneticSnap(nodeId, raw);
-            updateNode(nodeId, { position: snapped });
+            const node = nodesById.get(nodeId);
+            if (!node) return;
+            const { position, guides: nextGuides } = applyMagneticSnap(nodeId, node.size, raw);
+            setGuides(nextGuides);
+            updateNode(nodeId, { position });
         };
 
         const onMouseUp = () => {
-            dragRef.current = null;
+            if (panDragRef.current) {
+                if (panDragRef.current.moved) suppressClickRef.current = true;
+                panDragRef.current = null;
+                setIsPanning(false);
+            }
+            if (dragRef.current) {
+                dragRef.current = null;
+                setGuides([]);
+            }
         };
 
         window.addEventListener('mousemove', onMouseMove);
@@ -429,7 +658,18 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
         };
-    }, [readOnly, localDoc, editingNodeId]);
+    }, [readOnly, localDoc, editingNodeId, nodesById, screenToWorld]);
+
+    const onViewportClick = () => {
+        if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            return;
+        }
+        if (isSpaceDownRef.current) return;
+        setSelectedNodeId(null);
+        setSelectedEdgeId(null);
+        if (!readOnly) setLinkFrom(null);
+    };
 
     const exportAsPng = () => {
         const doc = normalizeCanvasDocument(localDoc);
@@ -511,184 +751,272 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         link.click();
     };
 
+    const viewportCursor = isPanning ? 'grabbing' : (isSpaceDown ? 'grab' : 'default');
+
+    const zoomControlButton: React.CSSProperties = {
+        width: 30,
+        height: 30,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: 'none',
+        background: 'transparent',
+        color: 'var(--text-main, #0f172a)',
+        cursor: 'pointer',
+        fontSize: 16,
+        borderRadius: 8
+    };
+
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 12, height: '100%' }}>
             <div
-                ref={canvasRef}
-                onClick={() => {
-                    setSelectedNodeId(null);
-                    setSelectedEdgeId(null);
-                    if (!readOnly) setLinkFrom(null);
-                }}
-                onDoubleClick={onCanvasDoubleClick}
+                ref={viewportRef}
+                onMouseDown={onViewportMouseDown}
+                onClick={onViewportClick}
+                onDoubleClick={onViewportDoubleClick}
                 style={{
                     position: 'relative',
-                    overflow: 'auto',
+                    overflow: 'hidden',
                     borderRadius: 16,
                     border: '1px solid var(--border-dim)',
                     minHeight: 520,
+                    height: '100%',
+                    backgroundColor: 'var(--bg-card)',
                     backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.35) 1px, transparent 0)',
-                    backgroundSize: '24px 24px',
-                    backgroundColor: 'var(--bg-card)'
+                    backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
+                    backgroundPosition: `${pan.x}px ${pan.y}px`,
+                    cursor: viewportCursor
                 }}
             >
-                <svg width={GRID_WIDTH} height={GRID_HEIGHT} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                    <defs>
-                        <marker id="arrow-end" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto" markerUnits="strokeWidth">
-                            <path d="M0,0 L8,4 L0,8 Z" fill="#334155" />
-                        </marker>
-                        <marker id="arrow-start" markerWidth="8" markerHeight="8" refX="0" refY="4" orient="auto" markerUnits="strokeWidth">
-                            <path d="M8,0 L0,4 L8,8 Z" fill="#334155" />
-                        </marker>
-                    </defs>
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: WORLD_WIDTH,
+                        height: WORLD_HEIGHT,
+                        transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                        transformOrigin: '0 0'
+                    }}
+                >
+                    <svg width={WORLD_WIDTH} height={WORLD_HEIGHT} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}>
+                        <defs>
+                            <marker id="arrow-end" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto" markerUnits="strokeWidth">
+                                <path d="M0,0 L8,4 L0,8 Z" fill="#334155" />
+                            </marker>
+                            <marker id="arrow-start" markerWidth="8" markerHeight="8" refX="0" refY="4" orient="auto" markerUnits="strokeWidth">
+                                <path d="M8,0 L0,4 L8,8 Z" fill="#334155" />
+                            </marker>
+                        </defs>
 
-                    {localDoc.edges.map((edge) => {
-                        const sourceNode = nodesById.get(edge.source.nodeId);
-                        const targetNode = nodesById.get(edge.target.nodeId);
-                        if (!sourceNode || !targetNode) return null;
+                        {localDoc.edges.map((edge) => {
+                            const sourceNode = nodesById.get(edge.source.nodeId);
+                            const targetNode = nodesById.get(edge.target.nodeId);
+                            if (!sourceNode || !targetNode) return null;
 
-                        const start = getPortPoint(sourceNode, edge.source.port);
-                        const end = getPortPoint(targetNode, edge.target.port);
+                            const start = getPortPoint(sourceNode, edge.source.port);
+                            const end = getPortPoint(targetNode, edge.target.port);
 
-                        let pathData = '';
-                        let centerPoint: CanvasPoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+                            let pathData = '';
+                            let centerPoint: CanvasPoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
 
-                        if (edge.lineStyle === 'bezier') {
-                            pathData = buildBezierPath(start, end);
-                        } else if (edge.lineStyle === 'straight') {
-                            pathData = pointsToPolylinePath([start, end]);
-                        } else {
-                            const points = buildOrthogonalPoints(edge, nodesById, localDoc.nodes);
-                            pathData = pointsToPolylinePath(points);
-                            if (points.length > 0) centerPoint = points[Math.floor(points.length / 2)];
-                        }
+                            if (edge.lineStyle === 'bezier') {
+                                pathData = buildBezierPath(start, end);
+                            } else if (edge.lineStyle === 'straight') {
+                                pathData = pointsToPolylinePath([start, end]);
+                            } else {
+                                const points = buildOrthogonalPoints(edge, nodesById, localDoc.nodes);
+                                pathData = pointsToPolylinePath(points);
+                                if (points.length > 0) centerPoint = points[Math.floor(points.length / 2)];
+                            }
 
-                        return (
-                            <g key={edge.id}>
-                                <path
-                                    d={pathData}
-                                    stroke={selectedEdgeId === edge.id ? '#2563eb' : '#64748b'}
-                                    strokeWidth={selectedEdgeId === edge.id ? 3 : 2}
-                                    fill="none"
-                                    markerStart={edge.startArrow ? 'url(#arrow-start)' : undefined}
-                                    markerEnd={edge.endArrow === false ? undefined : 'url(#arrow-end)'}
-                                    style={{ pointerEvents: 'stroke' }}
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        setSelectedEdgeId(edge.id);
-                                        setSelectedNodeId(null);
-                                    }}
-                                />
-
-                                {edge.text && (
-                                    <text
-                                        x={centerPoint.x + 6}
-                                        y={centerPoint.y - 6}
-                                        fontSize="12"
-                                        fill="#334155"
-                                        pointerEvents="none"
-                                    >
-                                        {edge.text}
-                                    </text>
-                                )}
-
-                                {edge.comment && (
-                                    <text
-                                        x={centerPoint.x + 6}
-                                        y={centerPoint.y + 12}
-                                        fontSize="11"
-                                        fill="#64748b"
-                                        pointerEvents="none"
-                                    >
-                                        📝
-                                    </text>
-                                )}
-                            </g>
-                        );
-                    })}
-                </svg>
-
-                <div style={{ position: 'relative', width: GRID_WIDTH, height: GRID_HEIGHT }}>
-                    {localDoc.nodes.map((node) => {
-                        const isSelected = selectedNodeId === node.id;
-                        const isLinkSource = linkFrom?.nodeId === node.id;
-                        const isInlineEditing = editingNodeId === node.id;
-
-                        const baseStyle = getNodeBaseStyle(node);
-
-                        return (
-                            <div
-                                key={node.id}
-                                onMouseDown={(event) => onNodeMouseDown(event, node)}
-                                onDoubleClick={(event) => {
-                                    if (readOnly) return;
-                                    event.stopPropagation();
-                                    setSelectedNodeId(node.id);
-                                    setSelectedEdgeId(null);
-                                    setEditingNodeId(node.id);
-                                    setEditingNodeContent(node.content);
-                                }}
-                                style={{
-                                    position: 'absolute',
-                                    left: node.position.x,
-                                    top: node.position.y,
-                                    width: node.size.width,
-                                    height: node.size.height,
-                                    border: isLinkSource
-                                        ? '3px dashed #facc15'
-                                        : isSelected
-                                            ? '2px solid rgba(37,99,235,0.9)'
-                                            : '1px solid rgba(255,255,255,0.4)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    textAlign: 'center',
-                                    padding: 10,
-                                    fontWeight: 700,
-                                    userSelect: 'none',
-                                    cursor: readOnly ? 'default' : (isInlineEditing ? 'text' : 'grab'),
-                                    ...baseStyle
-                                }}
-                                title={readOnly ? 'Lectura' : 'Doble clic para editar'}
-                            >
-                                {isInlineEditing ? (
-                                    <textarea
-                                        autoFocus
-                                        value={editingNodeContent}
-                                        onChange={(event) => setEditingNodeContent(event.target.value)}
-                                        onBlur={finishInlineEdit}
-                                        onKeyDown={(event) => {
-                                            if (event.key === 'Enter' && !event.shiftKey) {
-                                                event.preventDefault();
-                                                finishInlineEdit();
-                                            }
-                                            if (event.key === 'Escape') {
-                                                setEditingNodeId(null);
-                                            }
-                                        }}
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            background: 'rgba(255,255,255,0.16)',
-                                            border: '1px solid rgba(255,255,255,0.45)',
-                                            borderRadius: 8,
-                                            color: node.type === 'sticky' || node.type === 'frame' ? '#0f172a' : '#fff',
-                                            fontWeight: 700,
-                                            textAlign: 'center',
-                                            padding: 8,
-                                            resize: 'none'
+                            return (
+                                <g key={edge.id}>
+                                    <path
+                                        d={pathData}
+                                        stroke={selectedEdgeId === edge.id ? '#2563eb' : '#64748b'}
+                                        strokeWidth={selectedEdgeId === edge.id ? 3 : 2}
+                                        fill="none"
+                                        markerStart={edge.startArrow ? 'url(#arrow-start)' : undefined}
+                                        markerEnd={edge.endArrow === false ? undefined : 'url(#arrow-end)'}
+                                        style={{ pointerEvents: 'stroke' }}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            setSelectedEdgeId(edge.id);
+                                            setSelectedNodeId(null);
                                         }}
                                     />
-                                ) : (
-                                    <span style={{ transform: node.type === 'diamond' ? 'scale(0.88)' : 'none' }}>{node.content}</span>
-                                )}
 
-                                {node.comment && !isInlineEditing && (
-                                    <span style={{ position: 'absolute', top: 4, right: 6, fontSize: 12 }}>📝</span>
-                                )}
-                            </div>
-                        );
-                    })}
+                                    {edge.text && (
+                                        <text
+                                            x={centerPoint.x + 6}
+                                            y={centerPoint.y - 6}
+                                            fontSize="12"
+                                            fill="#334155"
+                                            pointerEvents="none"
+                                        >
+                                            {edge.text}
+                                        </text>
+                                    )}
+
+                                    {edge.comment && (
+                                        <text
+                                            x={centerPoint.x + 6}
+                                            y={centerPoint.y + 12}
+                                            fontSize="11"
+                                            fill="#64748b"
+                                            pointerEvents="none"
+                                        >
+                                            📝
+                                        </text>
+                                    )}
+                                </g>
+                            );
+                        })}
+
+                        {guides.map((guide, index) => (
+                            guide.axis === 'x' ? (
+                                <line
+                                    key={`guide-x-${index}`}
+                                    x1={guide.pos}
+                                    y1={0}
+                                    x2={guide.pos}
+                                    y2={WORLD_HEIGHT}
+                                    stroke="#ec4899"
+                                    strokeWidth={1 / zoom}
+                                    strokeDasharray={`${4 / zoom} ${4 / zoom}`}
+                                    pointerEvents="none"
+                                />
+                            ) : (
+                                <line
+                                    key={`guide-y-${index}`}
+                                    x1={0}
+                                    y1={guide.pos}
+                                    x2={WORLD_WIDTH}
+                                    y2={guide.pos}
+                                    stroke="#ec4899"
+                                    strokeWidth={1 / zoom}
+                                    strokeDasharray={`${4 / zoom} ${4 / zoom}`}
+                                    pointerEvents="none"
+                                />
+                            )
+                        ))}
+                    </svg>
+
+                    <div style={{ position: 'absolute', inset: 0 }}>
+                        {localDoc.nodes.map((node) => {
+                            const isSelected = selectedNodeId === node.id;
+                            const isLinkSource = linkFrom?.nodeId === node.id;
+                            const isInlineEditing = editingNodeId === node.id;
+
+                            const baseStyle = getNodeBaseStyle(node);
+
+                            return (
+                                <div
+                                    key={node.id}
+                                    onMouseDown={(event) => onNodeMouseDown(event, node)}
+                                    onDoubleClick={(event) => {
+                                        if (readOnly) return;
+                                        event.stopPropagation();
+                                        setSelectedNodeId(node.id);
+                                        setSelectedEdgeId(null);
+                                        setEditingNodeId(node.id);
+                                        setEditingNodeContent(node.content);
+                                    }}
+                                    style={{
+                                        position: 'absolute',
+                                        left: node.position.x,
+                                        top: node.position.y,
+                                        width: node.size.width,
+                                        height: node.size.height,
+                                        border: isLinkSource
+                                            ? '3px dashed #facc15'
+                                            : isSelected
+                                                ? '2px solid rgba(37,99,235,0.9)'
+                                                : '1px solid rgba(255,255,255,0.4)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        textAlign: 'center',
+                                        padding: 10,
+                                        fontWeight: 700,
+                                        userSelect: 'none',
+                                        cursor: readOnly ? 'default' : (isInlineEditing ? 'text' : 'grab'),
+                                        ...baseStyle
+                                    }}
+                                    title={readOnly ? 'Lectura' : 'Doble clic para editar'}
+                                >
+                                    {isInlineEditing ? (
+                                        <textarea
+                                            autoFocus
+                                            value={editingNodeContent}
+                                            onChange={(event) => setEditingNodeContent(event.target.value)}
+                                            onBlur={finishInlineEdit}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' && !event.shiftKey) {
+                                                    event.preventDefault();
+                                                    finishInlineEdit();
+                                                }
+                                                if (event.key === 'Escape') {
+                                                    setEditingNodeId(null);
+                                                }
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                background: 'rgba(255,255,255,0.16)',
+                                                border: '1px solid rgba(255,255,255,0.45)',
+                                                borderRadius: 8,
+                                                color: node.type === 'sticky' || node.type === 'frame' ? '#0f172a' : '#fff',
+                                                fontWeight: 700,
+                                                textAlign: 'center',
+                                                padding: 8,
+                                                resize: 'none'
+                                            }}
+                                        />
+                                    ) : (
+                                        <span style={{ transform: node.type === 'diamond' ? 'scale(0.88)' : 'none' }}>{node.content}</span>
+                                    )}
+
+                                    {node.comment && !isInlineEditing && (
+                                        <span style={{ position: 'absolute', top: 4, right: 6, fontSize: 12 }}>📝</span>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div
+                    onMouseDown={(event) => event.stopPropagation()}
+                    style={{
+                        position: 'absolute',
+                        left: 12,
+                        bottom: 12,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        padding: 3,
+                        borderRadius: 12,
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-dim)',
+                        boxShadow: '0 6px 18px rgba(0,0,0,0.18)'
+                    }}
+                >
+                    <button type="button" onClick={() => zoomByStep(1 / 1.2)} style={zoomControlButton} title="Alejar" aria-label="Alejar">−</button>
+                    <button
+                        type="button"
+                        onClick={() => setViewport(1, panRef.current)}
+                        style={{ ...zoomControlButton, width: 56, fontSize: 12, fontWeight: 700 }}
+                        title="Restablecer zoom a 100%"
+                    >
+                        {Math.round(zoom * 100)}%
+                    </button>
+                    <button type="button" onClick={() => zoomByStep(1.2)} style={zoomControlButton} title="Acercar" aria-label="Acercar">+</button>
+                    <div style={{ width: 1, height: 20, background: 'var(--border-dim)', margin: '0 2px' }} />
+                    <button type="button" onClick={zoomToFit} style={{ ...zoomControlButton, width: 'auto', padding: '0 10px', fontSize: 12, fontWeight: 600 }} title="Encuadrar todo">
+                        Encuadrar
+                    </button>
                 </div>
             </div>
 
@@ -696,7 +1024,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                     {!readOnly && (
                         <>
-                            <button className="btn-primary" onClick={() => addNode()} style={{ padding: '6px 10px', fontSize: 12 }}>+ Nodo</button>
+                            <button className="btn-primary" onClick={addNodeCentered} style={{ padding: '6px 10px', fontSize: 12 }}>+ Nodo</button>
                             <button
                                 className="btn-ghost"
                                 onClick={() => {
@@ -719,6 +1047,10 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         </>
                     )}
                     <button className="btn-ghost" onClick={exportAsPng} style={{ padding: '6px 10px', fontSize: 12 }}>Exportar PNG</button>
+                </div>
+
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.5 }}>
+                    Rueda/trackpad para desplazar · Cmd/Ctrl + rueda para zoom · barra espaciadora + arrastrar para mover el lienzo.
                 </div>
 
                 <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
@@ -863,7 +1195,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
                 {!selectedNode && !selectedEdge && (
                     <div style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5 }}>
-                        Doble clic sobre un nodo para editarlo en línea. Selecciona nodos o conexiones para editar contenido, estilo y comentarios.
+                        Doble clic en el lienzo para crear un nodo. Selecciona nodos o conexiones para editar contenido, estilo y comentarios.
                     </div>
                 )}
             </aside>
