@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { unauthorized, badRequest, forbidden, serverError } from '@/lib/api-error';
+import { gestorClause } from '@/lib/workspace-access';
 
 export async function PUT(request: Request) {
     const session = await getSession() as any;
@@ -22,7 +23,8 @@ export async function PUT(request: Request) {
                    WHERE id = $1 AND (
                        owner_id = $2 OR
                        EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
-                       EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+                       EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2) OR
+                       ${gestorClause('d', '$2')}
                    )`;
             const dashAccess = await client.query(
                 dashAccessQuery,
@@ -39,7 +41,8 @@ export async function PUT(request: Request) {
                     : `SELECT id FROM folders f
                        WHERE id = $1 AND (
                            owner_id = $2 OR
-                           EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = f.id AND fc.user_id = $2)
+                           EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = f.id AND fc.user_id = $2) OR
+                           ${gestorClause('f', '$2')}
                        )`;
                 const folderAccess = await client.query(
                     folderAccessQuery,
@@ -50,8 +53,13 @@ export async function PUT(request: Request) {
                 }
             }
 
+            // The dashboard adopts the workspace of its target folder; moving
+            // it to the root keeps its current workspace.
             await client.query(
-                'UPDATE dashboards SET folder_id = $1 WHERE id = $2',
+                `UPDATE dashboards
+                 SET folder_id = $1,
+                     workspace_id = COALESCE((SELECT workspace_id FROM folders WHERE id = $1), workspace_id)
+                 WHERE id = $2`,
                 [folderId || null, dashboardId]
             );
 

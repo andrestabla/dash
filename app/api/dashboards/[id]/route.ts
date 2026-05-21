@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { unauthorized, forbidden, notFound, serverError } from '@/lib/api-error';
+import { isGestorOf } from '@/lib/workspace-access';
 
 export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
     try {
@@ -27,6 +28,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
             const isOwner = dashboard.owner_id === session.id;
 
             let isCollaborator = false;
+            let isGestor = false;
             if (!isOwner && !isAdmin) {
                 // Check dashboard_user_permissions table
                 const permRes = await client.query(
@@ -43,9 +45,14 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
                     );
                     isCollaborator = folderCollRes.rows.length > 0;
                 }
+
+                // A gestor governs every dashboard in their workspace.
+                if (!isCollaborator) {
+                    isGestor = await isGestorOf(client, session.id, dashboard.workspace_id);
+                }
             }
 
-            if (!isAdmin && !isOwner && !isCollaborator) {
+            if (!isAdmin && !isOwner && !isCollaborator && !isGestor) {
                 return forbidden('Access Denied: You are not a collaborator on this dashboard.');
             }
 

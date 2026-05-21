@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
 import { unauthorized, badRequest, notFound, forbidden, serverError } from '@/lib/api-error';
+import { isGestorOf } from '@/lib/workspace-access';
 
 export async function POST(
     request: Request,
@@ -29,14 +30,16 @@ export async function POST(
                 const { isPublic } = body;
 
                 // Verify folder exists and user has permission
-                const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);
+                const folderRes = await client.query('SELECT name, owner_id, workspace_id FROM folders WHERE id = $1', [id]);
                 if (folderRes.rows.length === 0) {
                     return notFound('Folder not found');
                 }
 
                 const toggleFolder = folderRes.rows[0];
                 if (session.role !== 'admin' && toggleFolder.owner_id !== session.id) {
-                    return forbidden();
+                    if (!(await isGestorOf(client, session.id, toggleFolder.workspace_id))) {
+                        return forbidden();
+                    }
                 }
 
                 let token = null;
@@ -65,14 +68,16 @@ export async function POST(
             const { dashboardIds } = body; // Array of dashboard IDs to grant access to
 
             // 1. Check if folder exists and user has permission (Owner or Admin)
-            const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);
+            const folderRes = await client.query('SELECT name, owner_id, workspace_id FROM folders WHERE id = $1', [id]);
             if (folderRes.rows.length === 0) {
                 return notFound('Folder not found');
             }
 
             folder = folderRes.rows[0];
             if (session.role !== 'admin' && folder.owner_id !== session.id) {
-                return forbidden();
+                if (!(await isGestorOf(client, session.id, folder.workspace_id))) {
+                    return forbidden();
+                }
             }
 
             // 2. Find target user

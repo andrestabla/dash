@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { unauthorized, forbidden, badRequest, serverError } from '@/lib/api-error';
+import { gestorClause } from '@/lib/workspace-access';
 
 export async function GET(
     request: Request,
@@ -23,7 +24,7 @@ export async function GET(
                 : `SELECT d.id FROM dashboards d
                    LEFT JOIN dashboard_user_permissions dc ON d.id = dc.dashboard_id
                    LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
-                   WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)
+                   WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2 OR ${gestorClause('d', '$2')})
                    GROUP BY d.id`;
 
             const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
@@ -77,10 +78,10 @@ export async function POST(
             // Check permissions
             const accessQuery = session.role === 'admin'
                 ? 'SELECT id FROM dashboards WHERE id = $1'
-                : `SELECT d.id FROM dashboards d 
-                   LEFT JOIN dashboard_user_permissions dc ON d.id = dc.dashboard_id 
+                : `SELECT d.id FROM dashboards d
+                   LEFT JOIN dashboard_user_permissions dc ON d.id = dc.dashboard_id
                    LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
-                   WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)
+                   WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2 OR ${gestorClause('d', '$2')})
                    GROUP BY d.id`;
 
             const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];

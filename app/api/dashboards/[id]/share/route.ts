@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { unauthorized, forbidden, notFound, badRequest, serverError } from '@/lib/api-error';
+import { isGestorOf } from '@/lib/workspace-access';
 
 export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
@@ -16,7 +17,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
         const client = await pool.connect();
         try {
             const dashRes = await client.query(
-                'SELECT owner_id, folder_id FROM dashboards WHERE id = $1',
+                'SELECT owner_id, folder_id, workspace_id FROM dashboards WHERE id = $1',
                 [dashboardId]
             );
             if (dashRes.rows.length === 0) {
@@ -26,7 +27,11 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
             const isAdmin = session.role === 'admin';
             const isOwner = dashboard.owner_id === session.id;
-            const canManage = isAdmin || isOwner;
+            // A gestor governs every dashboard in their workspace.
+            const isGestor = (!isAdmin && !isOwner)
+                ? await isGestorOf(client, session.id, dashboard.workspace_id)
+                : false;
+            const canManage = isAdmin || isOwner || isGestor;
 
             // Publishing and granting/revoking access are owner/admin only —
             // a viewer-level collaborator must not be able to escalate sharing.

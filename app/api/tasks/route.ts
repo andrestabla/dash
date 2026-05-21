@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { publishDashboardRealtime } from '@/lib/realtime';
 import { unauthorized, badRequest, forbidden, notFound, serverError } from '@/lib/api-error';
+import { gestorClause } from '@/lib/workspace-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,11 +27,12 @@ export async function GET(request: Request) {
             // Check Access to specific dashboard
             const accessQuery = session.role === 'admin'
                 ? 'SELECT id FROM dashboards WHERE id = $1'
-                : `SELECT id FROM dashboards d 
+                : `SELECT id FROM dashboards d
                    WHERE id = $1 AND (
-                       owner_id = $2 OR 
+                       owner_id = $2 OR
                        EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
-                       EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+                       EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2) OR
+                       ${gestorClause('d', '$2')}
                    )`;
 
             const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
@@ -56,12 +58,13 @@ export async function GET(request: Request) {
                         UNION ALL
                         SELECT f.id FROM folders f JOIN subfolders sf ON f.parent_id = sf.id
                     )
-                    SELECT d.id FROM dashboards d 
-                    WHERE d.folder_id IN (SELECT id FROM subfolders) 
+                    SELECT d.id FROM dashboards d
+                    WHERE d.folder_id IN (SELECT id FROM subfolders)
                     AND (
-                        d.owner_id = $2 OR 
+                        d.owner_id = $2 OR
                         EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
-                        EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+                        EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2) OR
+                        ${gestorClause('d', '$2')}
                     )`;
 
             const dashParams = session.role === 'admin' ? [folderId] : [folderId, session.id];
@@ -79,10 +82,11 @@ export async function GET(request: Request) {
             // GLOBAL Consolidated (Everything accessible to the user across ALL folders)
             const dashQuery = session.role === 'admin'
                 ? 'SELECT id FROM dashboards'
-                : `SELECT d.id FROM dashboards d 
-                   WHERE d.owner_id = $1 OR 
+                : `SELECT d.id FROM dashboards d
+                   WHERE d.owner_id = $1 OR
                    EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $1) OR
-                   EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $1)`;
+                   EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $1) OR
+                   ${gestorClause('d', '$1')}`;
 
             const dashParams = session.role === 'admin' ? [] : [session.id];
             const dashResult = await client.query(dashQuery, dashParams);
@@ -155,11 +159,12 @@ export async function POST(request: Request) {
         // Check Permission
         const accessQuery = session.role === 'admin'
             ? 'SELECT id FROM dashboards WHERE id = $1'
-            : `SELECT id FROM dashboards d 
+            : `SELECT id FROM dashboards d
                WHERE id = $1 AND (
-                   owner_id = $2 OR 
+                   owner_id = $2 OR
                    EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
-                   EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+                   EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2) OR
+                   ${gestorClause('d', '$2')}
                )`;
 
         const accessParams = session.role === 'admin' ? [dashboard_id] : [dashboard_id, session.id];
@@ -283,11 +288,12 @@ export async function DELETE(request: Request) {
         // Check Permission
         const accessQuery = session.role === 'admin'
             ? 'SELECT id FROM dashboards WHERE id = $1'
-            : `SELECT id FROM dashboards d 
+            : `SELECT id FROM dashboards d
                WHERE id = $1 AND (
-                   owner_id = $2 OR 
+                   owner_id = $2 OR
                    EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
-                   EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+                   EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2) OR
+                   ${gestorClause('d', '$2')}
                )`;
 
         const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];

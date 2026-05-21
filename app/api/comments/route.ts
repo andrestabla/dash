@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { unauthorized, forbidden, notFound, badRequest, serverError } from '@/lib/api-error';
+import { gestorClause } from '@/lib/workspace-access';
 
 // Resolves whether the session user may access the dashboard a task belongs to.
 async function resolveTaskAccess(client: PoolClient, session: any, taskId: string) {
@@ -21,7 +22,8 @@ async function resolveTaskAccess(client: PoolClient, session: any, taskId: strin
          WHERE d.id = $1 AND (
              d.owner_id = $2 OR
              EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
-             EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+             EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2) OR
+             ${gestorClause('d', '$2')}
          )`,
         [dashboardId, session.id]
     );
@@ -205,17 +207,19 @@ export async function DELETE(request: Request) {
             const isAuthor = comment.user_email === session.email;
             const isAdmin = session.role === 'admin';
 
-            // The dashboard owner may moderate comments on their own board.
-            let isDashboardOwner = false;
+            // The dashboard owner — or a gestor of its workspace — may
+            // moderate comments on that board.
+            let canModerate = false;
             if (!isAuthor && !isAdmin && access.dashboardId) {
-                const ownerRes = await client.query(
-                    'SELECT 1 FROM dashboards WHERE id = $1 AND owner_id = $2',
+                const modRes = await client.query(
+                    `SELECT 1 FROM dashboards d
+                     WHERE d.id = $1 AND (d.owner_id = $2 OR ${gestorClause('d', '$2')})`,
                     [access.dashboardId, session.id]
                 );
-                isDashboardOwner = ownerRes.rows.length > 0;
+                canModerate = modRes.rows.length > 0;
             }
 
-            if (!isAuthor && !isAdmin && !isDashboardOwner) {
+            if (!isAuthor && !isAdmin && !canModerate) {
                 return forbidden('Access denied');
             }
 
