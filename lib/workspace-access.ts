@@ -72,3 +72,25 @@ export async function canGovernWorkspace(client: PoolClient, session: AccessSess
     if (session?.role === 'admin') return true;
     return isGestorOf(client, session.id, workspaceId);
 }
+
+/**
+ * True when the user may read a dashboard: admin, owner, a collaborator
+ * (direct or via the parent folder), or a gestor of its workspace.
+ */
+export async function canAccessDashboard(client: PoolClient, session: AccessSession, dashboardId: string): Promise<boolean> {
+    if (session?.role === 'admin') {
+        const r = await client.query('SELECT 1 FROM dashboards WHERE id = $1', [dashboardId]);
+        return r.rows.length > 0;
+    }
+    const r = await client.query(
+        `SELECT 1 FROM dashboards d
+         WHERE d.id = $1 AND (
+             d.owner_id = $2
+             OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2)
+             OR EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+             OR ${gestorClause('d', '$2')}
+         )`,
+        [dashboardId, session.id]
+    );
+    return r.rows.length > 0;
+}

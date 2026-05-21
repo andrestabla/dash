@@ -26,10 +26,16 @@ let serverProcess = null;
 const fixture = {
     owner: { email: '', password: '', id: '' },
     collaborator: { email: '', password: '', id: '' },
+    outsider: { email: '', password: '', id: '' },
     folderId: '',
     dashboardId: '',
+    ownerCookie: '',
     collaboratorCookie: '',
+    outsiderCookie: '',
 };
+
+// A syntactically valid Pusher socket id (the auth endpoint only signs it).
+const FAKE_SOCKET_ID = '123456.7891011';
 
 async function waitForServer() {
     for (let i = 0; i < 60; i += 1) {
@@ -85,12 +91,39 @@ async function loginAndGetCookie(email, password) {
     return setCookie.split(';')[0];
 }
 
+// POST a Pusher private-channel authorization request, mirroring pusher-js.
+async function requestChannelAuth(channelName, cookie) {
+    const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    if (cookie) headers.Cookie = cookie;
+    return fetch(`${BASE_URL}/api/pusher/auth`, {
+        method: 'POST',
+        headers,
+        body: new URLSearchParams({
+            socket_id: FAKE_SOCKET_ID,
+            channel_name: channelName,
+        }).toString(),
+    });
+}
+
+async function getRealtimeMetrics(cookie) {
+    const res = await fetch(`${BASE_URL}/api/admin/realtime/metrics`, {
+        headers: { Cookie: cookie },
+    });
+    const text = await res.text();
+    assert.equal(res.status, 200, `Metrics fetch failed: ${text}`);
+    const body = JSON.parse(text);
+    assert.ok(body.realtime, 'Expected realtime metrics payload');
+    return body.realtime;
+}
+
 async function setupFixture() {
     const suffix = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
     fixture.owner.email = `e2e_rt_owner_${suffix}@example.com`;
     fixture.owner.password = `Owner_${suffix}_Pwd123`;
     fixture.collaborator.email = `e2e_rt_collab_${suffix}@example.com`;
     fixture.collaborator.password = `Collab_${suffix}_Pwd123`;
+    fixture.outsider.email = `e2e_rt_outsider_${suffix}@example.com`;
+    fixture.outsider.password = `Outsider_${suffix}_Pwd123`;
 
     const client = await pool.connect();
     try {
@@ -98,10 +131,12 @@ async function setupFixture() {
 
         const ownerHash = await bcrypt.hash(fixture.owner.password, 10);
         const collabHash = await bcrypt.hash(fixture.collaborator.password, 10);
+        const outsiderHash = await bcrypt.hash(fixture.outsider.password, 10);
 
+        // Owner is an admin so the test can read the realtime metrics endpoint.
         const ownerRes = await client.query(
             `INSERT INTO users (email, password, name, status, role, accepted_privacy_policy)
-             VALUES ($1, $2, $3, 'active', 'user', TRUE)
+             VALUES ($1, $2, $3, 'active', 'admin', TRUE)
              RETURNING id`,
             [fixture.owner.email, ownerHash, 'RT Owner']
         );
@@ -114,6 +149,14 @@ async function setupFixture() {
             [fixture.collaborator.email, collabHash, 'RT Collaborator']
         );
         fixture.collaborator.id = collabRes.rows[0].id;
+
+        const outsiderRes = await client.query(
+            `INSERT INTO users (email, password, name, status, role, accepted_privacy_policy)
+             VALUES ($1, $2, $3, 'active', 'user', TRUE)
+             RETURNING id`,
+            [fixture.outsider.email, outsiderHash, 'RT Outsider']
+        );
+        fixture.outsider.id = outsiderRes.rows[0].id;
 
         const folderRes = await client.query(
             `INSERT INTO folders (name, owner_id)
@@ -151,7 +194,9 @@ async function setupFixture() {
         client.release();
     }
 
+    fixture.ownerCookie = await loginAndGetCookie(fixture.owner.email, fixture.owner.password);
     fixture.collaboratorCookie = await loginAndGetCookie(fixture.collaborator.email, fixture.collaborator.password);
+    fixture.outsiderCookie = await loginAndGetCookie(fixture.outsider.email, fixture.outsider.password);
 }
 
 async function cleanupFixture() {
@@ -166,13 +211,10 @@ async function cleanupFixture() {
         if (fixture.folderId) {
             await client.query('DELETE FROM folders WHERE id = $1', [fixture.folderId]);
         }
-        if (fixture.owner.id) {
-            await client.query('DELETE FROM login_attempts WHERE email = $1', [fixture.owner.email.toLowerCase()]);
-            await client.query('DELETE FROM users WHERE id = $1', [fixture.owner.id]);
-        }
-        if (fixture.collaborator.id) {
-            await client.query('DELETE FROM login_attempts WHERE email = $1', [fixture.collaborator.email.toLowerCase()]);
-            await client.query('DELETE FROM users WHERE id = $1', [fixture.collaborator.id]);
+        for (const account of [fixture.owner, fixture.collaborator, fixture.outsider]) {
+            if (!account.id) continue;
+            await client.query('DELETE FROM login_attempts WHERE email = $1', [account.email.toLowerCase()]);
+            await client.query('DELETE FROM users WHERE id = $1', [account.id]);
         }
         await client.query('COMMIT');
     } catch (error) {
@@ -181,56 +223,6 @@ async function cleanupFixture() {
     } finally {
         client.release();
     }
-}
-
-function waitForRealtimeUpdateEvent(stream, timeoutMs = 12000) {
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            reader.cancel().catch(() => {});
-            reject(new Error('Timed out waiting for realtime update event'));
-        }, timeoutMs);
-
-        const readLoop = async () => {
-            try {
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-
-                    const chunks = buffer.split('\n\n');
-                    buffer = chunks.pop() || '';
-                    for (const chunk of chunks) {
-                        const eventMatch = chunk.match(/event:\s*(.+)/);
-                        const dataMatch = chunk.match(/data:\s*(.+)/);
-                        const eventName = eventMatch?.[1]?.trim();
-                        const dataJson = dataMatch?.[1];
-                        if (!eventName || !dataJson) continue;
-                        let data = null;
-                        try {
-                            data = JSON.parse(dataJson);
-                        } catch {
-                            continue;
-                        }
-                        if (eventName === 'update' && data?.event === 'tasks_changed') {
-                            clearTimeout(timeout);
-                            reader.cancel().catch(() => {});
-                            resolve(data);
-                            return;
-                        }
-                    }
-                }
-            } catch (error) {
-                clearTimeout(timeout);
-                reject(error);
-            }
-        };
-
-        void readLoop();
-    });
 }
 
 before(async () => {
@@ -244,29 +236,48 @@ after(async () => {
     await pool.end();
 });
 
-test('propaga cambios de tareas en tiempo real entre dos usuarios del mismo tablero', { timeout: 30_000 }, async () => {
-    const ownerCookie = await loginAndGetCookie(fixture.owner.email, fixture.owner.password);
-    const controller = new AbortController();
+test('autoriza la suscripción al canal privado del tablero para usuarios con acceso', async () => {
+    const channel = `private-dashboard-${fixture.dashboardId}`;
 
-    const sseRes = await fetch(`${BASE_URL}/api/realtime/dashboard/${fixture.dashboardId}`, {
-        headers: {
-            Cookie: fixture.collaboratorCookie,
-            Accept: 'text/event-stream',
-        },
-        signal: controller.signal
-    });
-    assert.equal(sseRes.status, 200, `Unexpected SSE status: ${sseRes.status}`);
-    assert.ok(sseRes.body, 'Expected SSE response body');
+    const collabRes = await requestChannelAuth(channel, fixture.collaboratorCookie);
+    const collabText = await collabRes.text();
+    assert.equal(collabRes.status, 200, `Collaborator auth failed: ${collabText}`);
+    const collabBody = JSON.parse(collabText);
+    assert.ok(typeof collabBody.auth === 'string' && collabBody.auth.includes(':'),
+        'Expected a "key:signature" auth token for the collaborator');
 
-    const eventPromise = waitForRealtimeUpdateEvent(sseRes.body).finally(() => {
-        controller.abort();
-    });
+    const ownerRes = await requestChannelAuth(channel, fixture.ownerCookie);
+    const ownerText = await ownerRes.text();
+    assert.equal(ownerRes.status, 200, `Owner auth failed: ${ownerText}`);
+    const ownerBody = JSON.parse(ownerText);
+    assert.ok(typeof ownerBody.auth === 'string' && ownerBody.auth.includes(':'),
+        'Expected a "key:signature" auth token for the owner');
+});
+
+test('rechaza la autorización del canal a usuarios sin acceso o sin sesión', async () => {
+    const channel = `private-dashboard-${fixture.dashboardId}`;
+
+    // Authenticated, but not a collaborator of this dashboard.
+    const outsiderRes = await requestChannelAuth(channel, fixture.outsiderCookie);
+    assert.equal(outsiderRes.status, 403, 'Outsider must not be authorized for the channel');
+
+    // No session at all.
+    const anonRes = await requestChannelAuth(channel, '');
+    assert.equal(anonRes.status, 401, 'Unauthenticated request must be rejected');
+
+    // Authenticated, but a channel name outside the dashboard namespace.
+    const badChannelRes = await requestChannelAuth('private-secret-stuff', fixture.collaboratorCookie);
+    assert.equal(badChannelRes.status, 400, 'Channel outside the dashboard namespace must be rejected');
+});
+
+test('publica un evento realtime en Pusher al crear una tarea', async () => {
+    const before = await getRealtimeMetrics(fixture.ownerCookie);
 
     const createTaskRes = await fetch(`${BASE_URL}/api/tasks`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            Cookie: ownerCookie
+            Cookie: fixture.ownerCookie,
         },
         body: JSON.stringify({
             name: 'Task from owner for realtime',
@@ -278,12 +289,19 @@ test('propaga cambios de tareas en tiempo real entre dos usuarios del mismo tabl
             gate: 'A',
             due: '2026-12-01',
             desc: 'Realtime propagation test',
-            dashboard_id: fixture.dashboardId
-        })
+            dashboard_id: fixture.dashboardId,
+        }),
     });
     assert.equal(createTaskRes.status, 201, `Task creation failed: ${await createTaskRes.text()}`);
 
-    const updateData = await eventPromise;
-    assert.equal(updateData.dashboardId, fixture.dashboardId);
-    assert.equal(updateData.event, 'tasks_changed');
+    const after = await getRealtimeMetrics(fixture.ownerCookie);
+
+    // The write path awaits publishDashboardRealtime, so by the time the
+    // response returns the Pusher trigger has completed (success or error).
+    assert.ok(after.publishedEvents > before.publishedEvents,
+        `Expected publishedEvents to grow (before=${before.publishedEvents}, after=${after.publishedEvents})`);
+    assert.equal(after.publishErrors, before.publishErrors,
+        `Pusher trigger reported an error (before=${before.publishErrors}, after=${after.publishErrors})`);
+    assert.ok(typeof after.lastEventAt === 'number' && after.lastEventAt >= before.lastEventAt - 1,
+        'Expected lastEventAt to be updated after publishing');
 });
