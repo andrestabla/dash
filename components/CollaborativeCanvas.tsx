@@ -89,7 +89,8 @@ const MIN_NODE_SIZE = 40;
 const HISTORY_LIMIT = 50;
 const HISTORY_COALESCE_MS = 500;
 const DUPLICATE_OFFSET = 28;
-const COMMENT_WIDTH = 190;
+const COMMENT_WIDTH = 220;
+const MAX_COMMENT_IMAGE_DIM = 900;
 
 type LucideIcon = typeof SquareIcon;
 
@@ -328,6 +329,33 @@ function isTypingTarget(): boolean {
     return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement).isContentEditable;
 }
 
+// Reads an image file, downscales it (so the canvas document stays light) and
+// returns a JPEG data URL.
+function fileToScaledDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('read failed'));
+        reader.onload = () => {
+            const img = new Image();
+            img.onerror = () => reject(new Error('decode failed'));
+            img.onload = () => {
+                const scale = Math.min(1, MAX_COMMENT_IMAGE_DIM / Math.max(img.width, img.height));
+                const w = Math.max(1, Math.round(img.width * scale));
+                const h = Math.max(1, Math.round(img.height * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) { reject(new Error('no ctx')); return; }
+                ctx.drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', 0.82));
+            };
+            img.src = reader.result as string;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 const RESIZE_CORNERS: Array<{ corner: ResizeCorner; cursor: string }> = [
     { corner: 'nw', cursor: 'nwse-resize' },
     { corner: 'ne', cursor: 'nesw-resize' },
@@ -346,6 +374,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [editingNodeContent, setEditingNodeContent] = useState('');
     const [editingCommentNodeId, setEditingCommentNodeId] = useState<string | null>(null);
     const [editingCommentText, setEditingCommentText] = useState('');
+    const [editingCommentImage, setEditingCommentImage] = useState<string | undefined>(undefined);
 
     // Viewport state (Phase 1).
     const [zoom, setZoom] = useState(1);
@@ -364,6 +393,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const resizeRef = useRef<ResizeState | null>(null);
     const marqueeRef = useRef<MarqueeState | null>(null);
     const viewportRef = useRef<HTMLDivElement | null>(null);
+    const commentFileInputRef = useRef<HTMLInputElement | null>(null);
     const zoomRef = useRef(1);
     const panRef = useRef<CanvasPoint>({ x: 0, y: 0 });
     const isSpaceDownRef = useRef(false);
@@ -762,19 +792,49 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         if (readOnly) return;
         setEditingCommentNodeId(node.id);
         setEditingCommentText(node.comment ?? '');
+        setEditingCommentImage(node.commentImage);
+    };
+
+    const cancelCommentEdit = () => {
+        setEditingCommentNodeId(null);
+        setEditingCommentImage(undefined);
     };
 
     const finishCommentEdit = () => {
         const id = editingCommentNodeId;
         if (!id) return;
         const text = editingCommentText.trim();
+        const image = editingCommentImage;
         const next = cloneDocument(localDocRef.current);
         next.nodes = next.nodes.map((node) => node.id === id
-            ? { ...node, comment: text ? text : undefined }
+            ? { ...node, comment: text ? text : undefined, commentImage: image || undefined }
             : node
         );
         commitWithHistory(next);
         setEditingCommentNodeId(null);
+        setEditingCommentImage(undefined);
+    };
+
+    const handleCommentImageFile = (file: File | null | undefined) => {
+        if (!file || !file.type.startsWith('image/')) return;
+        fileToScaledDataUrl(file)
+            .then((url) => setEditingCommentImage(url))
+            .catch(() => { /* ignore unreadable images */ });
+    };
+
+    const onCommentPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const items = event.clipboardData?.items;
+        if (!items) return;
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) {
+                    event.preventDefault();
+                    handleCommentImageFile(file);
+                }
+                return;
+            }
+        }
     };
 
     const startPan = (clientX: number, clientY: number) => {
@@ -1228,6 +1288,16 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 12, height: '100%', minHeight: 560 }}>
+            <input
+                ref={commentFileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(event) => {
+                    handleCommentImageFile(event.target.files?.[0]);
+                    event.target.value = '';
+                }}
+            />
             <div
                 ref={viewportRef}
                 onMouseDown={onViewportMouseDown}
@@ -1473,10 +1543,11 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             );
                         })}
 
-                        {/* On-canvas comment notes */}
+                        {/* On-canvas comment notes (text and/or image) */}
                         {visibleNodes.map((node) => {
                             const isEditingComment = editingCommentNodeId === node.id;
-                            if (node.comment === undefined && !isEditingComment) return null;
+                            const hasContent = node.comment !== undefined || node.commentImage !== undefined;
+                            if (!hasContent && !isEditingComment) return null;
                             const left = node.position.x + node.size.width + 14;
                             const top = node.position.y;
                             return (
@@ -1500,40 +1571,96 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     }}
                                 >
                                     {isEditingComment ? (
-                                        <textarea
-                                            autoFocus
-                                            value={editingCommentText}
-                                            onChange={(event) => setEditingCommentText(event.target.value)}
-                                            onBlur={finishCommentEdit}
-                                            onKeyDown={(event) => {
-                                                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-                                                    event.preventDefault();
-                                                    finishCommentEdit();
-                                                }
-                                                if (event.key === 'Escape') {
-                                                    event.preventDefault();
-                                                    setEditingCommentNodeId(null);
-                                                }
-                                            }}
-                                            placeholder="Escribe un comentario…"
-                                            style={{
-                                                width: '100%',
-                                                minHeight: 56,
-                                                background: 'transparent',
-                                                border: 'none',
-                                                outline: 'none',
-                                                resize: 'none',
-                                                fontSize: 12,
-                                                color: '#0f172a',
-                                                fontFamily: 'inherit'
-                                            }}
-                                        />
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            {editingCommentImage && (
+                                                <div style={{ position: 'relative' }}>
+                                                    <img
+                                                        src={editingCommentImage}
+                                                        alt="Comentario"
+                                                        style={{ width: '100%', borderRadius: 6, display: 'block' }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingCommentImage(undefined)}
+                                                        title="Quitar imagen"
+                                                        style={{
+                                                            position: 'absolute', top: 4, right: 4,
+                                                            width: 20, height: 20, borderRadius: '9999px',
+                                                            border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff',
+                                                            cursor: 'pointer', fontSize: 12, lineHeight: 1
+                                                        }}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <textarea
+                                                autoFocus
+                                                value={editingCommentText}
+                                                onChange={(event) => setEditingCommentText(event.target.value)}
+                                                onPaste={onCommentPaste}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === 'Escape') {
+                                                        event.preventDefault();
+                                                        cancelCommentEdit();
+                                                    }
+                                                }}
+                                                placeholder="Escribe un comentario o pega una imagen…"
+                                                style={{
+                                                    width: '100%',
+                                                    minHeight: 48,
+                                                    background: 'rgba(255,255,255,0.6)',
+                                                    border: '1px solid #fde047',
+                                                    borderRadius: 6,
+                                                    outline: 'none',
+                                                    resize: 'none',
+                                                    fontSize: 12,
+                                                    color: '#0f172a',
+                                                    fontFamily: 'inherit',
+                                                    padding: 6
+                                                }}
+                                            />
+                                            <div style={{ display: 'flex', gap: 6 }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => commentFileInputRef.current?.click()}
+                                                    style={{ flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: '1px solid #d6d3a8', background: '#fff' }}
+                                                >
+                                                    📎 Imagen
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={finishCommentEdit}
+                                                    style={{ flex: 1, padding: '5px 0', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer', border: '1px solid #2563eb', background: '#2563eb', color: '#fff' }}
+                                                >
+                                                    Guardar
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={cancelCommentEdit}
+                                                    style={{ flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: '1px solid #d6d3a8', background: '#fff' }}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                        </div>
                                     ) : (
                                         <div
                                             onClick={() => startCommentEdit(node)}
-                                            style={{ whiteSpace: 'pre-wrap', cursor: readOnly ? 'default' : 'text', minHeight: 16 }}
+                                            style={{ cursor: readOnly ? 'default' : 'pointer' }}
                                         >
-                                            <span style={{ marginRight: 4 }}>💬</span>{node.comment}
+                                            {node.commentImage && (
+                                                <img
+                                                    src={node.commentImage}
+                                                    alt="Comentario"
+                                                    style={{ width: '100%', borderRadius: 6, display: 'block', marginBottom: node.comment ? 6 : 0 }}
+                                                />
+                                            )}
+                                            {node.comment && (
+                                                <div style={{ whiteSpace: 'pre-wrap' }}>
+                                                    <span style={{ marginRight: 4 }}>💬</span>{node.comment}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
