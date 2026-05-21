@@ -109,7 +109,7 @@ export async function POST(request: Request) {
             }
 
             await client.query('COMMIT');
-            publishDashboardRealtime(String(newDash.id), 'dashboard_changed');
+            await publishDashboardRealtime(String(newDash.id), 'dashboard_changed');
             return NextResponse.json(newDash, { status: 201 });
         } catch (e) {
             await client.query('ROLLBACK');
@@ -192,7 +192,7 @@ export async function PUT(request: Request) {
                 'UPDATE dashboards SET name = $1, description = $2, settings = $3, start_date = $4, end_date = $5, is_demo = $6 WHERE id = $7 RETURNING *',
                 [name, nextDescription, normalizedSettings, nextStartDate, nextEndDate, nextIsDemo, id]
             );
-            publishDashboardRealtime(String(id), 'dashboard_changed');
+            await publishDashboardRealtime(String(id), 'dashboard_changed');
 
             return NextResponse.json(result.rows[0]);
         } finally {
@@ -234,7 +234,7 @@ export async function DELETE(request: Request) {
             }
 
             const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
-            publishDashboardRealtime(String(id), 'dashboard_deleted');
+            await publishDashboardRealtime(String(id), 'dashboard_deleted');
 
             return NextResponse.json({ success: true, id });
         } finally {

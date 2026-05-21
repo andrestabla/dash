@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, use, useRef } from "react";
 import Link from 'next/link';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import Pusher from 'pusher-js';
 import { useToast } from "@/components/ToastProvider";
 
 import ConfirmModal from "@/components/ConfirmModal";
@@ -607,20 +608,29 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         };
     }, [dashboardId, isModalOpen, isSettingsOpen, isColModalOpen]);
 
-    // True realtime channel for board updates (SSE).
+    // Realtime board updates via Pusher Channels. Each board subscribes to its
+    // own private channel; any write elsewhere triggers an 'update' here.
     useEffect(() => {
-        if (!dashboardId) return;
-        if (typeof window === 'undefined') return;
+        if (!dashboardId || typeof window === 'undefined') return;
+        const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
+        if (!key) return;
 
-        const source = new EventSource(`/api/realtime/dashboard/${dashboardId}`);
+        const pusher = new Pusher(key, {
+            cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'us2',
+            channelAuthorization: { endpoint: '/api/pusher/auth', transport: 'ajax' },
+        });
+        const channelName = `private-dashboard-${dashboardId}`;
+        const channel = pusher.subscribe(channelName);
 
-        source.addEventListener('update', () => {
+        channel.bind('update', () => {
             if (isModalOpenRef.current || isSettingsOpenRef.current || isColModalOpenRef.current) return;
             void Promise.all([loadTasks(), loadDashboardSettings()]);
         });
 
         return () => {
-            source.close();
+            channel.unbind_all();
+            pusher.unsubscribe(channelName);
+            pusher.disconnect();
         };
     }, [dashboardId]);
 
