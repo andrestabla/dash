@@ -66,6 +66,8 @@ export interface CanvasEdge {
     endArrow?: boolean;
     // When true the connector is drawn with a dashed stroke.
     dashed?: boolean;
+    // Stroke color. When undefined the connector uses the default neutral color.
+    stroke?: string;
 }
 
 export interface CanvasDocument {
@@ -279,7 +281,8 @@ function normalizeEdge(inputEdge: unknown, nodesById: Map<string, CanvasNode>): 
         comment: typeof edge.comment === 'string' ? edge.comment : undefined,
         startArrow: typeof edge.startArrow === 'boolean' ? edge.startArrow : false,
         endArrow: typeof edge.endArrow === 'boolean' ? edge.endArrow : true,
-        dashed: edge.dashed === true ? true : undefined
+        dashed: edge.dashed === true ? true : undefined,
+        stroke: typeof edge.stroke === 'string' ? edge.stroke : undefined
     };
 }
 

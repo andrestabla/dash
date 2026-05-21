@@ -24,7 +24,7 @@ import {
     DoorOpen
 } from 'lucide-react';
 import UserTour from "@/components/UserTour";
-import CanvasReadOnly from "@/components/CanvasReadOnly";
+import CollaborativeCanvas from "@/components/CollaborativeCanvas";
 import { getDashboardKind, normalizeCanvasDocument, type CanvasDocument, type DashboardKind } from "@/lib/canvas";
 
 interface Task {
@@ -82,6 +82,12 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     const [filters, setFilters] = useState({ search: "", week: "", owner: "" });
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTourOpen, setIsTourOpen] = useState(true);
+
+    // Stable canvas document so the read-only viewer keeps its local fold state.
+    const canvasDocument = useMemo(
+        () => normalizeCanvasDocument(settings?.canvas ?? null, dashboardName || 'Idea Principal'),
+        [settings?.canvas, dashboardName]
+    );
 
     useEffect(() => {
         // Enforce light mode cleanup on mount
@@ -280,10 +286,17 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-slate-800 font-bold">Canvas colaborativo (solo lectura)</h3>
                 <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
-                    {settings?.canvas?.nodes?.length || 0} nodos
+                    {canvasDocument.nodes.length} nodos
                 </span>
             </div>
-            <CanvasReadOnly document={settings?.canvas || normalizeCanvasDocument(null, dashboardName || 'Idea Principal')} />
+            <div style={{ height: 'calc(100vh - 260px)', minHeight: 520 }}>
+                <CollaborativeCanvas
+                    canvasDocument={canvasDocument}
+                    onChange={() => { /* read-only: viewers never persist */ }}
+                    readOnly
+                    accentColor={settings?.color || '#2563eb'}
+                />
+            </div>
         </div>
     );
 
