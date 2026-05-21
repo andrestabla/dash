@@ -5,11 +5,12 @@ import { pusherServer } from '@/lib/pusher-server';
 import { canAccessDashboard } from '@/lib/workspace-access';
 import { unauthorized, forbidden, badRequest } from '@/lib/api-error';
 
-const PREFIX = 'private-dashboard-';
+const PREFIX = 'presence-dashboard-';
 
-// POST /api/pusher/auth — Pusher private-channel authorization.
-// pusher-js calls this before subscribing to `private-dashboard-{id}`; access
-// is granted only if the session user may read that dashboard.
+// POST /api/pusher/auth — Pusher presence-channel authorization.
+// pusher-js calls this before subscribing to `presence-dashboard-{id}`; access
+// is granted only if the session user may read that dashboard. The presence
+// payload (id + name) lets collaborators see who else has the board open.
 export async function POST(request: Request) {
     const session = await getSession() as any;
     if (!session) return unauthorized();
@@ -33,6 +34,12 @@ export async function POST(request: Request) {
         client.release();
     }
 
-    const authResponse = pusherServer.authorizeChannel(socketId, channel);
+    const authResponse = pusherServer.authorizeChannel(socketId, channel, {
+        user_id: String(session.id),
+        user_info: {
+            name: session.name || session.email || 'Usuario',
+            email: session.email || '',
+        },
+    });
     return NextResponse.json(authResponse);
 }
