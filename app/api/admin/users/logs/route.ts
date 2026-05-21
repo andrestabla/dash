@@ -18,24 +18,26 @@ export async function GET(request: Request) {
         }
 
         const client = await pool.connect();
+        try {
+            // Fetch logs and join with users to get the name of who performed the action
+            const result = await client.query(`
+                SELECT
+                    al.id,
+                    al.action,
+                    al.details,
+                    al.created_at,
+                    u.email as performed_by_email,
+                    u.name as performed_by_name
+                FROM audit_logs al
+                LEFT JOIN users u ON al.performed_by = u.id
+                WHERE al.user_id = $1
+                ORDER BY al.created_at DESC
+            `, [userId]);
 
-        // Fetch logs and join with users to get the name of who performed the action
-        const result = await client.query(`
-            SELECT 
-                al.id, 
-                al.action, 
-                al.details, 
-                al.created_at,
-                u.email as performed_by_email,
-                u.name as performed_by_name
-            FROM audit_logs al
-            LEFT JOIN users u ON al.performed_by = u.id
-            WHERE al.user_id = $1
-            ORDER BY al.created_at DESC
-        `, [userId]);
-
-        client.release();
-        return NextResponse.json(result.rows);
+            return NextResponse.json(result.rows);
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error("Error fetching logs:", error);
         return serverError('Failed to fetch logs');

@@ -17,6 +17,7 @@ export async function GET(request: Request) {
 
     try {
         const client = await pool.connect();
+        try {
         const settings: Record<string, string> = {};
         const settingsRes = await client.query("SELECT key, value FROM system_settings WHERE key LIKE 'sso_%'");
         settingsRes.rows.forEach(row => {
@@ -24,7 +25,6 @@ export async function GET(request: Request) {
         });
 
         if (settings['sso_enabled'] !== 'true') {
-            client.release();
             return NextResponse.redirect(new URL('/login?error=SSO_DISABLED', request.url));
         }
 
@@ -103,7 +103,6 @@ export async function GET(request: Request) {
 
         const mockSsoUser = { email, name };
 
-        try {
             // 2. Check if user exists
             const userCheck = await client.query('SELECT * FROM users WHERE email = $1', [mockSsoUser.email]);
             let user = userCheck.rows[0];

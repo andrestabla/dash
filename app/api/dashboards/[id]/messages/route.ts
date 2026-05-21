@@ -16,36 +16,37 @@ export async function GET(
 
     try {
         const client = await pool.connect();
+        try {
+            // Check Permission
+            const accessQuery = session.role === 'admin'
+                ? 'SELECT id FROM dashboards WHERE id = $1'
+                : `SELECT d.id FROM dashboards d
+                   LEFT JOIN dashboard_user_permissions dc ON d.id = dc.dashboard_id
+                   LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
+                   WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)
+                   GROUP BY d.id`;
 
-        // Check Permission
-        const accessQuery = session.role === 'admin'
-            ? 'SELECT id FROM dashboards WHERE id = $1'
-            : `SELECT d.id FROM dashboards d 
-               LEFT JOIN dashboard_user_permissions dc ON d.id = dc.dashboard_id 
-               LEFT JOIN folder_collaborators fc ON d.folder_id = fc.folder_id
-               WHERE d.id = $1 AND (d.owner_id = $2 OR dc.user_id = $2 OR fc.user_id = $2)
-               GROUP BY d.id`;
+            const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
+            const accessCheck = await client.query(accessQuery, accessParams);
 
-        const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
-        const accessCheck = await client.query(accessQuery, accessParams);
+            if (accessCheck.rows.length === 0) {
+                return forbidden('Access denied');
+            }
 
-        if (accessCheck.rows.length === 0) {
+            // Fetch messages with user details
+            const res = await client.query(`
+                SELECT m.*, u.name as user_name, u.email as user_email
+                FROM dashboard_messages m
+                LEFT JOIN users u ON m.user_id = u.id
+                WHERE m.dashboard_id = $1
+                ORDER BY m.created_at ASC
+                LIMIT 100
+            `, [dashboardId]);
+
+            return NextResponse.json(res.rows);
+        } finally {
             client.release();
-            return forbidden('Access denied');
         }
-
-        // Fetch messages with user details
-        const res = await client.query(`
-            SELECT m.*, u.name as user_name, u.email as user_email
-            FROM dashboard_messages m
-            LEFT JOIN users u ON m.user_id = u.id
-            WHERE m.dashboard_id = $1
-            ORDER BY m.created_at ASC
-            LIMIT 100
-        `, [dashboardId]);
-
-        client.release();
-        return NextResponse.json(res.rows);
     } catch (error) {
         console.error("Chat fetch error:", error);
         return serverError('DB Error');

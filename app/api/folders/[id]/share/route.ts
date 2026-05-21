@@ -19,100 +19,99 @@ export async function POST(
 
         const client = await pool.connect();
 
-        // Handle toggle_public action for public link sharing
-        if (action === 'toggle_public') {
-            const { isPublic } = body;
+        let folder: any;
+        let targetUser: any;
+        let dashboardCount = 0;
+        try {
 
-            // Verify folder exists and user has permission
+            // Handle toggle_public action for public link sharing
+            if (action === 'toggle_public') {
+                const { isPublic } = body;
+
+                // Verify folder exists and user has permission
+                const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);
+                if (folderRes.rows.length === 0) {
+                    return notFound('Folder not found');
+                }
+
+                const toggleFolder = folderRes.rows[0];
+                if (session.role !== 'admin' && toggleFolder.owner_id !== session.id) {
+                    return forbidden();
+                }
+
+                let token = null;
+
+                if (isPublic) {
+                    // Generate token if not exists
+                    const res = await client.query('SELECT public_token FROM folders WHERE id = $1', [id]);
+                    token = res.rows[0]?.public_token;
+
+                    if (!token) {
+                        token = crypto.randomUUID();
+                        await client.query('UPDATE folders SET is_public = TRUE, public_token = $1 WHERE id = $2', [token, id]);
+                    } else {
+                        await client.query('UPDATE folders SET is_public = TRUE WHERE id = $1', [id]);
+                    }
+                } else {
+                    await client.query('UPDATE folders SET is_public = FALSE WHERE id = $1', [id]);
+                }
+
+                return NextResponse.json({ success: true, isPublic, token });
+            }
+
+            // Handle user collaboration sharing with dashboard selection
+            if (!email) return badRequest('Email is required');
+
+            const { dashboardIds } = body; // Array of dashboard IDs to grant access to
+
+            // 1. Check if folder exists and user has permission (Owner or Admin)
             const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);
             if (folderRes.rows.length === 0) {
-                client.release();
                 return notFound('Folder not found');
             }
 
-            const folder = folderRes.rows[0];
+            folder = folderRes.rows[0];
             if (session.role !== 'admin' && folder.owner_id !== session.id) {
-                client.release();
                 return forbidden();
             }
 
-            let token = null;
-
-            if (isPublic) {
-                // Generate token if not exists
-                const res = await client.query('SELECT public_token FROM folders WHERE id = $1', [id]);
-                token = res.rows[0]?.public_token;
-
-                if (!token) {
-                    token = crypto.randomUUID();
-                    await client.query('UPDATE folders SET is_public = TRUE, public_token = $1 WHERE id = $2', [token, id]);
-                } else {
-                    await client.query('UPDATE folders SET is_public = TRUE WHERE id = $1', [id]);
-                }
-            } else {
-                await client.query('UPDATE folders SET is_public = FALSE WHERE id = $1', [id]);
+            // 2. Find target user
+            const userRes = await client.query('SELECT id, name FROM users WHERE email = $1', [email]);
+            if (userRes.rows.length === 0) {
+                return notFound('User not found in system. They must be registered first.');
             }
+            targetUser = userRes.rows[0];
 
-            client.release();
-            return NextResponse.json({ success: true, isPublic, token });
-        }
+            // 3. Add to folder collaborators
+            await client.query(
+                'INSERT INTO folder_collaborators (folder_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT (folder_id, user_id) DO UPDATE SET role = EXCLUDED.role',
+                [id, targetUser.id, role || 'viewer']
+            );
 
-        // Handle user collaboration sharing with dashboard selection
-        if (!email) return badRequest('Email is required');
-
-        const { dashboardIds } = body; // Array of dashboard IDs to grant access to
-
-        // 1. Check if folder exists and user has permission (Owner or Admin)
-        const folderRes = await client.query('SELECT name, owner_id FROM folders WHERE id = $1', [id]);
-        if (folderRes.rows.length === 0) {
-            client.release();
-            return notFound('Folder not found');
-        }
-
-        const folder = folderRes.rows[0];
-        if (session.role !== 'admin' && folder.owner_id !== session.id) {
-            client.release();
-            return forbidden();
-        }
-
-        // 2. Find target user
-        const userRes = await client.query('SELECT id, name FROM users WHERE email = $1', [email]);
-        if (userRes.rows.length === 0) {
-            client.release();
-            return notFound('User not found in system. They must be registered first.');
-        }
-        const targetUser = userRes.rows[0];
-
-        // 3. Add to folder collaborators
-        await client.query(
-            'INSERT INTO folder_collaborators (folder_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT (folder_id, user_id) DO UPDATE SET role = EXCLUDED.role',
-            [id, targetUser.id, role || 'viewer']
-        );
-
-        // 4. Add dashboard-level permissions for selected dashboards
-        let dashboardCount = 0;
-        if (dashboardIds && Array.isArray(dashboardIds) && dashboardIds.length > 0) {
-            for (const dashboardId of dashboardIds) {
-                // Verify dashboard belongs to this folder
-                const dashRes = await client.query(
-                    'SELECT id FROM dashboards WHERE id = $1 AND folder_id = $2',
-                    [dashboardId, id]
-                );
-
-                if (dashRes.rows.length > 0) {
-                    // Add permission to dashboard_user_permissions table
-                    await client.query(
-                        `INSERT INTO dashboard_user_permissions (dashboard_id, user_id, granted_by, role)
-                         VALUES ($1, $2, $3, $4)
-                         ON CONFLICT (dashboard_id, user_id) DO UPDATE SET role = $4, granted_by = $3`,
-                        [dashboardId, targetUser.id, session.id, role || 'viewer']
+            // 4. Add dashboard-level permissions for selected dashboards
+            if (dashboardIds && Array.isArray(dashboardIds) && dashboardIds.length > 0) {
+                for (const dashboardId of dashboardIds) {
+                    // Verify dashboard belongs to this folder
+                    const dashRes = await client.query(
+                        'SELECT id FROM dashboards WHERE id = $1 AND folder_id = $2',
+                        [dashboardId, id]
                     );
-                    dashboardCount++;
+
+                    if (dashRes.rows.length > 0) {
+                        // Add permission to dashboard_user_permissions table
+                        await client.query(
+                            `INSERT INTO dashboard_user_permissions (dashboard_id, user_id, granted_by, role)
+                             VALUES ($1, $2, $3, $4)
+                             ON CONFLICT (dashboard_id, user_id) DO UPDATE SET role = $4, granted_by = $3`,
+                            [dashboardId, targetUser.id, session.id, role || 'viewer']
+                        );
+                        dashboardCount++;
+                    }
                 }
             }
+        } finally {
+            client.release();
         }
-
-        client.release();
 
         // 5. Send Notification if requested
         if (notify) {

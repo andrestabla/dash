@@ -13,26 +13,28 @@ export async function POST(request: Request) {
         if (!message) return badRequest('Message required');
 
         const client = await pool.connect();
+        try {
+            // Ensure table exists (Lazy Init)
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS support_tickets (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                    type VARCHAR(50) NOT NULL,
+                    message TEXT NOT NULL,
+                    status VARCHAR(50) DEFAULT 'open',
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                );
+            `);
 
-        // Ensure table exists (Lazy Init)
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS support_tickets (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-                type VARCHAR(50) NOT NULL,
-                message TEXT NOT NULL,
-                status VARCHAR(50) DEFAULT 'open',
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            await client.query(
+                "INSERT INTO support_tickets (user_id, type, message) VALUES ($1, $2, $3)",
+                [session.id, type, message]
             );
-        `);
 
-        await client.query(
-            "INSERT INTO support_tickets (user_id, type, message) VALUES ($1, $2, $3)",
-            [session.id, type, message]
-        );
-        client.release();
-
-        return NextResponse.json({ success: true });
+            return NextResponse.json({ success: true });
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error("Support ticket error", error);
         return serverError('Failed to create ticket');

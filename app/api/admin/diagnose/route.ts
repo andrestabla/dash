@@ -12,34 +12,35 @@ export async function GET() {
 
     try {
         const client = await pool.connect();
+        try {
+            // Check for 'name' column in users
+            const nameColumnCheck = await client.query(`
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = 'name'
+            `);
 
-        // Check for 'name' column in users
-        const nameColumnCheck = await client.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'users' AND column_name = 'name'
-        `);
+            // Check for 'audit_logs' table
+            const auditLogsCheck = await client.query(`
+                SELECT to_regclass('audit_logs') as exists
+            `);
 
-        // Check for 'audit_logs' table
-        const auditLogsCheck = await client.query(`
-            SELECT to_regclass('audit_logs') as exists
-        `);
+            // Check for 'created_at' in users (just to be sure)
+            const usersTableCheck = await client.query(`
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'users'
+            `);
 
-        // Check for 'created_at' in users (just to be sure)
-        const usersTableCheck = await client.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'users'
-        `);
-
-        client.release();
-
-        return NextResponse.json({
-            users_table_columns: usersTableCheck.rows.map(r => r.column_name),
-            has_name_column: nameColumnCheck.rows.length > 0,
-            has_audit_logs_table: !!auditLogsCheck.rows[0].exists,
-            database_connected: true
-        });
+            return NextResponse.json({
+                users_table_columns: usersTableCheck.rows.map(r => r.column_name),
+                has_name_column: nameColumnCheck.rows.length > 0,
+                has_audit_logs_table: !!auditLogsCheck.rows[0].exists,
+                database_connected: true
+            });
+        } finally {
+            client.release();
+        }
     } catch (error: any) {
         console.error('[AdminDiagnose] Database check failed:', error);
         return serverError('Database check failed');

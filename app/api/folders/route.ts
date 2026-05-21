@@ -9,26 +9,29 @@ export async function GET() {
 
     try {
         const client = await pool.connect();
+        try {
 
-        let query;
-        let params: any[] = [];
+            let query;
+            let params: any[] = [];
 
 
-        if (session.role === 'admin') {
-            query = 'SELECT * FROM folders ORDER BY name ASC';
-        } else {
-            query = `
-                SELECT f.* FROM folders f
-                WHERE f.owner_id = $1
-                OR f.id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
-                ORDER BY f.name ASC
-            `;
-            params = [session.id];
+            if (session.role === 'admin') {
+                query = 'SELECT * FROM folders ORDER BY name ASC';
+            } else {
+                query = `
+                    SELECT f.* FROM folders f
+                    WHERE f.owner_id = $1
+                    OR f.id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
+                    ORDER BY f.name ASC
+                `;
+                params = [session.id];
+            }
+
+            const res = await client.query(query, params);
+            return NextResponse.json(res.rows);
+        } finally {
+            client.release();
         }
-
-        const res = await client.query(query, params);
-        client.release();
-        return NextResponse.json(res.rows);
 
     } catch (error) {
         console.error("Folder Fetch error:", error);
@@ -48,13 +51,16 @@ export async function POST(request: Request) {
         if (!name) return badRequest('Name is required');
 
         const client = await pool.connect();
-        const res = await client.query(
-            'INSERT INTO folders (name, parent_id, icon, color, owner_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [name, parent_id || null, icon || '📁', color || '#3b82f6', session.id]
-        );
-        client.release();
+        try {
+            const res = await client.query(
+                'INSERT INTO folders (name, parent_id, icon, color, owner_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+                [name, parent_id || null, icon || '📁', color || '#3b82f6', session.id]
+            );
 
-        return NextResponse.json(res.rows[0]);
+            return NextResponse.json(res.rows[0]);
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error("Folder Create error:", error);
         return serverError('Failed to create folder');
@@ -75,26 +81,27 @@ export async function PUT(request: Request) {
         if (id === parent_id) return badRequest('Cannot move folder inside itself');
 
         const client = await pool.connect();
+        try {
 
-        // Check permission: Admin or Owner
-        const check = await client.query('SELECT owner_id FROM folders WHERE id = $1', [id]);
-        if (check.rows.length === 0) {
+            // Check permission: Admin or Owner
+            const check = await client.query('SELECT owner_id FROM folders WHERE id = $1', [id]);
+            if (check.rows.length === 0) {
+                return notFound('Folder not found');
+            }
+
+            if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
+                return forbidden();
+            }
+
+            const res = await client.query(
+                'UPDATE folders SET name = $1, parent_id = $2, icon = $3, color = $4 WHERE id = $5 RETURNING *',
+                [name, parent_id || null, icon || '📁', color || '#3b82f6', id]
+            );
+
+            return NextResponse.json(res.rows[0]);
+        } finally {
             client.release();
-            return notFound('Folder not found');
         }
-
-        if (session.role !== 'admin' && check.rows[0].owner_id !== session.id) {
-            client.release();
-            return forbidden();
-        }
-
-        const res = await client.query(
-            'UPDATE folders SET name = $1, parent_id = $2, icon = $3, color = $4 WHERE id = $5 RETURNING *',
-            [name, parent_id || null, icon || '📁', color || '#3b82f6', id]
-        );
-        client.release();
-
-        return NextResponse.json(res.rows[0]);
     } catch (error) {
         console.error("Folder Update error:", error);
         return serverError('Failed to update folder');

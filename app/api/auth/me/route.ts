@@ -10,14 +10,17 @@ export async function GET() {
 
     try {
         const client = await pool.connect();
-        const res = await client.query('SELECT id, name, email, role, preferences FROM users WHERE id = $1', [session.id]);
-        client.release();
+        try {
+            const res = await client.query('SELECT id, name, email, role, preferences FROM users WHERE id = $1', [session.id]);
 
-        if (res.rows.length === 0) {
-            return NextResponse.json({ user: null });
+            if (res.rows.length === 0) {
+                return NextResponse.json({ user: null });
+            }
+
+            return NextResponse.json({ user: res.rows[0] });
+        } finally {
+            client.release();
         }
-
-        return NextResponse.json({ user: res.rows[0] });
     } catch (error) {
         console.error("Auth Me Error", error);
         return NextResponse.json({ user: session }); // Fallback to session if DB fails

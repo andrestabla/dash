@@ -4,6 +4,13 @@ import { getSession } from '@/lib/auth';
 import { closeRealtimeConnection, openRealtimeConnection, subscribeDashboardRealtime } from '@/lib/realtime';
 
 export const dynamic = 'force-dynamic';
+// Vercel (Pro) allows function durations up to 300s. Without this the stream is
+// killed at the default timeout (~10-15s), causing constant reconnects.
+export const maxDuration = 300;
+
+// The stream closes itself before the function timeout so the browser can
+// reconnect cleanly instead of being cut off mid-flight.
+const MAX_STREAM_MS = 280 * 1000;
 
 export async function GET(
     _request: Request,
@@ -14,12 +21,9 @@ export async function GET(
 
     const { id: dashboardId } = await params;
     if (!dashboardId) return NextResponse.json({ error: 'Dashboard ID required' }, { status: 400 });
-    const connectionAttempt = openRealtimeConnection(dashboardId, String(session.id), 12);
-    if (!connectionAttempt.ok) {
-        return NextResponse.json({ error: 'Too many realtime connections for this dashboard/user' }, { status: 429 });
-    }
-    const connectionId = connectionAttempt.connectionId;
 
+    // Verify access first — before reserving a realtime connection slot, so a
+    // denied request never leaks a slot from the per-user connection counter.
     const client = await pool.connect();
     try {
         const accessQuery = session.role === 'admin'
@@ -39,16 +43,28 @@ export async function GET(
         client.release();
     }
 
+    const connectionAttempt = openRealtimeConnection(dashboardId, String(session.id), 12);
+    if (!connectionAttempt.ok) {
+        return NextResponse.json({ error: 'Too many realtime connections for this dashboard/user' }, { status: 429 });
+    }
+    const connectionId = connectionAttempt.connectionId;
+
     const encoder = new TextEncoder();
+
+    let streamClose: (() => void) | null = null;
 
     const stream = new ReadableStream<Uint8Array>({
         start(controller) {
             let isClosed = false;
             const send = (event: string, data: unknown) => {
                 if (isClosed) return;
-                controller.enqueue(
-                    encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-                );
+                try {
+                    controller.enqueue(
+                        encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+                    );
+                } catch {
+                    // The stream was already closed or cancelled.
+                }
             };
 
             send('connected', { ok: true, dashboardId, ts: Date.now() });
@@ -61,10 +77,13 @@ export async function GET(
                 send('heartbeat', { ts: Date.now() });
             }, 25000);
 
+            let maxLifetime: ReturnType<typeof setTimeout>;
+
             const close = () => {
                 if (isClosed) return;
                 isClosed = true;
                 clearInterval(heartbeat);
+                clearTimeout(maxLifetime);
                 unsubscribe();
                 closeRealtimeConnection(connectionId);
                 try {
@@ -74,12 +93,17 @@ export async function GET(
                 }
             };
 
-            // Close stale streams after 5 minutes; browser reconnect is automatic.
-            const maxLifetime = setTimeout(close, 5 * 60 * 1000);
-            void maxLifetime;
+            streamClose = close;
+
+            // Close the stream before the Vercel function timeout; the browser
+            // EventSource reconnects automatically.
+            maxLifetime = setTimeout(close, MAX_STREAM_MS);
         },
         cancel() {
-            closeRealtimeConnection(connectionId);
+            // Client disconnected: run the full cleanup (heartbeat, listener,
+            // connection counter and timer), not just the connection counter.
+            if (streamClose) streamClose();
+            else closeRealtimeConnection(connectionId);
         }
     });
 
