@@ -386,6 +386,8 @@ function WorkspaceContent() {
         };
 
         const payload = {
+            // On edit the PUT endpoint needs the dashboard id to know which row to update.
+            ...(editingDash ? { id: editingDash.id } : {}),
             name: wizName,
             description: wizDesc,
             settings: finalSettings,
@@ -511,6 +513,7 @@ function WorkspaceContent() {
         setWizOwners(d.settings?.owners || []);
         setWizTypes(d.settings?.types || []);
         setWizGates(d.settings?.gates || []);
+        setWizardStep(1);
         setIsCreating(true);
     };
 
@@ -1302,7 +1305,9 @@ function WorkspaceContent() {
                                 </button>
                             ) : (
                                 <button className="btn-primary" onClick={handleSaveDashboard}>
-                                    {isImporting && parsedTasks.length > 0 ? `Crear e Importar (${parsedTasks.length})` : "Crear Proyecto"}
+                                    {editingDash
+                                        ? "Guardar cambios"
+                                        : (isImporting && parsedTasks.length > 0 ? `Crear e Importar (${parsedTasks.length})` : "Crear Proyecto")}
                                 </button>
                             )}
                         </div>
