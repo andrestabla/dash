@@ -140,15 +140,15 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="info-side">
-              <h3 className="section-label">La Solución</h3>
-              <h2 className="section-title">MisProyectos: El Centro de Comando</h2>
+              <h3 className="section-label">La solución</h3>
+              <h2 className="section-title">Todo el proyecto en un mismo lugar</h2>
               <p className="section-desc text-left">
-                No es solo un gestor de tareas. Es una plataforma de **Gobernanza de Proyectos** que centraliza la operación y la estrategia en un entorno visual e intuitivo.
+                MisProyectos reúne la operación y la estrategia en un solo espacio. Cada equipo elige cómo trabajar: con tableros Kanban para las tareas del día a día o con lienzos visuales para diagramar procesos y flujos.
               </p>
               <ul className="solution-list">
-                <li><CheckCircle2 size={18} /> <strong>Portafolios Inteligentes:</strong> Centraliza carpetas por área o cliente.</li>
-                <li><CheckCircle2 size={18} /> <strong>Flujos Adaptables:</strong> Metodologías que se ajustan a tu equipo.</li>
-                <li><CheckCircle2 size={18} /> <strong>Toma de Decisiones:</strong> Datos reales para acciones inmediatas.</li>
+                <li><CheckCircle2 size={18} /> <strong>Carpetas por área o cliente:</strong> agrupa tus proyectos y mantén todo ordenado.</li>
+                <li><CheckCircle2 size={18} /> <strong>Dos formas de trabajar:</strong> tableros Kanban o lienzos tipo diagrama, según lo que necesites.</li>
+                <li><CheckCircle2 size={18} /> <strong>Información para decidir:</strong> el avance real del proyecto siempre a la vista.</li>
               </ul>
             </div>
           </div>
@@ -159,8 +159,8 @@ export default function LandingPage() {
       <section className="section-padding bg-alt" id="how-works">
         <div className="container">
           <div className="section-header center">
-            <h2 className="section-title">La Estética de la Eficiencia</h2>
-            <p className="section-desc">Un flujo lógico diseñado para que nada se pierda de vista.</p>
+            <h2 className="section-title">Cómo funciona</h2>
+            <p className="section-desc">De la planeación al seguimiento, sin perder de vista los detalles.</p>
           </div>
 
           <div className="pipeline-container">
@@ -173,7 +173,7 @@ export default function LandingPage() {
             <div className="pipeline-step">
               <div className="p-icon"><MousePointer2 /></div>
               <h4>02. Seguimiento</h4>
-              <p>Gestión ágil de tareas con tableros interactivos y estados claros.</p>
+              <p>Organiza las tareas en tableros Kanban o diagrama el proceso en un lienzo.</p>
             </div>
             <div className="p-arrow">➜</div>
             <div className="pipeline-step">
@@ -230,29 +230,39 @@ export default function LandingPage() {
       <section className="section-padding bg-alt" id="capabilities">
         <div className="container">
           <div className="section-header center">
-            <h2 className="section-title">Capacidades de Clase Mundial</h2>
-            <p className="section-desc">Todo el poder de una herramienta robusta bajo una interfaz amigable.</p>
+            <h2 className="section-title">Qué puedes hacer en la plataforma</h2>
+            <p className="section-desc">Las herramientas que tu equipo necesita para llevar los proyectos de principio a fin.</p>
           </div>
           <div className="capability-grid">
             <div className="cap-card glass-panel">
               <div className="cap-icon-box blue"><Layout /></div>
-              <h4>Gestión Kanban</h4>
-              <p>Arrastra y suelta tareas para un flujo de trabajo fluido y visual.</p>
+              <h4>Tableros Kanban</h4>
+              <p>Organiza las tareas en columnas y muévelas entre estados a medida que avanzan.</p>
+            </div>
+            <div className="cap-card glass-panel">
+              <div className="cap-icon-box cyan"><Layers /></div>
+              <h4>Lienzos visuales</h4>
+              <p>Diagrama procesos y flujos en un lienzo libre. Conecta ideas, decisiones y documentos.</p>
+            </div>
+            <div className="cap-card glass-panel">
+              <div className="cap-icon-box green"><BarChart3 /></div>
+              <h4>Analítica en tiempo real</h4>
+              <p>Consulta el avance del proyecto y la distribución de tareas sin armar reportes a mano.</p>
             </div>
             <div className="cap-card glass-panel">
               <div className="cap-icon-box purple"><Share2 /></div>
-              <h4>Folder Sharing</h4>
-              <p>Comparte portafolios completos con permisos granulares.</p>
-            </div>
-            <div className="cap-card glass-panel">
-              <div className="cap-icon-box green"><Shield /></div>
-              <h4>Gobernanza Total</h4>
-              <p>Administración centralizada de usuarios, roles y auditoría.</p>
+              <h4>Carpetas compartidas</h4>
+              <p>Agrupa proyectos por área o cliente y compártelos con permisos por persona.</p>
             </div>
             <div className="cap-card glass-panel">
               <div className="cap-icon-box orange"><ExternalLink /></div>
-              <h4>Enlaces Públicos</h4>
-              <p>Transparencia radical con clientes sin necesidad de registro.</p>
+              <h4>Enlaces públicos</h4>
+              <p>Comparte un tablero o un lienzo en modo lectura con quien no tiene cuenta.</p>
+            </div>
+            <div className="cap-card glass-panel">
+              <div className="cap-icon-box rose"><Shield /></div>
+              <h4>Administración</h4>
+              <p>Gestiona usuarios, roles y el registro de actividad desde un panel central.</p>
             </div>
           </div>
         </div>
@@ -580,7 +590,7 @@ export default function LandingPage() {
         .ui-circle { width: 50px; height: 50px; border: 4px solid #2563eb; border-radius: 50%; }
 
         /* Capability */
-        .capability-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+        .capability-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
         .cap-card { padding: 40px; border-radius: 24px; text-align: center; }
         .cap-icon-box { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
         .cap-icon-box :global(svg) { width: 26px; height: 26px; color: white; }
@@ -588,6 +598,8 @@ export default function LandingPage() {
         .cap-icon-box.purple { background: #8b5cf6; }
         .cap-icon-box.green { background: #10b981; }
         .cap-icon-box.orange { background: #f59e0b; }
+        .cap-icon-box.cyan { background: #0891b2; }
+        .cap-icon-box.rose { background: #e11d48; }
         .cap-card h4 { font-size: 18px; margin-bottom: 12px; font-weight: 800; }
         .cap-card p { font-size: 14px; color: #6b7280; line-height: 1.6; }
 
