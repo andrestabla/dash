@@ -9,7 +9,8 @@ export type CanvasNodeType =
     | 'document'
     | 'parallelogram'
     | 'sticky'
-    | 'frame';
+    | 'frame'
+    | 'text';
 export type CanvasPort = 'top' | 'right' | 'bottom' | 'left';
 export type CanvasLineStyle = 'orthogonal' | 'straight' | 'bezier';
 export type CanvasFontScale = 'sm' | 'md' | 'lg' | 'xl';
@@ -27,8 +28,11 @@ export interface CanvasSize {
 export interface CanvasNodeStyle {
     fill: string;
     radius: number;
+    // Border color. When undefined the node uses its default subtle border.
     stroke?: string;
     fontScale?: CanvasFontScale;
+    // Text color. When undefined the node uses the per-type default.
+    textColor?: string;
 }
 
 export interface CanvasNode {
@@ -60,6 +64,8 @@ export interface CanvasEdge {
     comment?: string;
     startArrow?: boolean;
     endArrow?: boolean;
+    // When true the connector is drawn with a dashed stroke.
+    dashed?: boolean;
 }
 
 export interface CanvasDocument {
@@ -112,7 +118,8 @@ function asNodeType(value: unknown): CanvasNodeType {
         value === 'document' ||
         value === 'parallelogram' ||
         value === 'sticky' ||
-        value === 'frame'
+        value === 'frame' ||
+        value === 'text'
     ) return value;
     return 'rectangle';
 }
@@ -229,7 +236,8 @@ function normalizeNode(inputNode: unknown): CanvasNode {
             fill: asString(style.fill, legacyColor),
             radius: asNumber(style.radius, 10),
             stroke: typeof style.stroke === 'string' ? style.stroke : undefined,
-            fontScale: asFontScale(style.fontScale)
+            fontScale: asFontScale(style.fontScale),
+            textColor: typeof style.textColor === 'string' ? style.textColor : undefined
         },
         content: asString(node.content, legacyText),
         comment: typeof node.comment === 'string' ? node.comment : undefined,
@@ -270,7 +278,8 @@ function normalizeEdge(inputEdge: unknown, nodesById: Map<string, CanvasNode>): 
         text: typeof edge.text === 'string' ? edge.text : (typeof edge.label === 'string' ? edge.label : undefined),
         comment: typeof edge.comment === 'string' ? edge.comment : undefined,
         startArrow: typeof edge.startArrow === 'boolean' ? edge.startArrow : false,
-        endArrow: typeof edge.endArrow === 'boolean' ? edge.endArrow : true
+        endArrow: typeof edge.endArrow === 'boolean' ? edge.endArrow : true,
+        dashed: edge.dashed === true ? true : undefined
     };
 }
 
