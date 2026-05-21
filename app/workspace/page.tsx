@@ -88,6 +88,7 @@ function WorkspaceContent() {
     const [isCreating, setIsCreating] = useState(false); // Dashboard Wizard
     const [isCreatingFolder, setIsCreatingFolder] = useState(false); // Folder Modal
     const [isMoving, setIsMoving] = useState<{ type: 'dashboard', id: string } | null>(null);
+    const [targetWorkspaceId, setTargetWorkspaceId] = useState("");
     const [wizardStep, setWizardStep] = useState(1);
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -142,6 +143,7 @@ function WorkspaceContent() {
     const [folderName, setFolderName] = useState("");
     const [folderIcon, setFolderIcon] = useState("📁");
     const [folderColor, setFolderColor] = useState("#fbbf24");
+    const [folderWorkspaceId, setFolderWorkspaceId] = useState("");
 
     // Move State
     const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
@@ -153,6 +155,7 @@ function WorkspaceContent() {
     const [showLogout, setShowLogout] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [canGovern, setCanGovern] = useState(false);
+    const [workspaces, setWorkspaces] = useState<any[]>([]);
     const [availableUsers, setAvailableUsers] = useState<any[]>([]);
 
     // Folder Sharing State
@@ -220,7 +223,11 @@ function WorkspaceContent() {
         fetch('/api/auth/me').then(res => res.json()).then(data => setUser(data.user));
         fetch('/api/workspaces')
             .then(res => res.ok ? res.json() : [])
-            .then(list => setCanGovern(Array.isArray(list) && list.some((w: any) => w.my_role === 'gestor')))
+            .then(list => {
+                const arr = Array.isArray(list) ? list : [];
+                setWorkspaces(arr);
+                setCanGovern(arr.some((w: any) => w.my_role === 'gestor'));
+            })
             .catch(() => { });
     }, []);
 
@@ -301,7 +308,7 @@ function WorkspaceContent() {
             const url = '/api/folders';
             const method = isEdit ? 'PUT' : 'POST';
             const body = isEdit
-                ? { id: editingFolder.id, name: folderName, parent_id: editingFolder.parent_id, icon: folderIcon, color: folderColor }
+                ? { id: editingFolder.id, name: folderName, parent_id: editingFolder.parent_id, icon: folderIcon, color: folderColor, workspace_id: folderWorkspaceId || undefined }
                 : { name: folderName, parent_id: currentFolderId, icon: folderIcon, color: folderColor };
 
             const res = await fetch(url, {
@@ -346,6 +353,7 @@ function WorkspaceContent() {
         setFolderName(f.name);
         setFolderIcon(f.icon || "📁");
         setFolderColor(f.color || "#fbbf24");
+        setFolderWorkspaceId((f as any).workspace_id || "");
         setIsCreatingFolder(true);
     };
 
@@ -355,6 +363,7 @@ function WorkspaceContent() {
         setFolderName("");
         setFolderIcon("📁");
         setFolderColor("#fbbf24");
+        setFolderWorkspaceId("");
     };
 
     // --- ACTIONS: DASHBOARD ---
@@ -444,8 +453,10 @@ function WorkspaceContent() {
 
     const startMove = (e: React.MouseEvent, id: string) => {
         e.preventDefault(); e.stopPropagation();
+        const dash = dashboards.find(d => d.id === id) as any;
         setIsMoving({ type: 'dashboard', id });
-        setTargetFolderId(null);
+        setTargetFolderId(dash?.folder_id || null);
+        setTargetWorkspaceId(dash?.workspace_id || workspaces[0]?.id || "");
     };
 
     const executeMove = async () => {
@@ -454,7 +465,7 @@ function WorkspaceContent() {
             await fetch('/api/dashboards/move', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dashboardId: isMoving.id, folderId: targetFolderId })
+                body: JSON.stringify({ dashboardId: isMoving.id, folderId: targetFolderId, workspaceId: targetWorkspaceId || undefined })
             });
             // Update local state
             setDashboards(dashboards.map(d => d.id === isMoving.id ? { ...d, folder_id: targetFolderId } : d));
@@ -896,6 +907,24 @@ function WorkspaceContent() {
                                     </div>
                                 </div>
                             </div>
+
+                            {editingFolder && workspaces.length > 1 && (
+                                <div style={{ marginTop: 20 }}>
+                                    <label className="form-label">Workspace</label>
+                                    <select
+                                        className="input-glass"
+                                        value={folderWorkspaceId}
+                                        onChange={e => setFolderWorkspaceId(e.target.value)}
+                                    >
+                                        {workspaces.map((w: any) => (
+                                            <option key={w.id} value={w.id}>{w.name}</option>
+                                        ))}
+                                    </select>
+                                    <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>
+                                        Mover la carpeta a otro workspace la saca de su carpeta padre y arrastra su contenido.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="modal-footer">
@@ -914,17 +943,31 @@ function WorkspaceContent() {
                             <h3 className="modal-title">Mover Tablero a...</h3>
                         </div>
                         <div className="modal-body">
+                            {workspaces.length > 1 && (
+                                <div className="form-group">
+                                    <label className="form-label">Workspace</label>
+                                    <select
+                                        className="input-glass"
+                                        value={targetWorkspaceId}
+                                        onChange={e => { setTargetWorkspaceId(e.target.value); setTargetFolderId(null); }}
+                                    >
+                                        {workspaces.map((w: any) => (
+                                            <option key={w.id} value={w.id}>{w.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                             <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border-dim)', borderRadius: 8, marginBottom: 20 }}>
                                 {/* Root Option */}
                                 <div
                                     onClick={() => setTargetFolderId(null)}
                                     style={{ padding: '10px 12px', cursor: 'pointer', background: targetFolderId === null ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}
                                 >
-                                    <CornerUpLeft size={16} /> <span>Espacio Principal (Raíz)</span>
+                                    <CornerUpLeft size={16} /> <span>Raíz del workspace</span>
                                 </div>
 
-                                {/* Folder List */}
-                                {folders.map(f => (
+                                {/* Folder List — only folders of the selected workspace */}
+                                {folders.filter((f: any) => f.workspace_id === targetWorkspaceId).map(f => (
                                     <div
                                         key={f.id}
                                         onClick={() => setTargetFolderId(f.id)}

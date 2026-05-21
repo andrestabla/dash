@@ -21,9 +21,13 @@ export default function GovernancePage() {
 
     // Form state
     const [inviteEmail, setInviteEmail] = useState("");
-    const [newUser, setNewUser] = useState({ name: "", email: "", password: "" });
+    const [inviteRole, setInviteRole] = useState("member");
+    const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "member" });
     const [notif, setNotif] = useState({ title: "", message: "" });
     const [newWsName, setNewWsName] = useState("");
+
+    const pendingMembers = members.filter((m) => m.status === 'pending');
+    const activeMembers = members.filter((m) => m.status !== 'pending');
 
     const flash = (kind: 'ok' | 'err', text: string) => {
         setMsg({ kind, text });
@@ -188,11 +192,39 @@ export default function GovernancePage() {
                         )}
 
                         <div style={{ display: 'grid', gap: 16 }}>
+                            {/* Join requests */}
+                            {pendingMembers.length > 0 && (
+                                <div className="glass-panel" style={card}>
+                                    <div style={cardTitle}><UserCheck size={15} /> Solicitudes de adhesión · {pendingMembers.length}</div>
+                                    {pendingMembers.map(m => (
+                                        <div key={m.id} style={{
+                                            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                                            padding: '10px 0', borderBottom: '1px solid var(--border-dim)'
+                                        }}>
+                                            <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name || m.email}</div>
+                                                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{m.email}</div>
+                                            </div>
+                                            <button className="btn-primary" disabled={busy}
+                                                onClick={() => memberAction('accept', { memberId: m.id })}
+                                                style={{ padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                <UserCheck size={13} /> Aceptar
+                                            </button>
+                                            <button className="btn-ghost" disabled={busy}
+                                                onClick={() => memberAction('reject', { memberId: m.id })}
+                                                style={{ padding: '6px 12px', fontSize: 12, color: '#dc2626' }}>
+                                                Rechazar
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                             {/* Members */}
                             <div className="glass-panel" style={card}>
-                                <div style={cardTitle}><Users size={15} /> Miembros · {members.length}</div>
-                                {members.length === 0 && <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Sin miembros.</div>}
-                                {members.map(m => (
+                                <div style={cardTitle}><Users size={15} /> Miembros · {activeMembers.length}</div>
+                                {activeMembers.length === 0 && <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Sin miembros.</div>}
+                                {activeMembers.map(m => (
                                     <div key={m.id} style={{
                                         display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
                                         padding: '10px 0', borderBottom: '1px solid var(--border-dim)'
@@ -201,25 +233,12 @@ export default function GovernancePage() {
                                             <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name || m.email}</div>
                                             <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{m.email}</div>
                                         </div>
-                                        {m.status === 'pending' ? (
-                                            <span style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(180,83,9,0.12)', padding: '3px 8px', borderRadius: 999 }}>
-                                                Pendiente
-                                            </span>
-                                        ) : (
-                                            <select className="input-glass" value={m.role} disabled={busy}
-                                                onChange={e => memberAction('set_role', { memberId: m.id, role: e.target.value })}
-                                                style={{ width: 'auto', padding: '5px 8px', fontSize: 12 }}>
-                                                <option value="member">Miembro</option>
-                                                <option value="gestor">Gestor</option>
-                                            </select>
-                                        )}
-                                        {m.status === 'pending' && (
-                                            <button className="btn-primary" disabled={busy}
-                                                onClick={() => memberAction('accept', { memberId: m.id })}
-                                                style={{ padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-                                                <UserCheck size={13} /> Aceptar
-                                            </button>
-                                        )}
+                                        <select className="input-glass" value={m.role} disabled={busy}
+                                            onChange={e => memberAction('set_role', { memberId: m.id, role: e.target.value })}
+                                            style={{ width: 'auto', padding: '5px 8px', fontSize: 12 }}>
+                                            <option value="member">Miembro</option>
+                                            <option value="gestor">Gestor</option>
+                                        </select>
                                         <button className="btn-ghost" disabled={busy}
                                             onClick={() => memberAction('remove', { memberId: m.id })}
                                             title="Quitar del workspace"
@@ -237,24 +256,34 @@ export default function GovernancePage() {
                                     <label className="form-label">Invitar una cuenta existente</label>
                                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                                         <input className="input-glass" type="email" placeholder="correo@empresa.com" value={inviteEmail}
-                                            onChange={e => setInviteEmail(e.target.value)} style={{ flex: '1 1 220px' }} />
+                                            onChange={e => setInviteEmail(e.target.value)} style={{ flex: '1 1 200px' }} />
+                                        <select className="input-glass" value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+                                            style={{ width: 'auto', padding: '8px 10px', fontSize: 13 }}>
+                                            <option value="member">Miembro</option>
+                                            <option value="gestor">Gestor</option>
+                                        </select>
                                         <button className="btn-ghost" disabled={busy}
-                                            onClick={async () => { if (await memberAction('invite', { email: inviteEmail })) setInviteEmail(""); }}
+                                            onClick={async () => { if (await memberAction('invite', { email: inviteEmail, role: inviteRole })) { setInviteEmail(""); setInviteRole("member"); } }}
                                             style={{ padding: '8px 14px', fontSize: 13 }}>Invitar</button>
                                     </div>
                                 </div>
                                 <div style={{ borderTop: '1px solid var(--border-dim)', paddingTop: 12 }}>
                                     <label className="form-label">Crear un usuario nuevo</label>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginTop: 4 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 4 }}>
                                         <input className="input-glass" placeholder="Nombre" value={newUser.name}
                                             onChange={e => setNewUser({ ...newUser, name: e.target.value })} />
                                         <input className="input-glass" type="email" placeholder="Correo" value={newUser.email}
                                             onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
                                         <input className="input-glass" type="password" placeholder="Contraseña" value={newUser.password}
                                             onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
+                                        <select className="input-glass" value={newUser.role}
+                                            onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
+                                            <option value="member">Miembro</option>
+                                            <option value="gestor">Gestor</option>
+                                        </select>
                                     </div>
                                     <button className="btn-primary" disabled={busy}
-                                        onClick={async () => { if (await memberAction('create', newUser)) setNewUser({ name: "", email: "", password: "" }); }}
+                                        onClick={async () => { if (await memberAction('create', newUser)) setNewUser({ name: "", email: "", password: "", role: "member" }); }}
                                         style={{ padding: '8px 16px', fontSize: 13, marginTop: 8 }}>Crear usuario</button>
                                 </div>
                             </div>

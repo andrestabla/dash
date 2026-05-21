@@ -10,7 +10,7 @@ export async function PUT(request: Request) {
 
     try {
         const body = await request.json();
-        const { dashboardId, folderId } = body;
+        const { dashboardId, folderId, workspaceId } = body;
 
         if (!dashboardId) return badRequest('Dashboard ID required');
 
@@ -53,14 +53,27 @@ export async function PUT(request: Request) {
                 }
             }
 
-            // The dashboard adopts the workspace of its target folder; moving
-            // it to the root keeps its current workspace.
+            // When moving to another workspace, the caller must belong to it.
+            if (workspaceId && session.role !== 'admin') {
+                const mem = await client.query(
+                    `SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND status = 'active'`,
+                    [workspaceId, session.id]
+                );
+                if (mem.rows.length === 0) return forbidden('No perteneces al workspace destino');
+            }
+
+            // The dashboard adopts the workspace of its target folder; with no
+            // folder it takes the explicit workspace, otherwise keeps its own.
             await client.query(
                 `UPDATE dashboards
                  SET folder_id = $1,
-                     workspace_id = COALESCE((SELECT workspace_id FROM folders WHERE id = $1), workspace_id)
+                     workspace_id = COALESCE(
+                         (SELECT workspace_id FROM folders WHERE id = $1),
+                         $3::uuid,
+                         workspace_id
+                     )
                  WHERE id = $2`,
-                [folderId || null, dashboardId]
+                [folderId || null, dashboardId, workspaceId || null]
             );
 
             return NextResponse.json({ success: true });
