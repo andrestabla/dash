@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { closeRealtimeConnection, openRealtimeConnection, subscribeDashboardRealtime } from '@/lib/realtime';
+import { gestorClause } from '@/lib/workspace-access';
 
 export const dynamic = 'force-dynamic';
 // Vercel (Pro) allows function durations up to 300s. Without this the stream is
@@ -33,6 +34,7 @@ export async function GET(
                    owner_id = $2
                    OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2)
                    OR EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+                   OR ${gestorClause('d', '$2')}
                )`;
         const accessParams = session.role === 'admin' ? [dashboardId] : [dashboardId, session.id];
         const accessCheck = await client.query(accessQuery, accessParams);

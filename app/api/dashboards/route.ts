@@ -4,6 +4,8 @@ import { getSession } from '@/lib/auth';
 import { publishDashboardRealtime } from '@/lib/realtime';
 import { buildCanvasSettings, getDashboardKind } from '@/lib/canvas';
 import { unauthorized, badRequest, notFound, forbidden, serverError } from '@/lib/api-error';
+import { DEFAULT_WORKSPACE_ID } from '@/lib/workspace';
+import { gestorClause, isGestorOf } from '@/lib/workspace-access';
 
 export async function GET() {
     const session = await getSession() as any;
@@ -25,6 +27,7 @@ export async function GET() {
                     WHERE d.owner_id = $1
                     OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $1)
                     OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
+                    OR ${gestorClause('d', '$1')}
                     ORDER BY d.created_at DESC
                 `;
                 params = [session.id];
@@ -62,9 +65,17 @@ export async function POST(request: Request) {
                 String(name || 'Idea Principal')
             );
 
+            // A dashboard lives in the same workspace as its folder; a
+            // folderless dashboard falls back to the default workspace.
+            let createWorkspaceId: string = DEFAULT_WORKSPACE_ID;
+            if (folder_id) {
+                const fw = await client.query('SELECT workspace_id FROM folders WHERE id = $1', [folder_id]);
+                if (fw.rows[0]?.workspace_id) createWorkspaceId = fw.rows[0].workspace_id;
+            }
+
             const result = await client.query(
-                'INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-                [name, description || '', normalizedSettings, folder_id || null, session.id, body.start_date || null, body.end_date || null, is_demo || false]
+                'INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo, workspace_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+                [name, description || '', normalizedSettings, folder_id || null, session.id, body.start_date || null, body.end_date || null, is_demo || false, createWorkspaceId]
             );
             const newDash = result.rows[0];
 
@@ -126,7 +137,7 @@ export async function PUT(request: Request) {
         try {
 
             // Check permission: Admin, Owner, or Collaborator
-            const check = await client.query('SELECT owner_id, folder_id, is_demo, start_date, end_date, description, settings, name FROM dashboards WHERE id = $1', [id]);
+            const check = await client.query('SELECT owner_id, folder_id, workspace_id, is_demo, start_date, end_date, description, settings, name FROM dashboards WHERE id = $1', [id]);
             if (check.rows.length === 0) {
                 return notFound('Dashboard not found');
             }
@@ -140,6 +151,7 @@ export async function PUT(request: Request) {
             }
 
             let isCollaborator = false;
+            let isGestor = false;
             if (!isOwner && !isAdmin) {
                 // Check direct dashboard collaboration
                 const collRes = await client.query(
@@ -156,9 +168,14 @@ export async function PUT(request: Request) {
                     );
                     isCollaborator = folderCollRes.rows.length > 0;
                 }
+
+                // A gestor governs every dashboard in their workspace.
+                if (!isCollaborator) {
+                    isGestor = await isGestorOf(client, session.id, dashboard.workspace_id);
+                }
             }
 
-            if (!isAdmin && !isOwner && !isCollaborator) {
+            if (!isAdmin && !isOwner && !isCollaborator && !isGestor) {
                 return forbidden();
             }
 
@@ -200,8 +217,8 @@ export async function DELETE(request: Request) {
         const client = await pool.connect();
         try {
 
-            // Check permission: Admin or Owner
-            const check = await client.query('SELECT owner_id, is_demo FROM dashboards WHERE id = $1', [id]);
+            // Check permission: Admin, Owner, or workspace gestor
+            const check = await client.query('SELECT owner_id, workspace_id, is_demo FROM dashboards WHERE id = $1', [id]);
             if (check.rows.length === 0) {
                 return notFound('Dashboard not found');
             }
@@ -212,7 +229,8 @@ export async function DELETE(request: Request) {
             }
 
             if (session.role !== 'admin' && dashboard.owner_id !== session.id) {
-                return forbidden();
+                const gestor = await isGestorOf(client, session.id, dashboard.workspace_id);
+                if (!gestor) return forbidden();
             }
 
             const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);

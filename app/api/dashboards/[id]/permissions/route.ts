@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { unauthorized, forbidden, notFound, serverError } from '@/lib/api-error';
+import { isGestorOf } from '@/lib/workspace-access';
 
 export async function GET(
     request: Request,
@@ -19,7 +20,7 @@ export async function GET(
         try {
             // Verify the caller may access this dashboard before exposing its members.
             const dashRes = await client.query(
-                'SELECT owner_id, folder_id FROM dashboards WHERE id = $1',
+                'SELECT owner_id, folder_id, workspace_id FROM dashboards WHERE id = $1',
                 [id]
             );
             if (dashRes.rows.length === 0) {
@@ -36,6 +37,9 @@ export async function GET(
                     [id, session.id, dashboard.folder_id]
                 );
                 hasAccess = accessRes.rows.length > 0;
+            }
+            if (!hasAccess) {
+                hasAccess = await isGestorOf(client, session.id, dashboard.workspace_id);
             }
             if (!hasAccess) {
                 return forbidden('Access denied');

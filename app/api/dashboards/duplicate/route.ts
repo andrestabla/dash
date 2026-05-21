@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { unauthorized, badRequest, notFound, forbidden, serverError } from '@/lib/api-error';
+import { gestorClause } from '@/lib/workspace-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,8 @@ export async function POST(request: Request) {
                      WHERE d.id = $1 AND (
                          d.owner_id = $2 OR
                          EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
-                         EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)
+                         EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2) OR
+                         ${gestorClause('d', '$2')}
                      )`,
                     [dashboardId, session.id]
                 );
@@ -49,10 +51,10 @@ export async function POST(request: Request) {
 
             // 3. Insert Copy
             const res = await client.query(
-                `INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                `INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo, workspace_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                  RETURNING *`,
-                [newName, original.description, original.settings, copyFolderId, session.id, original.start_date, original.end_date, false]
+                [newName, original.description, original.settings, copyFolderId, session.id, original.start_date, original.end_date, false, original.workspace_id]
             );
 
             const newDashboard = res.rows[0];

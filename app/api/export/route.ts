@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import pool from '@/lib/db';
 import { unauthorized, badRequest, notFound, serverError } from '@/lib/api-error';
+import { gestorClause } from '@/lib/workspace-access';
 
 type Dashboard = {
     id: string;
@@ -99,6 +100,7 @@ async function getAuthorizedDashboard(client: any, dashboardId: string, session:
                           AND fc.user_id = $2
                     )
                 )
+                OR ${gestorClause('d', '$2')}
               )
             LIMIT 1
         `,
@@ -123,6 +125,7 @@ async function getAuthorizedFolder(client: any, folderId: string, session: any) 
                     WHERE fc.folder_id = f.id
                       AND fc.user_id = $2
                 )
+                OR ${gestorClause('f', '$2')}
               )
             LIMIT 1
         `,
