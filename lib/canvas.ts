@@ -12,6 +12,7 @@ export type CanvasNodeType =
     | 'frame';
 export type CanvasPort = 'top' | 'right' | 'bottom' | 'left';
 export type CanvasLineStyle = 'orthogonal' | 'straight' | 'bezier';
+export type CanvasFontScale = 'sm' | 'md' | 'lg' | 'xl';
 
 export interface CanvasPoint {
     x: number;
@@ -27,6 +28,7 @@ export interface CanvasNodeStyle {
     fill: string;
     radius: number;
     stroke?: string;
+    fontScale?: CanvasFontScale;
 }
 
 export interface CanvasNode {
@@ -89,6 +91,11 @@ function asString(value: unknown, fallback: string): string {
 function asPort(value: unknown, fallback: CanvasPort = 'right'): CanvasPort {
     if (value === 'top' || value === 'right' || value === 'bottom' || value === 'left') return value;
     return fallback;
+}
+
+function asFontScale(value: unknown): CanvasFontScale {
+    if (value === 'sm' || value === 'md' || value === 'lg' || value === 'xl') return value;
+    return 'md';
 }
 
 function asNodeType(value: unknown): CanvasNodeType {
@@ -217,7 +224,8 @@ function normalizeNode(inputNode: unknown): CanvasNode {
         style: {
             fill: asString(style.fill, legacyColor),
             radius: asNumber(style.radius, 10),
-            stroke: typeof style.stroke === 'string' ? style.stroke : undefined
+            stroke: typeof style.stroke === 'string' ? style.stroke : undefined,
+            fontScale: asFontScale(style.fontScale)
         },
         content: asString(node.content, legacyText),
         comment: typeof node.comment === 'string' ? node.comment : undefined
