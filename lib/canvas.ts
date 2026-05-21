@@ -43,8 +43,9 @@ export interface CanvasNode {
     style: CanvasNodeStyle;
     content: string;
     comment?: string;
-    // Optional image for the comment note, stored as a (downscaled) data URL.
-    commentImage?: string;
+    // Optional images for the comment note, stored as (downscaled) data URLs
+    // (max 5). Legacy single-image comments are migrated into this array.
+    commentImages?: string[];
     // When true, the node's downstream branch is hidden on the canvas.
     collapsed?: boolean;
 }
@@ -210,6 +211,22 @@ export function getDashboardKind(settings: unknown): DashboardKind {
     return record.dashboardType === 'canvas' ? 'canvas' : 'kanban';
 }
 
+/** Maximum number of images a single comment may carry. */
+export const MAX_COMMENT_IMAGES = 5;
+
+/**
+ * Builds the comment image list, accepting both the current `commentImages`
+ * array and the legacy single `commentImage` string, capped at MAX_COMMENT_IMAGES.
+ */
+function normalizeCommentImages(node: Record<string, unknown>): string[] | undefined {
+    const fromArray = Array.isArray(node.commentImages)
+        ? node.commentImages.filter((value): value is string => typeof value === 'string')
+        : [];
+    const legacy = typeof node.commentImage === 'string' ? [node.commentImage] : [];
+    const all = (fromArray.length > 0 ? fromArray : legacy).slice(0, MAX_COMMENT_IMAGES);
+    return all.length > 0 ? all : undefined;
+}
+
 function normalizeNode(inputNode: unknown): CanvasNode {
     const node = asRecord(inputNode);
     const legacyX = asNumber(node.x, 120);
@@ -243,7 +260,7 @@ function normalizeNode(inputNode: unknown): CanvasNode {
         },
         content: asString(node.content, legacyText),
         comment: typeof node.comment === 'string' ? node.comment : undefined,
-        commentImage: typeof node.commentImage === 'string' ? node.commentImage : undefined,
+        commentImages: normalizeCommentImages(node),
         collapsed: node.collapsed === true ? true : undefined
     };
 }

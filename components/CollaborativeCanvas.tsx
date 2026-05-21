@@ -29,7 +29,7 @@ import type {
     CanvasPort,
     CanvasSize
 } from "@/lib/canvas";
-import { getNearestPort, getNodeRect, getPortPoint, normalizeCanvasDocument } from "@/lib/canvas";
+import { getNearestPort, getNodeRect, getPortPoint, normalizeCanvasDocument, MAX_COMMENT_IMAGES } from "@/lib/canvas";
 
 type Props = {
     canvasDocument: CanvasDocument;
@@ -427,9 +427,12 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [openCommentNodeId, setOpenCommentNodeId] = useState<string | null>(null);
     const [commentModalEditing, setCommentModalEditing] = useState(false);
     // Fullscreen image viewer for comment images, so users can inspect detail.
-    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+    // Holds the image set and the index currently shown, or null when closed.
+    const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
+    // Index of the comment image currently shown in the view-mode slider.
+    const [commentSlide, setCommentSlide] = useState(0);
     const [editingCommentText, setEditingCommentText] = useState('');
-    const [editingCommentImage, setEditingCommentImage] = useState<string | undefined>(undefined);
+    const [editingCommentImages, setEditingCommentImages] = useState<string[]>([]);
 
     // Viewport state.
     const [zoom, setZoom] = useState(1);
@@ -477,18 +480,24 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     useEffect(() => { futureRef.current = future; }, [future]);
     useEffect(() => { editingNodeIdRef.current = editingNodeId; }, [editingNodeId]);
 
-    // Close the fullscreen comment-image viewer with the Escape key.
+    // Fullscreen comment-image viewer: Escape closes it, arrows navigate.
     useEffect(() => {
-        if (!lightboxImage) return;
+        if (!lightbox) return;
         const onKey = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 event.stopPropagation();
-                setLightboxImage(null);
+                setLightbox(null);
+            } else if (event.key === 'ArrowLeft') {
+                event.stopPropagation();
+                setLightbox((lb) => (lb ? { ...lb, index: (lb.index - 1 + lb.images.length) % lb.images.length } : lb));
+            } else if (event.key === 'ArrowRight') {
+                event.stopPropagation();
+                setLightbox((lb) => (lb ? { ...lb, index: (lb.index + 1) % lb.images.length } : lb));
             }
         };
         window.addEventListener('keydown', onKey, true);
         return () => window.removeEventListener('keydown', onKey, true);
-    }, [lightboxImage]);
+    }, [lightbox]);
 
     useEffect(() => {
         const incoming = cloneDocument(normalizedExternalDoc);
@@ -869,21 +878,22 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const openCommentModal = (node: CanvasNode, editing: boolean) => {
         setOpenCommentNodeId(node.id);
         setEditingCommentText(node.comment ?? '');
-        setEditingCommentImage(node.commentImage);
+        setEditingCommentImages(node.commentImages ?? []);
+        setCommentSlide(0);
         setCommentModalEditing(editing && !readOnly);
     };
 
     const closeCommentModal = () => {
         setOpenCommentNodeId(null);
         setCommentModalEditing(false);
-        setEditingCommentImage(undefined);
+        setEditingCommentImages([]);
     };
 
     const beginCommentEditingInModal = () => {
         if (readOnly || !openCommentNodeId) return;
         const node = nodesById.get(openCommentNodeId);
         setEditingCommentText(node?.comment ?? '');
-        setEditingCommentImage(node?.commentImage);
+        setEditingCommentImages(node?.commentImages ?? []);
         setCommentModalEditing(true);
     };
 
@@ -891,46 +901,53 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         const id = openCommentNodeId;
         if (!id) return;
         const text = editingCommentText.trim();
-        const image = editingCommentImage;
+        const images = editingCommentImages;
         const next = cloneDocument(localDocRef.current);
         next.nodes = next.nodes.map((node) => node.id === id
-            ? { ...node, comment: text ? text : undefined, commentImage: image || undefined }
+            ? { ...node, comment: text ? text : undefined, commentImages: images.length > 0 ? images : undefined }
             : node
         );
         commitWithHistory(next);
         setCommentModalEditing(false);
-        if (!text && !image) setOpenCommentNodeId(null);
+        setCommentSlide(0);
+        if (!text && images.length === 0) setOpenCommentNodeId(null);
     };
 
     const cancelCommentModal = () => {
         const node = openCommentNodeId ? nodesById.get(openCommentNodeId) : null;
-        if (!node || (node.comment === undefined && node.commentImage === undefined)) {
+        if (!node || (node.comment === undefined && node.commentImages === undefined)) {
             closeCommentModal();
         } else {
             setCommentModalEditing(false);
-            setEditingCommentImage(undefined);
+            setEditingCommentImages([]);
         }
     };
 
-    const handleCommentImageFile = (file: File | null | undefined) => {
-        if (!file || !file.type.startsWith('image/')) return;
-        fileToScaledDataUrl(file)
-            .then((url) => setEditingCommentImage(url))
-            .catch(() => { /* ignore unreadable images */ });
+    // Scale and append image files to the comment, capped at MAX_COMMENT_IMAGES.
+    const handleCommentImageFiles = (files: FileList | File[] | null | undefined) => {
+        const list = Array.from(files || []).filter((file) => file.type.startsWith('image/'));
+        if (list.length === 0) return;
+        Promise.all(list.map((file) => fileToScaledDataUrl(file).catch(() => null)))
+            .then((urls) => {
+                const valid = urls.filter((url): url is string => Boolean(url));
+                if (valid.length === 0) return;
+                setEditingCommentImages((prev) => [...prev, ...valid].slice(0, MAX_COMMENT_IMAGES));
+            });
     };
 
     const onCommentPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
         const items = event.clipboardData?.items;
         if (!items) return;
+        const files: File[] = [];
         for (const item of items) {
             if (item.type.startsWith('image/')) {
                 const file = item.getAsFile();
-                if (file) {
-                    event.preventDefault();
-                    handleCommentImageFile(file);
-                }
-                return;
+                if (file) files.push(file);
             }
+        }
+        if (files.length > 0) {
+            event.preventDefault();
+            handleCommentImageFiles(files);
         }
     };
 
@@ -1487,9 +1504,10 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 ref={commentFileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 style={{ display: 'none' }}
                 onChange={(event) => {
-                    handleCommentImageFile(event.target.files?.[0]);
+                    handleCommentImageFiles(event.target.files);
                     event.target.value = '';
                 }}
             />
@@ -1771,7 +1789,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
                         {/* Collapsed comment bubbles — click to open the modal */}
                         {visibleNodes.map((node) => {
-                            if (node.comment === undefined && node.commentImage === undefined) return null;
+                            if (node.comment === undefined && node.commentImages === undefined) return null;
                             const size = 26 / zoom;
                             const left = node.position.x + node.size.width - size / 2;
                             const top = node.position.y - size / 2;
@@ -2048,7 +2066,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             onClick={() => openCommentModal(selectedNode, true)}
                             style={{ padding: '6px 10px', fontSize: 12 }}
                         >
-                            💬 {selectedNode.comment !== undefined || selectedNode.commentImage !== undefined ? 'Editar comentario' : 'Agregar comentario'}
+                            💬 {selectedNode.comment !== undefined || selectedNode.commentImages !== undefined ? 'Editar comentario' : 'Agregar comentario'}
                         </button>
                     </PanelSection>
                 )}
@@ -2233,7 +2251,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             {openCommentNodeId && (() => {
                 const node = nodesById.get(openCommentNodeId);
                 if (!node) return null;
-                const hasContent = node.comment !== undefined || node.commentImage !== undefined;
+                const hasContent = node.comment !== undefined || node.commentImages !== undefined;
                 return (
                     <div
                         onMouseDown={(event) => event.stopPropagation()}
@@ -2279,17 +2297,21 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
                                 {commentModalEditing ? (
                                     <>
-                                        {editingCommentImage && (
-                                            <div style={{ position: 'relative' }}>
-                                                <img src={editingCommentImage} alt="Comentario" style={{ width: '100%', borderRadius: 8, display: 'block' }} />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setEditingCommentImage(undefined)}
-                                                    title="Quitar imagen"
-                                                    style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '9999px', border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff', cursor: 'pointer' }}
-                                                >
-                                                    ✕
-                                                </button>
+                                        {editingCommentImages.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                                {editingCommentImages.map((img, i) => (
+                                                    <div key={i} style={{ position: 'relative', width: 'calc(50% - 4px)' }}>
+                                                        <img src={img} alt={`Imagen ${i + 1}`} style={{ width: '100%', borderRadius: 8, display: 'block' }} />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditingCommentImages((prev) => prev.filter((_, j) => j !== i))}
+                                                            title="Quitar imagen"
+                                                            style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '9999px', border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff', cursor: 'pointer' }}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
                                         <textarea
@@ -2315,33 +2337,67 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                         <button
                                             type="button"
                                             onClick={() => commentFileInputRef.current?.click()}
-                                            style={{ alignSelf: 'flex-start', padding: '6px 10px', fontSize: 12, borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border-dim)', background: 'var(--bg-card)', color: 'var(--text-main, #0f172a)' }}
+                                            disabled={editingCommentImages.length >= MAX_COMMENT_IMAGES}
+                                            style={{ alignSelf: 'flex-start', padding: '6px 10px', fontSize: 12, borderRadius: 8, cursor: editingCommentImages.length >= MAX_COMMENT_IMAGES ? 'not-allowed' : 'pointer', border: '1px solid var(--border-dim)', background: 'var(--bg-card)', color: 'var(--text-main, #0f172a)', opacity: editingCommentImages.length >= MAX_COMMENT_IMAGES ? 0.5 : 1 }}
                                         >
-                                            📎 Adjuntar imagen
+                                            📎 Adjuntar imagen ({editingCommentImages.length}/{MAX_COMMENT_IMAGES})
                                         </button>
                                     </>
                                 ) : (
                                     <>
-                                        {node.commentImage && (
-                                            <div style={{ position: 'relative' }}>
-                                                <img
-                                                    src={node.commentImage}
-                                                    alt="Comentario"
-                                                    onClick={() => setLightboxImage(node.commentImage || null)}
-                                                    title="Ampliar imagen"
-                                                    style={{ width: '100%', borderRadius: 8, display: 'block', cursor: 'zoom-in' }}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setLightboxImage(node.commentImage || null)}
-                                                    title="Ver en pantalla completa"
-                                                    aria-label="Ver imagen en pantalla completa"
-                                                    style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                >
-                                                    ⛶
-                                                </button>
-                                            </div>
-                                        )}
+                                        {node.commentImages && node.commentImages.length > 0 && (() => {
+                                            const imgs = node.commentImages;
+                                            const idx = Math.min(commentSlide, imgs.length - 1);
+                                            return (
+                                                <div style={{ position: 'relative' }}>
+                                                    <img
+                                                        src={imgs[idx]}
+                                                        alt={`Comentario ${idx + 1}`}
+                                                        onClick={() => setLightbox({ images: imgs, index: idx })}
+                                                        title="Ampliar imagen"
+                                                        style={{ width: '100%', borderRadius: 8, display: 'block', cursor: 'zoom-in' }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setLightbox({ images: imgs, index: idx })}
+                                                        title="Ver en pantalla completa"
+                                                        aria-label="Ver imagen en pantalla completa"
+                                                        style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        ⛶
+                                                    </button>
+                                                    {imgs.length > 1 && (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setCommentSlide((idx - 1 + imgs.length) % imgs.length)}
+                                                                aria-label="Imagen anterior"
+                                                                style={{ position: 'absolute', top: '50%', left: 6, transform: 'translateY(-50%)', width: 30, height: 30, borderRadius: '9999px', border: 'none', background: 'rgba(15,23,42,0.65)', color: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+                                                            >
+                                                                ‹
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setCommentSlide((idx + 1) % imgs.length)}
+                                                                aria-label="Imagen siguiente"
+                                                                style={{ position: 'absolute', top: '50%', right: 6, transform: 'translateY(-50%)', width: 30, height: 30, borderRadius: '9999px', border: 'none', background: 'rgba(15,23,42,0.65)', color: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+                                                            >
+                                                                ›
+                                                            </button>
+                                                            <div style={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, alignItems: 'center', background: 'rgba(15,23,42,0.6)', padding: '4px 8px', borderRadius: 999 }}>
+                                                                {imgs.map((_, i) => (
+                                                                    <span
+                                                                        key={i}
+                                                                        onClick={() => setCommentSlide(i)}
+                                                                        style={{ width: 7, height: 7, borderRadius: '9999px', cursor: 'pointer', background: i === idx ? '#fff' : 'rgba(255,255,255,0.45)' }}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                         {node.comment && <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.5 }}>{node.comment}</div>}
                                         {!hasContent && <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Sin contenido.</div>}
                                     </>
@@ -2366,38 +2422,65 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 );
             })()}
 
-            {lightboxImage && (
-                <div
-                    onMouseDown={(event) => event.stopPropagation()}
-                    onClick={() => setLightboxImage(null)}
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        zIndex: 1100,
-                        background: 'rgba(2,6,23,0.92)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: 24,
-                        cursor: 'zoom-out'
-                    }}
-                >
-                    <img
-                        src={lightboxImage}
-                        alt="Comentario"
-                        onClick={(event) => event.stopPropagation()}
-                        style={{ maxWidth: '96vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 24px 60px rgba(0,0,0,0.55)' }}
-                    />
-                    <button
-                        type="button"
-                        onClick={() => setLightboxImage(null)}
-                        aria-label="Cerrar"
-                        style={{ position: 'fixed', top: 18, right: 22, width: 40, height: 40, borderRadius: '9999px', border: 'none', background: 'rgba(255,255,255,0.16)', color: '#fff', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}
+            {lightbox && (() => {
+                const imgs = lightbox.images;
+                const i = lightbox.index;
+                return (
+                    <div
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={() => setLightbox(null)}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 1100,
+                            background: 'rgba(2,6,23,0.92)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 24,
+                            cursor: 'zoom-out'
+                        }}
                     >
-                        ✕
-                    </button>
-                </div>
-            )}
+                        <img
+                            src={imgs[i]}
+                            alt={`Comentario ${i + 1}`}
+                            onClick={(event) => event.stopPropagation()}
+                            style={{ maxWidth: '96vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 24px 60px rgba(0,0,0,0.55)' }}
+                        />
+                        {imgs.length > 1 && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={(event) => { event.stopPropagation(); setLightbox({ images: imgs, index: (i - 1 + imgs.length) % imgs.length }); }}
+                                    aria-label="Imagen anterior"
+                                    style={{ position: 'fixed', top: '50%', left: 24, transform: 'translateY(-50%)', width: 48, height: 48, borderRadius: '9999px', border: 'none', background: 'rgba(255,255,255,0.16)', color: '#fff', cursor: 'pointer', fontSize: 26, lineHeight: 1 }}
+                                >
+                                    ‹
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(event) => { event.stopPropagation(); setLightbox({ images: imgs, index: (i + 1) % imgs.length }); }}
+                                    aria-label="Imagen siguiente"
+                                    style={{ position: 'fixed', top: '50%', right: 24, transform: 'translateY(-50%)', width: 48, height: 48, borderRadius: '9999px', border: 'none', background: 'rgba(255,255,255,0.16)', color: '#fff', cursor: 'pointer', fontSize: 26, lineHeight: 1 }}
+                                >
+                                    ›
+                                </button>
+                                <div style={{ position: 'fixed', bottom: 22, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: 13, background: 'rgba(255,255,255,0.14)', padding: '5px 12px', borderRadius: 999 }}>
+                                    {i + 1} / {imgs.length}
+                                </div>
+                            </>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setLightbox(null)}
+                            aria-label="Cerrar"
+                            style={{ position: 'fixed', top: 18, right: 22, width: 40, height: 40, borderRadius: '9999px', border: 'none', background: 'rgba(255,255,255,0.16)', color: '#fff', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
