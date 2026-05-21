@@ -9,12 +9,12 @@ import {
     FileText as FileTextIcon,
     Frame as FrameIcon,
     Link2 as LinkIcon,
-    MessageSquarePlus as CommentIcon,
     Pill as PillIcon,
     Shapes as ShapesIcon,
     Square as SquareIcon,
     StickyNote as StickyNoteIcon,
-    Trash2 as TrashIcon
+    Trash2 as TrashIcon,
+    Type as TypeIcon
 } from "lucide-react";
 import type {
     CanvasDocument,
@@ -71,6 +71,7 @@ type MarqueeState = {
     moved: boolean;
 };
 
+type EdgeEndpointDrag = { edgeId: string; end: 'source' | 'target' };
 type MarqueeRect = { x: number; y: number; width: number; height: number };
 type AlignmentGuide = { axis: 'x' | 'y'; pos: number };
 
@@ -89,7 +90,6 @@ const MIN_NODE_SIZE = 40;
 const HISTORY_LIMIT = 50;
 const HISTORY_COALESCE_MS = 500;
 const DUPLICATE_OFFSET = 28;
-const COMMENT_WIDTH = 220;
 const MAX_COMMENT_IMAGE_DIM = 900;
 
 type LucideIcon = typeof SquareIcon;
@@ -103,7 +103,8 @@ const NODE_TYPE_OPTIONS: Array<{ value: CanvasNodeType; label: string; icon: Luc
     { value: 'cylinder', label: 'Base de datos', icon: DatabaseIcon },
     { value: 'circle', label: 'Círculo', icon: CircleIcon },
     { value: 'sticky', label: 'Sticky', icon: StickyNoteIcon },
-    { value: 'frame', label: 'Frame', icon: FrameIcon }
+    { value: 'frame', label: 'Frame', icon: FrameIcon },
+    { value: 'text', label: 'Texto', icon: TypeIcon }
 ];
 
 const CONNECTION_STYLE_OPTIONS: Array<{ value: CanvasLineStyle; label: string }> = [
@@ -120,6 +121,8 @@ const CURATED_COLORS = [
     '#0ea5e9', '#64748b', '#1e293b', '#fde68a'
 ];
 
+const TEXT_COLORS = ['#0f172a', '#ffffff', '#334155', '#2563eb', '#dc2626', '#15803d', '#b45309', '#7c3aed'];
+
 const FONT_SCALE_PX: Record<CanvasFontScale, number> = { sm: 13, md: 16, lg: 22, xl: 30 };
 const FONT_SCALE_OPTIONS: Array<{ value: CanvasFontScale; label: string }> = [
     { value: 'sm', label: 'S' },
@@ -134,6 +137,14 @@ function clamp(value: number, min: number, max: number): number {
 
 function fontPx(node: CanvasNode): number {
     return FONT_SCALE_PX[node.style.fontScale ?? 'md'];
+}
+
+function defaultTextColor(type: CanvasNodeType): string {
+    return type === 'sticky' || type === 'frame' || type === 'text' ? '#0f172a' : '#ffffff';
+}
+
+function nodeTextColor(node: CanvasNode): string {
+    return node.style.textColor ?? defaultTextColor(node.type);
 }
 
 function cloneDocument(doc: CanvasDocument): CanvasDocument {
@@ -163,6 +174,11 @@ function makeEdgeId() {
 
 function rectsIntersect(a: MarqueeRect, b: MarqueeRect): boolean {
     return !(a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y);
+}
+
+function pointInNode(point: CanvasPoint, node: CanvasNode): boolean {
+    return point.x >= node.position.x && point.x <= node.position.x + node.size.width &&
+        point.y >= node.position.y && point.y <= node.position.y + node.size.height;
 }
 
 function segmentIntersectsRect(a: CanvasPoint, b: CanvasPoint, rect: { x: number; y: number; width: number; height: number }): boolean {
@@ -248,10 +264,13 @@ function buildBezierPath(start: CanvasPoint, end: CanvasPoint): string {
 }
 
 function getNodeBaseStyle(node: CanvasNode): React.CSSProperties {
+    if (node.type === 'text') {
+        return { borderRadius: 0, boxShadow: 'none', background: 'transparent' };
+    }
+
     if (node.type === 'sticky') {
         return {
             borderRadius: 8,
-            color: '#0f172a',
             boxShadow: '0 10px 20px rgba(0,0,0,0.15)',
             background: '#fde68a'
         };
@@ -260,25 +279,22 @@ function getNodeBaseStyle(node: CanvasNode): React.CSSProperties {
     if (node.type === 'frame') {
         return {
             borderRadius: 12,
-            color: '#0f172a',
             boxShadow: 'none',
-            background: 'rgba(255,255,255,0.12)',
-            border: '2px dashed rgba(15,23,42,0.35)'
+            background: 'rgba(255,255,255,0.12)'
         };
     }
 
     if (node.type === 'circle') {
-        return { borderRadius: '9999px', color: '#fff', boxShadow: '0 8px 20px rgba(0,0,0,0.2)', background: node.style.fill };
+        return { borderRadius: '9999px', boxShadow: '0 8px 20px rgba(0,0,0,0.2)', background: node.style.fill };
     }
 
     if (node.type === 'pill') {
-        return { borderRadius: 9999, color: '#fff', boxShadow: '0 8px 20px rgba(0,0,0,0.2)', background: node.style.fill };
+        return { borderRadius: 9999, boxShadow: '0 8px 20px rgba(0,0,0,0.2)', background: node.style.fill };
     }
 
     if (node.type === 'diamond') {
         return {
             borderRadius: 0,
-            color: '#fff',
             boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
             background: node.style.fill,
             clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
@@ -288,7 +304,6 @@ function getNodeBaseStyle(node: CanvasNode): React.CSSProperties {
     if (node.type === 'parallelogram') {
         return {
             borderRadius: 8,
-            color: '#fff',
             boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
             background: node.style.fill,
             clipPath: 'polygon(10% 0%, 100% 0%, 90% 100%, 0% 100%)'
@@ -298,7 +313,6 @@ function getNodeBaseStyle(node: CanvasNode): React.CSSProperties {
     if (node.type === 'document') {
         return {
             borderRadius: 8,
-            color: '#fff',
             boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
             background: node.style.fill,
             clipPath: 'polygon(0 0, 86% 0, 100% 16%, 100% 100%, 0 100%)'
@@ -308,7 +322,6 @@ function getNodeBaseStyle(node: CanvasNode): React.CSSProperties {
     if (node.type === 'cylinder') {
         return {
             borderRadius: 999,
-            color: '#fff',
             boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
             background: node.style.fill
         };
@@ -316,7 +329,6 @@ function getNodeBaseStyle(node: CanvasNode): React.CSSProperties {
 
     return {
         borderRadius: node.style.radius,
-        color: '#fff',
         boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
         background: node.style.fill
     };
@@ -372,26 +384,29 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [newConnectionStyle, setNewConnectionStyle] = useState<CanvasLineStyle>('orthogonal');
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const [editingNodeContent, setEditingNodeContent] = useState('');
-    const [editingCommentNodeId, setEditingCommentNodeId] = useState<string | null>(null);
+    const [openCommentNodeId, setOpenCommentNodeId] = useState<string | null>(null);
+    const [commentModalEditing, setCommentModalEditing] = useState(false);
     const [editingCommentText, setEditingCommentText] = useState('');
     const [editingCommentImage, setEditingCommentImage] = useState<string | undefined>(undefined);
 
-    // Viewport state (Phase 1).
+    // Viewport state.
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState<CanvasPoint>({ x: 0, y: 0 });
     const [isSpaceDown, setIsSpaceDown] = useState(false);
     const [isPanning, setIsPanning] = useState(false);
     const [guides, setGuides] = useState<AlignmentGuide[]>([]);
 
-    // Editing state (Phase 2).
+    // Editing state.
     const [past, setPast] = useState<CanvasDocument[]>([]);
     const [future, setFuture] = useState<CanvasDocument[]>([]);
     const [marquee, setMarquee] = useState<MarqueeRect | null>(null);
+    const [edgeDragWorld, setEdgeDragWorld] = useState<CanvasPoint | null>(null);
 
     const dragRef = useRef<DragState | null>(null);
     const panDragRef = useRef<PanDragState | null>(null);
     const resizeRef = useRef<ResizeState | null>(null);
     const marqueeRef = useRef<MarqueeState | null>(null);
+    const edgeEndpointDragRef = useRef<EdgeEndpointDrag | null>(null);
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const commentFileInputRef = useRef<HTMLInputElement | null>(null);
     const zoomRef = useRef(1);
@@ -431,7 +446,6 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         [localDoc.nodes]
     );
 
-    // Branch collapse: a collapsed node hides every node reachable downstream.
     const nodesWithChildren = useMemo(
         () => new Set(localDoc.edges.map((edge) => edge.source.nodeId)),
         [localDoc.edges]
@@ -672,6 +686,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
         const isSticky = type === 'sticky';
         const isFrame = type === 'frame';
+        const isText = type === 'text';
         const next = cloneDocument(localDocRef.current);
         const id = makeNodeId();
         next.nodes.push({
@@ -679,11 +694,11 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             type,
             position: { x: Math.max(0, x), y: Math.max(0, y) },
             size: {
-                width: isFrame ? 420 : (isSticky ? 200 : 220),
-                height: isFrame ? 260 : (isSticky ? 150 : 88)
+                width: isFrame ? 420 : (isText ? 200 : (isSticky ? 200 : 220)),
+                height: isFrame ? 260 : (isText ? 48 : (isSticky ? 150 : 88))
             },
             style: { fill: isSticky ? '#fde68a' : accentColor, radius: 12, fontScale: 'md' },
-            content: isFrame ? 'Frame' : 'Nuevo nodo'
+            content: isFrame ? 'Frame' : (isText ? 'Texto' : 'Nuevo nodo')
         });
         commitWithHistory(next);
         setSelectedNodeIds([id]);
@@ -788,20 +803,29 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         setEditingNodeId(null);
     };
 
-    const startCommentEdit = (node: CanvasNode) => {
-        if (readOnly) return;
-        setEditingCommentNodeId(node.id);
+    const openCommentModal = (node: CanvasNode, editing: boolean) => {
+        setOpenCommentNodeId(node.id);
         setEditingCommentText(node.comment ?? '');
         setEditingCommentImage(node.commentImage);
+        setCommentModalEditing(editing && !readOnly);
     };
 
-    const cancelCommentEdit = () => {
-        setEditingCommentNodeId(null);
+    const closeCommentModal = () => {
+        setOpenCommentNodeId(null);
+        setCommentModalEditing(false);
         setEditingCommentImage(undefined);
     };
 
-    const finishCommentEdit = () => {
-        const id = editingCommentNodeId;
+    const beginCommentEditingInModal = () => {
+        if (readOnly || !openCommentNodeId) return;
+        const node = nodesById.get(openCommentNodeId);
+        setEditingCommentText(node?.comment ?? '');
+        setEditingCommentImage(node?.commentImage);
+        setCommentModalEditing(true);
+    };
+
+    const saveCommentModal = () => {
+        const id = openCommentNodeId;
         if (!id) return;
         const text = editingCommentText.trim();
         const image = editingCommentImage;
@@ -811,8 +835,18 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             : node
         );
         commitWithHistory(next);
-        setEditingCommentNodeId(null);
-        setEditingCommentImage(undefined);
+        setCommentModalEditing(false);
+        if (!text && !image) setOpenCommentNodeId(null);
+    };
+
+    const cancelCommentModal = () => {
+        const node = openCommentNodeId ? nodesById.get(openCommentNodeId) : null;
+        if (!node || (node.comment === undefined && node.commentImage === undefined)) {
+            closeCommentModal();
+        } else {
+            setCommentModalEditing(false);
+            setEditingCommentImage(undefined);
+        }
     };
 
     const handleCommentImageFile = (file: File | null | undefined) => {
@@ -954,6 +988,15 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         };
     };
 
+    const onEdgeEndpointMouseDown = (event: React.MouseEvent<HTMLDivElement>, edgeId: string, end: 'source' | 'target') => {
+        if (readOnly) return;
+        event.stopPropagation();
+        event.preventDefault();
+        pushHistory();
+        edgeEndpointDragRef.current = { edgeId, end };
+        setEdgeDragWorld(screenToWorld(event.clientX, event.clientY));
+    };
+
     useEffect(() => {
         const onMouseMove = (event: MouseEvent) => {
             if (panDragRef.current) {
@@ -968,6 +1011,11 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             }
 
             if (readOnly) return;
+
+            if (edgeEndpointDragRef.current) {
+                setEdgeDragWorld(screenToWorld(event.clientX, event.clientY));
+                return;
+            }
 
             if (resizeRef.current) {
                 const state = resizeRef.current;
@@ -1064,6 +1112,27 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 if (panDragRef.current.moved) suppressClickRef.current = true;
                 panDragRef.current = null;
                 setIsPanning(false);
+            }
+            if (edgeEndpointDragRef.current) {
+                const drag = edgeEndpointDragRef.current;
+                edgeEndpointDragRef.current = null;
+                setEdgeDragWorld(null);
+                const world = screenToWorld(event.clientX, event.clientY);
+                const target = [...localDocRef.current.nodes]
+                    .filter((node) => !hiddenNodeIds.has(node.id))
+                    .reverse()
+                    .find((node) => pointInNode(world, node));
+                if (target) {
+                    const next = cloneDocument(localDocRef.current);
+                    next.edges = next.edges.map((edge) => {
+                        if (edge.id !== drag.edgeId) return edge;
+                        const endpoint = { nodeId: target.id, port: getNearestPort(target, world) };
+                        return drag.end === 'source'
+                            ? { ...edge, source: endpoint }
+                            : { ...edge, target: endpoint };
+                    });
+                    commit(next);
+                }
             }
             if (resizeRef.current) {
                 resizeRef.current = null;
@@ -1206,8 +1275,6 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
         const nodesMap = new Map(doc.nodes.map((node) => [node.id, node] as const));
 
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = 2;
         doc.edges.forEach((edge) => {
             if (hiddenNodeIds.has(edge.source.nodeId) || hiddenNodeIds.has(edge.target.nodeId)) return;
             const source = nodesMap.get(edge.source.nodeId);
@@ -1217,6 +1284,10 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             const start = getPortPoint(source, edge.source.port);
             const end = getPortPoint(target, edge.target.port);
 
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2;
+            ctx.setLineDash(edge.dashed ? [9, 7] : []);
+
             if (edge.lineStyle === 'bezier') {
                 const dx = end.x - start.x;
                 const c1 = { x: start.x + dx * 0.4, y: start.y };
@@ -1225,6 +1296,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 ctx.moveTo(start.x, start.y);
                 ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, end.x, end.y);
                 ctx.stroke();
+                ctx.setLineDash([]);
                 return;
             }
 
@@ -1232,21 +1304,25 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 ? [start, end]
                 : buildOrthogonalPoints(edge, nodesMap, doc.nodes);
 
-            if (points.length < 2) return;
-            ctx.beginPath();
-            ctx.moveTo(points[0].x, points[0].y);
-            for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i].x, points[i].y);
-            ctx.stroke();
+            if (points.length >= 2) {
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i].x, points[i].y);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
         });
 
         doc.nodes.forEach((node) => {
             if (hiddenNodeIds.has(node.id)) return;
-            ctx.fillStyle = node.type === 'sticky' ? '#fde68a' : (node.style.fill || '#3b82f6');
-            ctx.fillRect(node.position.x, node.position.y, node.size.width, node.size.height);
-            ctx.strokeStyle = '#0f172a';
-            ctx.strokeRect(node.position.x, node.position.y, node.size.width, node.size.height);
+            if (node.type !== 'text') {
+                ctx.fillStyle = node.type === 'sticky' ? '#fde68a' : (node.style.fill || '#3b82f6');
+                ctx.fillRect(node.position.x, node.position.y, node.size.width, node.size.height);
+                ctx.strokeStyle = node.style.stroke || '#0f172a';
+                ctx.strokeRect(node.position.x, node.position.y, node.size.width, node.size.height);
+            }
 
-            ctx.fillStyle = node.type === 'sticky' || node.type === 'frame' ? '#0f172a' : '#ffffff';
+            ctx.fillStyle = nodeTextColor(node);
             ctx.font = `bold ${fontPx(node)}px sans-serif`;
             ctx.textBaseline = 'middle';
             ctx.fillText(node.content.slice(0, 34), node.position.x + 14, node.position.y + node.size.height / 2);
@@ -1262,6 +1338,25 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const selectedSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
     const resizeTarget = (!readOnly && !editingNodeId && selectedNodeIds.length === 1) ? selectedNode : null;
     const visibleNodes = useMemo(() => localDoc.nodes.filter((node) => !hiddenNodeIds.has(node.id)), [localDoc.nodes, hiddenNodeIds]);
+
+    // Endpoint handles for the selected connector.
+    const selectedEdgeEndpoints = useMemo(() => {
+        if (!selectedEdge) return null;
+        const sourceNode = nodesById.get(selectedEdge.source.nodeId);
+        const targetNode = nodesById.get(selectedEdge.target.nodeId);
+        if (!sourceNode || !targetNode) return null;
+        if (hiddenNodeIds.has(sourceNode.id) || hiddenNodeIds.has(targetNode.id)) return null;
+        return {
+            source: getPortPoint(sourceNode, selectedEdge.source.port),
+            target: getPortPoint(targetNode, selectedEdge.target.port)
+        };
+    }, [selectedEdge, nodesById, hiddenNodeIds]);
+
+    const edgeDragAnchor = useMemo(() => {
+        const drag = edgeEndpointDragRef.current;
+        if (!drag || !edgeDragWorld || !selectedEdgeEndpoints) return null;
+        return drag.end === 'source' ? selectedEdgeEndpoints.target : selectedEdgeEndpoints.source;
+    }, [edgeDragWorld, selectedEdgeEndpoints]);
 
     const zoomControlButton: React.CSSProperties = {
         width: 30,
@@ -1285,6 +1380,26 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         letterSpacing: 0.4,
         marginBottom: 6
     };
+
+    const swatchGrid: React.CSSProperties = {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(8, 1fr)',
+        gap: 5,
+        marginTop: 4
+    };
+
+    function swatchStyle(active: boolean, color: string): React.CSSProperties {
+        return {
+            width: '100%',
+            aspectRatio: '1 / 1',
+            borderRadius: 7,
+            background: color,
+            cursor: 'pointer',
+            border: active ? '2px solid var(--text-main, #0f172a)' : '1px solid rgba(0,0,0,0.15)',
+            outline: active ? '2px solid #fff' : 'none',
+            outlineOffset: -3
+        };
+    }
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 12, height: '100%', minHeight: 560 }}>
@@ -1365,6 +1480,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                         d={pathData}
                                         stroke={selectedEdgeId === edge.id ? '#2563eb' : '#64748b'}
                                         strokeWidth={selectedEdgeId === edge.id ? 3 : 2}
+                                        strokeDasharray={edge.dashed ? '9 7' : undefined}
                                         fill="none"
                                         markerStart={edge.startArrow ? 'url(#arrow-start)' : undefined}
                                         markerEnd={edge.endArrow === false ? undefined : 'url(#arrow-end)'}
@@ -1382,15 +1498,22 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                             {edge.text}
                                         </text>
                                     )}
-
-                                    {edge.comment && (
-                                        <text x={centerPoint.x + 6} y={centerPoint.y + 12} fontSize="11" fill="#64748b" pointerEvents="none">
-                                            📝
-                                        </text>
-                                    )}
                                 </g>
                             );
                         })}
+
+                        {edgeDragAnchor && edgeDragWorld && (
+                            <line
+                                x1={edgeDragAnchor.x}
+                                y1={edgeDragAnchor.y}
+                                x2={edgeDragWorld.x}
+                                y2={edgeDragWorld.y}
+                                stroke="#2563eb"
+                                strokeWidth={2 / zoom}
+                                strokeDasharray={`${6 / zoom} ${4 / zoom}`}
+                                pointerEvents="none"
+                            />
+                        )}
 
                         {guides.map((guide, index) => (
                             guide.axis === 'x' ? (
@@ -1429,6 +1552,14 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             const isInlineEditing = editingNodeId === node.id;
 
                             const baseStyle = getNodeBaseStyle(node);
+                            const border = isLinkSource
+                                ? '3px dashed #facc15'
+                                : isSelected
+                                    ? '2px solid rgba(37,99,235,0.9)'
+                                    : node.style.stroke
+                                        ? `2px solid ${node.style.stroke}`
+                                        : (node.type === 'text' ? 'none' : '1px solid rgba(255,255,255,0.4)');
+                            const textColor = nodeTextColor(node);
 
                             return (
                                 <div
@@ -1448,17 +1579,14 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                         top: node.position.y,
                                         width: node.size.width,
                                         height: node.size.height,
-                                        border: isLinkSource
-                                            ? '3px dashed #facc15'
-                                            : isSelected
-                                                ? '2px solid rgba(37,99,235,0.9)'
-                                                : '1px solid rgba(255,255,255,0.4)',
+                                        border,
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         textAlign: 'center',
                                         padding: 10,
                                         fontWeight: 700,
+                                        color: textColor,
                                         userSelect: 'none',
                                         cursor: readOnly ? 'default' : (isInlineEditing ? 'text' : 'grab'),
                                         ...baseStyle
@@ -1486,7 +1614,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                                 background: 'rgba(255,255,255,0.16)',
                                                 border: '1px solid rgba(255,255,255,0.45)',
                                                 borderRadius: 8,
-                                                color: node.type === 'sticky' || node.type === 'frame' ? '#0f172a' : '#fff',
+                                                color: textColor,
                                                 fontWeight: 700,
                                                 textAlign: 'center',
                                                 padding: 8,
@@ -1543,127 +1671,69 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             );
                         })}
 
-                        {/* On-canvas comment notes (text and/or image) */}
+                        {/* Collapsed comment bubbles — click to open the modal */}
                         {visibleNodes.map((node) => {
-                            const isEditingComment = editingCommentNodeId === node.id;
-                            const hasContent = node.comment !== undefined || node.commentImage !== undefined;
-                            if (!hasContent && !isEditingComment) return null;
-                            const left = node.position.x + node.size.width + 14;
-                            const top = node.position.y;
+                            if (node.comment === undefined && node.commentImage === undefined) return null;
+                            const size = 26 / zoom;
+                            const left = node.position.x + node.size.width - size / 2;
+                            const top = node.position.y - size / 2;
                             return (
-                                <div
-                                    key={`comment-${node.id}`}
+                                <button
+                                    key={`comment-chip-${node.id}`}
+                                    type="button"
                                     onMouseDown={(event) => event.stopPropagation()}
-                                    onClick={(event) => event.stopPropagation()}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        openCommentModal(node, false);
+                                    }}
+                                    title={node.comment || 'Ver comentario'}
                                     style={{
                                         position: 'absolute',
                                         left,
                                         top,
-                                        width: COMMENT_WIDTH,
+                                        width: size,
+                                        height: size,
+                                        borderRadius: '9999px',
+                                        border: `${1.5 / zoom}px solid #fde047`,
                                         background: '#fef9c3',
-                                        border: '1px solid #fde047',
-                                        borderRadius: 8,
-                                        padding: 8,
-                                        boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                                        fontSize: 12,
-                                        color: '#0f172a',
-                                        zIndex: 3
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: 13 / zoom,
+                                        lineHeight: 1,
+                                        padding: 0,
+                                        boxShadow: '0 3px 8px rgba(0,0,0,0.22)',
+                                        zIndex: 4
                                     }}
                                 >
-                                    {isEditingComment ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                            {editingCommentImage && (
-                                                <div style={{ position: 'relative' }}>
-                                                    <img
-                                                        src={editingCommentImage}
-                                                        alt="Comentario"
-                                                        style={{ width: '100%', borderRadius: 6, display: 'block' }}
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setEditingCommentImage(undefined)}
-                                                        title="Quitar imagen"
-                                                        style={{
-                                                            position: 'absolute', top: 4, right: 4,
-                                                            width: 20, height: 20, borderRadius: '9999px',
-                                                            border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff',
-                                                            cursor: 'pointer', fontSize: 12, lineHeight: 1
-                                                        }}
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                </div>
-                                            )}
-                                            <textarea
-                                                autoFocus
-                                                value={editingCommentText}
-                                                onChange={(event) => setEditingCommentText(event.target.value)}
-                                                onPaste={onCommentPaste}
-                                                onKeyDown={(event) => {
-                                                    if (event.key === 'Escape') {
-                                                        event.preventDefault();
-                                                        cancelCommentEdit();
-                                                    }
-                                                }}
-                                                placeholder="Escribe un comentario o pega una imagen…"
-                                                style={{
-                                                    width: '100%',
-                                                    minHeight: 48,
-                                                    background: 'rgba(255,255,255,0.6)',
-                                                    border: '1px solid #fde047',
-                                                    borderRadius: 6,
-                                                    outline: 'none',
-                                                    resize: 'none',
-                                                    fontSize: 12,
-                                                    color: '#0f172a',
-                                                    fontFamily: 'inherit',
-                                                    padding: 6
-                                                }}
-                                            />
-                                            <div style={{ display: 'flex', gap: 6 }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => commentFileInputRef.current?.click()}
-                                                    style={{ flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: '1px solid #d6d3a8', background: '#fff' }}
-                                                >
-                                                    📎 Imagen
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={finishCommentEdit}
-                                                    style={{ flex: 1, padding: '5px 0', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer', border: '1px solid #2563eb', background: '#2563eb', color: '#fff' }}
-                                                >
-                                                    Guardar
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={cancelCommentEdit}
-                                                    style={{ flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: '1px solid #d6d3a8', background: '#fff' }}
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div
-                                            onClick={() => startCommentEdit(node)}
-                                            style={{ cursor: readOnly ? 'default' : 'pointer' }}
-                                        >
-                                            {node.commentImage && (
-                                                <img
-                                                    src={node.commentImage}
-                                                    alt="Comentario"
-                                                    style={{ width: '100%', borderRadius: 6, display: 'block', marginBottom: node.comment ? 6 : 0 }}
-                                                />
-                                            )}
-                                            {node.comment && (
-                                                <div style={{ whiteSpace: 'pre-wrap' }}>
-                                                    <span style={{ marginRight: 4 }}>💬</span>{node.comment}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                                    💬
+                                </button>
+                            );
+                        })}
+
+                        {/* Draggable endpoints for the selected connector */}
+                        {!readOnly && selectedEdge && selectedEdgeEndpoints && (['source', 'target'] as const).map((end) => {
+                            const point = selectedEdgeEndpoints[end];
+                            const size = 13 / zoom;
+                            return (
+                                <div
+                                    key={`endpoint-${end}`}
+                                    onMouseDown={(event) => onEdgeEndpointMouseDown(event, selectedEdge.id, end)}
+                                    title="Arrastra para reconectar"
+                                    style={{
+                                        position: 'absolute',
+                                        left: point.x - size / 2,
+                                        top: point.y - size / 2,
+                                        width: size,
+                                        height: size,
+                                        borderRadius: '9999px',
+                                        background: '#fff',
+                                        border: `${2.5 / zoom}px solid #2563eb`,
+                                        cursor: 'grab',
+                                        zIndex: 6
+                                    }}
+                                />
                             );
                         })}
 
@@ -1869,7 +1939,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
                 {selectedNode && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <div style={sectionLabel}>Nodo seleccionado</div>
+                        <div style={sectionLabel}>Elemento seleccionado</div>
 
                         <label style={{ fontSize: 12 }}>Texto</label>
                         <textarea
@@ -1911,32 +1981,64 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         </div>
 
                         <div>
-                            <label style={{ fontSize: 12 }}>Color</label>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 5, marginTop: 4 }}>
-                                {CURATED_COLORS.map((color) => {
-                                    const active = selectedNode.style.fill?.toLowerCase() === color.toLowerCase();
-                                    return (
+                            <label style={{ fontSize: 12 }}>Color de texto</label>
+                            <div style={swatchGrid}>
+                                {TEXT_COLORS.map((color) => (
+                                    <button
+                                        key={color}
+                                        type="button"
+                                        onClick={() => updateNode(selectedNode.id, { style: { textColor: color } }, true)}
+                                        disabled={readOnly}
+                                        title={color}
+                                        style={swatchStyle(selectedNode.style.textColor?.toLowerCase() === color.toLowerCase(), color)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        {selectedNode.type !== 'text' && (
+                            <div>
+                                <label style={{ fontSize: 12 }}>Relleno</label>
+                                <div style={swatchGrid}>
+                                    {CURATED_COLORS.map((color) => (
                                         <button
                                             key={color}
                                             type="button"
                                             onClick={() => updateNode(selectedNode.id, { style: { fill: color } }, true)}
                                             disabled={readOnly}
                                             title={color}
-                                            style={{
-                                                width: '100%',
-                                                aspectRatio: '1 / 1',
-                                                borderRadius: 7,
-                                                background: color,
-                                                cursor: 'pointer',
-                                                border: active ? '2px solid var(--text-main, #0f172a)' : '1px solid rgba(0,0,0,0.15)',
-                                                outline: active ? '2px solid #fff' : 'none',
-                                                outlineOffset: -3
-                                            }}
+                                            style={swatchStyle(selectedNode.style.fill?.toLowerCase() === color.toLowerCase(), color)}
                                         />
-                                    );
-                                })}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {selectedNode.type !== 'text' && (
+                            <div>
+                                <label style={{ fontSize: 12 }}>Color de borde</label>
+                                <div style={swatchGrid}>
+                                    {CURATED_COLORS.map((color) => (
+                                        <button
+                                            key={color}
+                                            type="button"
+                                            onClick={() => updateNode(selectedNode.id, { style: { stroke: color } }, true)}
+                                            disabled={readOnly}
+                                            title={color}
+                                            style={swatchStyle(selectedNode.style.stroke?.toLowerCase() === color.toLowerCase(), color)}
+                                        />
+                                    ))}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => updateNode(selectedNode.id, { style: { stroke: undefined } })}
+                                    disabled={readOnly}
+                                    style={{ marginTop: 5, padding: '4px 8px', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border-dim)', background: 'var(--bg-card)', color: 'var(--text-main, #0f172a)' }}
+                                >
+                                    Sin borde
+                                </button>
+                            </div>
+                        )}
 
                         <label style={{ fontSize: 12 }}>Tipo</label>
                         <select
@@ -1954,33 +2056,46 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             <button
                                 type="button"
                                 className="btn-ghost"
-                                onClick={() => startCommentEdit(selectedNode)}
-                                style={{ padding: '6px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
+                                onClick={() => openCommentModal(selectedNode, true)}
+                                style={{ padding: '6px 10px', fontSize: 12 }}
                             >
-                                <CommentIcon size={13} /> {selectedNode.comment !== undefined ? 'Editar comentario' : 'Agregar comentario'}
+                                💬 {selectedNode.comment !== undefined || selectedNode.commentImage !== undefined ? 'Editar comentario' : 'Agregar comentario'}
                             </button>
                         )}
-                        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                            El comentario aparece como nota junto al elemento en el lienzo.
-                        </div>
                     </div>
                 )}
 
                 {selectedEdge && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={sectionLabel}>Conexión seleccionada</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                            Arrastra los puntos azules de los extremos para reconectar la flecha.
+                        </div>
 
                         <label style={{ fontSize: 12 }}>Tipo de línea</label>
-                        <select
-                            className="input-glass"
-                            value={selectedEdge.lineStyle}
-                            onChange={(event) => updateEdge(selectedEdge.id, { lineStyle: event.target.value as CanvasLineStyle })}
-                            disabled={readOnly}
-                        >
+                        <div style={{ display: 'flex', gap: 4 }}>
                             {CONNECTION_STYLE_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => updateEdge(selectedEdge.id, { lineStyle: opt.value })}
+                                    disabled={readOnly}
+                                    style={{
+                                        flex: 1,
+                                        padding: '6px 4px',
+                                        fontSize: 11,
+                                        borderRadius: 8,
+                                        cursor: 'pointer',
+                                        border: selectedEdge.lineStyle === opt.value ? '1px solid #2563eb' : '1px solid var(--border-dim)',
+                                        background: selectedEdge.lineStyle === opt.value ? 'rgba(37,99,235,0.12)' : 'var(--bg-card)',
+                                        color: 'var(--text-main, #0f172a)',
+                                        fontWeight: selectedEdge.lineStyle === opt.value ? 700 : 400
+                                    }}
+                                >
+                                    {opt.label}
+                                </button>
                             ))}
-                        </select>
+                        </div>
 
                         <label style={{ fontSize: 12 }}>Texto de conexión</label>
                         <input
@@ -1991,15 +2106,15 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             placeholder="Ej: Sí / No"
                         />
 
-                        <label style={{ fontSize: 12 }}>Comentario</label>
-                        <textarea
-                            className="input-glass"
-                            value={selectedEdge.comment || ''}
-                            onChange={(event) => updateEdge(selectedEdge.id, { comment: event.target.value }, true)}
-                            disabled={readOnly}
-                            rows={2}
-                            placeholder="Comentario de la conexión"
-                        />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                            <input
+                                type="checkbox"
+                                checked={!!selectedEdge.dashed}
+                                onChange={(event) => updateEdge(selectedEdge.id, { dashed: event.target.checked || undefined })}
+                                disabled={readOnly}
+                            />
+                            Línea discontinua
+                        </label>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
@@ -2026,10 +2141,127 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
                 {selectedNodeIds.length === 0 && !selectedEdge && (
                     <div style={{ color: 'var(--text-dim)', fontSize: 12, lineHeight: 1.6 }}>
-                        Haz clic en un elemento de la paleta para agregarlo. El botón circular bajo un nodo colapsa o expande su rama. Cmd/Ctrl+Z deshace.
+                        Haz clic en un elemento de la paleta para agregarlo. Selecciona una conexión para reconectarla arrastrando sus extremos. Cmd/Ctrl+Z deshace.
                     </div>
                 )}
             </aside>
+
+            {openCommentNodeId && (() => {
+                const node = nodesById.get(openCommentNodeId);
+                if (!node) return null;
+                const hasContent = node.comment !== undefined || node.commentImage !== undefined;
+                return (
+                    <div
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={() => { if (!commentModalEditing) closeCommentModal(); }}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 1000,
+                            background: 'rgba(15,23,42,0.55)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 20
+                        }}
+                    >
+                        <div
+                            onClick={(event) => event.stopPropagation()}
+                            style={{
+                                width: 'min(480px, 100%)',
+                                maxHeight: '82vh',
+                                overflowY: 'auto',
+                                background: 'var(--bg-card)',
+                                color: 'var(--text-main, #0f172a)',
+                                borderRadius: 14,
+                                border: '1px solid var(--border-dim)',
+                                boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+                                display: 'flex',
+                                flexDirection: 'column'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid var(--border-dim)' }}>
+                                <strong style={{ fontSize: 13 }}>💬 Comentario</strong>
+                                <button
+                                    type="button"
+                                    onClick={closeCommentModal}
+                                    aria-label="Cerrar"
+                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18, lineHeight: 1, color: 'var(--text-dim)' }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {commentModalEditing ? (
+                                    <>
+                                        {editingCommentImage && (
+                                            <div style={{ position: 'relative' }}>
+                                                <img src={editingCommentImage} alt="Comentario" style={{ width: '100%', borderRadius: 8, display: 'block' }} />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingCommentImage(undefined)}
+                                                    title="Quitar imagen"
+                                                    style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '9999px', border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff', cursor: 'pointer' }}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        )}
+                                        <textarea
+                                            autoFocus
+                                            value={editingCommentText}
+                                            onChange={(event) => setEditingCommentText(event.target.value)}
+                                            onPaste={onCommentPaste}
+                                            placeholder="Escribe un comentario o pega una imagen…"
+                                            style={{
+                                                width: '100%',
+                                                minHeight: 110,
+                                                resize: 'vertical',
+                                                borderRadius: 8,
+                                                border: '1px solid var(--border-dim)',
+                                                padding: 8,
+                                                fontSize: 13,
+                                                fontFamily: 'inherit',
+                                                background: 'var(--bg-card)',
+                                                color: 'var(--text-main, #0f172a)',
+                                                outline: 'none'
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => commentFileInputRef.current?.click()}
+                                            style={{ alignSelf: 'flex-start', padding: '6px 10px', fontSize: 12, borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border-dim)', background: 'var(--bg-card)', color: 'var(--text-main, #0f172a)' }}
+                                        >
+                                            📎 Adjuntar imagen
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        {node.commentImage && <img src={node.commentImage} alt="Comentario" style={{ width: '100%', borderRadius: 8, display: 'block' }} />}
+                                        {node.comment && <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.5 }}>{node.comment}</div>}
+                                        {!hasContent && <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Sin contenido.</div>}
+                                    </>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 14px', borderTop: '1px solid var(--border-dim)' }}>
+                                {commentModalEditing ? (
+                                    <>
+                                        <button type="button" className="btn-ghost" onClick={cancelCommentModal} style={{ padding: '6px 12px', fontSize: 12 }}>Cancelar</button>
+                                        <button type="button" className="btn-primary" onClick={saveCommentModal} style={{ padding: '6px 12px', fontSize: 12 }}>Guardar</button>
+                                    </>
+                                ) : (
+                                    <>
+                                        {!readOnly && <button type="button" className="btn-ghost" onClick={beginCommentEditingInModal} style={{ padding: '6px 12px', fontSize: 12 }}>Editar</button>}
+                                        <button type="button" className="btn-primary" onClick={closeCommentModal} style={{ padding: '6px 12px', fontSize: 12 }}>Cerrar</button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
