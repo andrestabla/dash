@@ -39,6 +39,8 @@ export interface CanvasNode {
     style: CanvasNodeStyle;
     content: string;
     comment?: string;
+    // When true, the node's downstream branch is hidden on the canvas.
+    collapsed?: boolean;
 }
 
 export interface CanvasConnectorEndpoint {
@@ -228,7 +230,8 @@ function normalizeNode(inputNode: unknown): CanvasNode {
             fontScale: asFontScale(style.fontScale)
         },
         content: asString(node.content, legacyText),
-        comment: typeof node.comment === 'string' ? node.comment : undefined
+        comment: typeof node.comment === 'string' ? node.comment : undefined,
+        collapsed: node.collapsed === true ? true : undefined
     };
 }
 

@@ -9,6 +9,7 @@ import {
     FileText as FileTextIcon,
     Frame as FrameIcon,
     Link2 as LinkIcon,
+    MessageSquarePlus as CommentIcon,
     Pill as PillIcon,
     Shapes as ShapesIcon,
     Square as SquareIcon,
@@ -88,6 +89,7 @@ const MIN_NODE_SIZE = 40;
 const HISTORY_LIMIT = 50;
 const HISTORY_COALESCE_MS = 500;
 const DUPLICATE_OFFSET = 28;
+const COMMENT_WIDTH = 190;
 
 type LucideIcon = typeof SquareIcon;
 
@@ -342,6 +344,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [newConnectionStyle, setNewConnectionStyle] = useState<CanvasLineStyle>('orthogonal');
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const [editingNodeContent, setEditingNodeContent] = useState('');
+    const [editingCommentNodeId, setEditingCommentNodeId] = useState<string | null>(null);
+    const [editingCommentText, setEditingCommentText] = useState('');
 
     // Viewport state (Phase 1).
     const [zoom, setZoom] = useState(1);
@@ -396,6 +400,33 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         () => new Map(localDoc.nodes.map((node) => [node.id, node] as const)),
         [localDoc.nodes]
     );
+
+    // Branch collapse: a collapsed node hides every node reachable downstream.
+    const nodesWithChildren = useMemo(
+        () => new Set(localDoc.edges.map((edge) => edge.source.nodeId)),
+        [localDoc.edges]
+    );
+
+    const hiddenNodeIds = useMemo(() => {
+        const childrenMap = new Map<string, string[]>();
+        for (const edge of localDoc.edges) {
+            const arr = childrenMap.get(edge.source.nodeId) || [];
+            arr.push(edge.target.nodeId);
+            childrenMap.set(edge.source.nodeId, arr);
+        }
+        const hidden = new Set<string>();
+        for (const node of localDoc.nodes) {
+            if (!node.collapsed) continue;
+            const stack = [...(childrenMap.get(node.id) || [])];
+            while (stack.length) {
+                const id = stack.pop() as string;
+                if (hidden.has(id)) continue;
+                hidden.add(id);
+                for (const child of childrenMap.get(id) || []) stack.push(child);
+            }
+        }
+        return hidden;
+    }, [localDoc.nodes, localDoc.edges]);
 
     const selectedNode = selectedNodeIds.length === 1 ? nodesById.get(selectedNodeIds[0]) || null : null;
     const selectedEdge = selectedEdgeId ? localDoc.edges.find((edge) => edge.id === selectedEdgeId) || null : null;
@@ -485,12 +516,13 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const zoomToFit = useCallback(() => {
         const rect = viewportRef.current?.getBoundingClientRect();
         if (!rect) return;
-        if (localDoc.nodes.length === 0) {
+        const visible = localDoc.nodes.filter((node) => !hiddenNodeIds.has(node.id));
+        if (visible.length === 0) {
             setViewport(1, { x: 40, y: 40 });
             return;
         }
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (const node of localDoc.nodes) {
+        for (const node of visible) {
             minX = Math.min(minX, node.position.x);
             minY = Math.min(minY, node.position.y);
             maxX = Math.max(maxX, node.position.x + node.size.width);
@@ -504,7 +536,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             x: (rect.width - bw * z) / 2 - minX * z,
             y: (rect.height - bh * z) / 2 - minY * z
         });
-    }, [localDoc.nodes, setViewport]);
+    }, [localDoc.nodes, hiddenNodeIds, setViewport]);
 
     useEffect(() => {
         const el = viewportRef.current;
@@ -596,6 +628,13 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         const next = cloneDocument(localDocRef.current);
         next.edges = next.edges.map((edge) => edge.id === edgeId ? { ...edge, ...patch } : edge);
         commitWithHistory(next, coalesce);
+    };
+
+    const toggleCollapse = (nodeId: string) => {
+        if (readOnly) return;
+        const next = cloneDocument(localDocRef.current);
+        next.nodes = next.nodes.map((node) => node.id === nodeId ? { ...node, collapsed: !node.collapsed } : node);
+        commitWithHistory(next);
     };
 
     const addNode = (x = 240, y = 180, type: CanvasNodeType = 'rectangle') => {
@@ -717,6 +756,25 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         const content = editingNodeContent.trim() || 'Nodo';
         updateNode(editingNodeId, { content });
         setEditingNodeId(null);
+    };
+
+    const startCommentEdit = (node: CanvasNode) => {
+        if (readOnly) return;
+        setEditingCommentNodeId(node.id);
+        setEditingCommentText(node.comment ?? '');
+    };
+
+    const finishCommentEdit = () => {
+        const id = editingCommentNodeId;
+        if (!id) return;
+        const text = editingCommentText.trim();
+        const next = cloneDocument(localDocRef.current);
+        next.nodes = next.nodes.map((node) => node.id === id
+            ? { ...node, comment: text ? text : undefined }
+            : node
+        );
+        commitWithHistory(next);
+        setEditingCommentNodeId(null);
     };
 
     const startPan = (clientX: number, clientY: number) => {
@@ -966,6 +1024,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         height: Math.abs(world.y - state.startY)
                     };
                     const hits = localDocRef.current.nodes
+                        .filter((node) => !hiddenNodeIds.has(node.id))
                         .filter((node) => rectsIntersect(rect, { x: node.position.x, y: node.position.y, width: node.size.width, height: node.size.height }))
                         .map((node) => node.id);
                     setSelectedNodeIds(hits);
@@ -986,7 +1045,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
         };
-    }, [readOnly, editingNodeId, nodesById, screenToWorld, commit]);
+    }, [readOnly, editingNodeId, nodesById, screenToWorld, commit, hiddenNodeIds]);
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -1090,6 +1149,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         ctx.strokeStyle = '#64748b';
         ctx.lineWidth = 2;
         doc.edges.forEach((edge) => {
+            if (hiddenNodeIds.has(edge.source.nodeId) || hiddenNodeIds.has(edge.target.nodeId)) return;
             const source = nodesMap.get(edge.source.nodeId);
             const target = nodesMap.get(edge.target.nodeId);
             if (!source || !target) return;
@@ -1120,6 +1180,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         });
 
         doc.nodes.forEach((node) => {
+            if (hiddenNodeIds.has(node.id)) return;
             ctx.fillStyle = node.type === 'sticky' ? '#fde68a' : (node.style.fill || '#3b82f6');
             ctx.fillRect(node.position.x, node.position.y, node.size.width, node.size.height);
             ctx.strokeStyle = '#0f172a';
@@ -1140,6 +1201,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const viewportCursor = isPanning ? 'grabbing' : (isSpaceDown ? 'grab' : 'default');
     const selectedSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
     const resizeTarget = (!readOnly && !editingNodeId && selectedNodeIds.length === 1) ? selectedNode : null;
+    const visibleNodes = useMemo(() => localDoc.nodes.filter((node) => !hiddenNodeIds.has(node.id)), [localDoc.nodes, hiddenNodeIds]);
 
     const zoomControlButton: React.CSSProperties = {
         width: 30,
@@ -1165,7 +1227,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     };
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 12, height: '100%' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 12, height: '100%', minHeight: 560 }}>
             <div
                 ref={viewportRef}
                 onMouseDown={onViewportMouseDown}
@@ -1206,6 +1268,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         </defs>
 
                         {localDoc.edges.map((edge) => {
+                            if (hiddenNodeIds.has(edge.source.nodeId) || hiddenNodeIds.has(edge.target.nodeId)) return null;
                             const sourceNode = nodesById.get(edge.source.nodeId);
                             const targetNode = nodesById.get(edge.target.nodeId);
                             if (!sourceNode || !targetNode) return null;
@@ -1290,7 +1353,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     </svg>
 
                     <div style={{ position: 'absolute', inset: 0 }}>
-                        {localDoc.nodes.map((node) => {
+                        {visibleNodes.map((node) => {
                             const isSelected = selectedSet.has(node.id);
                             const isLinkSource = linkFrom?.nodeId === node.id;
                             const isInlineEditing = editingNodeId === node.id;
@@ -1364,15 +1427,120 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     ) : (
                                         <span style={{ transform: node.type === 'diamond' ? 'scale(0.88)' : 'none', fontSize: fontPx(node) }}>{node.content}</span>
                                     )}
+                                </div>
+                            );
+                        })}
 
-                                    {node.comment && !isInlineEditing && (
-                                        <span style={{ position: 'absolute', top: 4, right: 6, fontSize: 12 }}>📝</span>
+                        {/* Branch collapse toggles */}
+                        {visibleNodes.map((node) => {
+                            if (!nodesWithChildren.has(node.id)) return null;
+                            const size = 22 / zoom;
+                            const cx = node.position.x + node.size.width / 2;
+                            const cy = node.position.y + node.size.height;
+                            return (
+                                <button
+                                    key={`collapse-${node.id}`}
+                                    type="button"
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        toggleCollapse(node.id);
+                                    }}
+                                    title={node.collapsed ? 'Expandir rama' : 'Colapsar rama'}
+                                    style={{
+                                        position: 'absolute',
+                                        left: cx - size / 2,
+                                        top: cy - size / 2,
+                                        width: size,
+                                        height: size,
+                                        borderRadius: '9999px',
+                                        border: `${1.5 / zoom}px solid #2563eb`,
+                                        background: node.collapsed ? '#2563eb' : '#fff',
+                                        color: node.collapsed ? '#fff' : '#2563eb',
+                                        fontSize: 14 / zoom,
+                                        fontWeight: 800,
+                                        lineHeight: 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        zIndex: 4
+                                    }}
+                                >
+                                    {node.collapsed ? '+' : '−'}
+                                </button>
+                            );
+                        })}
+
+                        {/* On-canvas comment notes */}
+                        {visibleNodes.map((node) => {
+                            const isEditingComment = editingCommentNodeId === node.id;
+                            if (node.comment === undefined && !isEditingComment) return null;
+                            const left = node.position.x + node.size.width + 14;
+                            const top = node.position.y;
+                            return (
+                                <div
+                                    key={`comment-${node.id}`}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onClick={(event) => event.stopPropagation()}
+                                    style={{
+                                        position: 'absolute',
+                                        left,
+                                        top,
+                                        width: COMMENT_WIDTH,
+                                        background: '#fef9c3',
+                                        border: '1px solid #fde047',
+                                        borderRadius: 8,
+                                        padding: 8,
+                                        boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                                        fontSize: 12,
+                                        color: '#0f172a',
+                                        zIndex: 3
+                                    }}
+                                >
+                                    {isEditingComment ? (
+                                        <textarea
+                                            autoFocus
+                                            value={editingCommentText}
+                                            onChange={(event) => setEditingCommentText(event.target.value)}
+                                            onBlur={finishCommentEdit}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                                                    event.preventDefault();
+                                                    finishCommentEdit();
+                                                }
+                                                if (event.key === 'Escape') {
+                                                    event.preventDefault();
+                                                    setEditingCommentNodeId(null);
+                                                }
+                                            }}
+                                            placeholder="Escribe un comentario…"
+                                            style={{
+                                                width: '100%',
+                                                minHeight: 56,
+                                                background: 'transparent',
+                                                border: 'none',
+                                                outline: 'none',
+                                                resize: 'none',
+                                                fontSize: 12,
+                                                color: '#0f172a',
+                                                fontFamily: 'inherit'
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            onClick={() => startCommentEdit(node)}
+                                            style={{ whiteSpace: 'pre-wrap', cursor: readOnly ? 'default' : 'text', minHeight: 16 }}
+                                        >
+                                            <span style={{ marginRight: 4 }}>💬</span>{node.comment}
+                                        </div>
                                     )}
                                 </div>
                             );
                         })}
 
-                        {resizeTarget && RESIZE_CORNERS.map(({ corner, cursor }) => {
+                        {resizeTarget && !hiddenNodeIds.has(resizeTarget.id) && RESIZE_CORNERS.map(({ corner, cursor }) => {
                             const handleSize = 11 / zoom;
                             const cx = corner === 'nw' || corner === 'sw'
                                 ? resizeTarget.position.x
@@ -1457,7 +1625,19 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 )}
             </div>
 
-            <aside className="glass-panel" style={{ padding: 12, border: '1px solid var(--border-dim)', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+            <aside
+                className="glass-panel"
+                style={{
+                    padding: 12,
+                    border: '1px solid var(--border-dim)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 14,
+                    minHeight: 0,
+                    maxHeight: 'calc(100vh - 130px)',
+                    overflowY: 'auto'
+                }}
+            >
                 {!readOnly && (
                     <div>
                         <div style={sectionLabel}>Elementos</div>
@@ -1643,15 +1823,19 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             ))}
                         </select>
 
-                        <label style={{ fontSize: 12 }}>Comentario</label>
-                        <textarea
-                            className="input-glass"
-                            value={selectedNode.comment || ''}
-                            onChange={(event) => updateNode(selectedNode.id, { comment: event.target.value }, true)}
-                            disabled={readOnly}
-                            rows={2}
-                            placeholder="Comentario del elemento"
-                        />
+                        {!readOnly && (
+                            <button
+                                type="button"
+                                className="btn-ghost"
+                                onClick={() => startCommentEdit(selectedNode)}
+                                style={{ padding: '6px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
+                            >
+                                <CommentIcon size={13} /> {selectedNode.comment !== undefined ? 'Editar comentario' : 'Agregar comentario'}
+                            </button>
+                        )}
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                            El comentario aparece como nota junto al elemento en el lienzo.
+                        </div>
                     </div>
                 )}
 
@@ -1715,7 +1899,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
                 {selectedNodeIds.length === 0 && !selectedEdge && (
                     <div style={{ color: 'var(--text-dim)', fontSize: 12, lineHeight: 1.6 }}>
-                        Haz clic en un elemento de la paleta para agregarlo. Arrastra en vacío para seleccionar varios, Shift+clic para sumar. Cmd/Ctrl+Z deshace.
+                        Haz clic en un elemento de la paleta para agregarlo. El botón circular bajo un nodo colapsa o expande su rama. Cmd/Ctrl+Z deshace.
                     </div>
                 )}
             </aside>
