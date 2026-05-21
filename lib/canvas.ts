@@ -39,6 +39,10 @@ export interface CanvasNode {
     style: CanvasNodeStyle;
     content: string;
     comment?: string;
+    // Optional image for the comment note, stored as a (downscaled) data URL.
+    commentImage?: string;
+    // When true, the node's downstream branch is hidden on the canvas.
+    collapsed?: boolean;
 }
 
 export interface CanvasConnectorEndpoint {
@@ -228,7 +232,9 @@ function normalizeNode(inputNode: unknown): CanvasNode {
             fontScale: asFontScale(style.fontScale)
         },
         content: asString(node.content, legacyText),
-        comment: typeof node.comment === 'string' ? node.comment : undefined
+        comment: typeof node.comment === 'string' ? node.comment : undefined,
+        commentImage: typeof node.commentImage === 'string' ? node.commentImage : undefined,
+        collapsed: node.collapsed === true ? true : undefined
     };
 }
 
