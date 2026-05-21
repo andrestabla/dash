@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft, Users, UserPlus, UserCheck, Bell, Building2, Trash2, Loader2 } from "lucide-react";
 
@@ -22,6 +22,9 @@ export default function GovernancePage() {
     // Form state
     const [inviteEmail, setInviteEmail] = useState("");
     const [inviteRole, setInviteRole] = useState("member");
+    const [suggestions, setSuggestions] = useState<{ id: string; name: string | null; email: string }[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "member" });
     const [notif, setNotif] = useState({ title: "", message: "" });
     const [newWsName, setNewWsName] = useState("");
@@ -32,6 +35,26 @@ export default function GovernancePage() {
     const flash = (kind: 'ok' | 'err', text: string) => {
         setMsg({ kind, text });
         setTimeout(() => setMsg(null), 4000);
+    };
+
+    // Debounced lookup of existing accounts for the invitation autocomplete.
+    const onInviteEmailChange = (value: string) => {
+        setInviteEmail(value);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (value.trim().length < 2 || !activeWs) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+        debounceRef.current = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/workspaces/${activeWs}/candidates?q=${encodeURIComponent(value.trim())}`);
+                if (res.ok) {
+                    setSuggestions(await res.json());
+                    setShowSuggestions(true);
+                }
+            } catch { /* ignore lookup errors */ }
+        }, 220);
     };
 
     const loadWorkspaces = useCallback(async () => {
@@ -255,15 +278,37 @@ export default function GovernancePage() {
                                 <div>
                                     <label className="form-label">Invitar una cuenta existente</label>
                                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                                        <input className="input-glass" type="email" placeholder="correo@empresa.com" value={inviteEmail}
-                                            onChange={e => setInviteEmail(e.target.value)} style={{ flex: '1 1 200px' }} />
+                                        <div style={{ position: 'relative', flex: '1 1 200px' }}>
+                                            <input className="input-glass" type="email" placeholder="correo@empresa.com" value={inviteEmail}
+                                                autoComplete="off"
+                                                onChange={e => onInviteEmailChange(e.target.value)}
+                                                onFocus={() => { if (suggestions.length) setShowSuggestions(true); }}
+                                                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                                                style={{ width: '100%' }} />
+                                            {showSuggestions && suggestions.length > 0 && (
+                                                <div style={{
+                                                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 30,
+                                                    marginTop: 4, background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
+                                                    borderRadius: 8, boxShadow: 'var(--shadow-md)', maxHeight: 220, overflowY: 'auto'
+                                                }}>
+                                                    {suggestions.map(s => (
+                                                        <div key={s.id}
+                                                            onMouseDown={() => { setInviteEmail(s.email); setSuggestions([]); setShowSuggestions(false); }}
+                                                            style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid var(--border-dim)' }}>
+                                                            <div style={{ fontSize: 13, fontWeight: 600 }}>{s.email}</div>
+                                                            {s.name && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{s.name}</div>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                         <select className="input-glass" value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                                             style={{ width: 'auto', padding: '8px 10px', fontSize: 13 }}>
                                             <option value="member">Miembro</option>
                                             <option value="gestor">Gestor</option>
                                         </select>
                                         <button className="btn-ghost" disabled={busy}
-                                            onClick={async () => { if (await memberAction('invite', { email: inviteEmail, role: inviteRole })) { setInviteEmail(""); setInviteRole("member"); } }}
+                                            onClick={async () => { if (await memberAction('invite', { email: inviteEmail, role: inviteRole })) { setInviteEmail(""); setInviteRole("member"); setSuggestions([]); } }}
                                             style={{ padding: '8px 14px', fontSize: 13 }}>Invitar</button>
                                     </div>
                                 </div>
