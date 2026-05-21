@@ -90,7 +90,6 @@ const MIN_NODE_SIZE = 40;
 const HISTORY_LIMIT = 50;
 const HISTORY_COALESCE_MS = 500;
 const DUPLICATE_OFFSET = 28;
-const COMMENT_WIDTH = 220;
 const MAX_COMMENT_IMAGE_DIM = 900;
 
 type LucideIcon = typeof SquareIcon;
@@ -385,7 +384,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [newConnectionStyle, setNewConnectionStyle] = useState<CanvasLineStyle>('orthogonal');
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const [editingNodeContent, setEditingNodeContent] = useState('');
-    const [editingCommentNodeId, setEditingCommentNodeId] = useState<string | null>(null);
+    const [openCommentNodeId, setOpenCommentNodeId] = useState<string | null>(null);
+    const [commentModalEditing, setCommentModalEditing] = useState(false);
     const [editingCommentText, setEditingCommentText] = useState('');
     const [editingCommentImage, setEditingCommentImage] = useState<string | undefined>(undefined);
 
@@ -803,20 +803,29 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         setEditingNodeId(null);
     };
 
-    const startCommentEdit = (node: CanvasNode) => {
-        if (readOnly) return;
-        setEditingCommentNodeId(node.id);
+    const openCommentModal = (node: CanvasNode, editing: boolean) => {
+        setOpenCommentNodeId(node.id);
         setEditingCommentText(node.comment ?? '');
         setEditingCommentImage(node.commentImage);
+        setCommentModalEditing(editing && !readOnly);
     };
 
-    const cancelCommentEdit = () => {
-        setEditingCommentNodeId(null);
+    const closeCommentModal = () => {
+        setOpenCommentNodeId(null);
+        setCommentModalEditing(false);
         setEditingCommentImage(undefined);
     };
 
-    const finishCommentEdit = () => {
-        const id = editingCommentNodeId;
+    const beginCommentEditingInModal = () => {
+        if (readOnly || !openCommentNodeId) return;
+        const node = nodesById.get(openCommentNodeId);
+        setEditingCommentText(node?.comment ?? '');
+        setEditingCommentImage(node?.commentImage);
+        setCommentModalEditing(true);
+    };
+
+    const saveCommentModal = () => {
+        const id = openCommentNodeId;
         if (!id) return;
         const text = editingCommentText.trim();
         const image = editingCommentImage;
@@ -826,8 +835,18 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             : node
         );
         commitWithHistory(next);
-        setEditingCommentNodeId(null);
-        setEditingCommentImage(undefined);
+        setCommentModalEditing(false);
+        if (!text && !image) setOpenCommentNodeId(null);
+    };
+
+    const cancelCommentModal = () => {
+        const node = openCommentNodeId ? nodesById.get(openCommentNodeId) : null;
+        if (!node || (node.comment === undefined && node.commentImage === undefined)) {
+            closeCommentModal();
+        } else {
+            setCommentModalEditing(false);
+            setEditingCommentImage(undefined);
+        }
     };
 
     const handleCommentImageFile = (file: File | null | undefined) => {
@@ -1652,127 +1671,44 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             );
                         })}
 
-                        {/* On-canvas comment notes (text and/or image) */}
+                        {/* Collapsed comment bubbles — click to open the modal */}
                         {visibleNodes.map((node) => {
-                            const isEditingComment = editingCommentNodeId === node.id;
-                            const hasContent = node.comment !== undefined || node.commentImage !== undefined;
-                            if (!hasContent && !isEditingComment) return null;
-                            const left = node.position.x + node.size.width + 14;
-                            const top = node.position.y;
+                            if (node.comment === undefined && node.commentImage === undefined) return null;
+                            const size = 26 / zoom;
+                            const left = node.position.x + node.size.width - size / 2;
+                            const top = node.position.y - size / 2;
                             return (
-                                <div
-                                    key={`comment-${node.id}`}
+                                <button
+                                    key={`comment-chip-${node.id}`}
+                                    type="button"
                                     onMouseDown={(event) => event.stopPropagation()}
-                                    onClick={(event) => event.stopPropagation()}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        openCommentModal(node, false);
+                                    }}
+                                    title={node.comment || 'Ver comentario'}
                                     style={{
                                         position: 'absolute',
                                         left,
                                         top,
-                                        width: COMMENT_WIDTH,
+                                        width: size,
+                                        height: size,
+                                        borderRadius: '9999px',
+                                        border: `${1.5 / zoom}px solid #fde047`,
                                         background: '#fef9c3',
-                                        border: '1px solid #fde047',
-                                        borderRadius: 8,
-                                        padding: 8,
-                                        boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                                        fontSize: 12,
-                                        color: '#0f172a',
-                                        zIndex: 3
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: 13 / zoom,
+                                        lineHeight: 1,
+                                        padding: 0,
+                                        boxShadow: '0 3px 8px rgba(0,0,0,0.22)',
+                                        zIndex: 4
                                     }}
                                 >
-                                    {isEditingComment ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                            {editingCommentImage && (
-                                                <div style={{ position: 'relative' }}>
-                                                    <img
-                                                        src={editingCommentImage}
-                                                        alt="Comentario"
-                                                        style={{ width: '100%', borderRadius: 6, display: 'block' }}
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setEditingCommentImage(undefined)}
-                                                        title="Quitar imagen"
-                                                        style={{
-                                                            position: 'absolute', top: 4, right: 4,
-                                                            width: 20, height: 20, borderRadius: '9999px',
-                                                            border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff',
-                                                            cursor: 'pointer', fontSize: 12, lineHeight: 1
-                                                        }}
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                </div>
-                                            )}
-                                            <textarea
-                                                autoFocus
-                                                value={editingCommentText}
-                                                onChange={(event) => setEditingCommentText(event.target.value)}
-                                                onPaste={onCommentPaste}
-                                                onKeyDown={(event) => {
-                                                    if (event.key === 'Escape') {
-                                                        event.preventDefault();
-                                                        cancelCommentEdit();
-                                                    }
-                                                }}
-                                                placeholder="Escribe un comentario o pega una imagen…"
-                                                style={{
-                                                    width: '100%',
-                                                    minHeight: 48,
-                                                    background: 'rgba(255,255,255,0.6)',
-                                                    border: '1px solid #fde047',
-                                                    borderRadius: 6,
-                                                    outline: 'none',
-                                                    resize: 'none',
-                                                    fontSize: 12,
-                                                    color: '#0f172a',
-                                                    fontFamily: 'inherit',
-                                                    padding: 6
-                                                }}
-                                            />
-                                            <div style={{ display: 'flex', gap: 6 }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => commentFileInputRef.current?.click()}
-                                                    style={{ flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: '1px solid #d6d3a8', background: '#fff' }}
-                                                >
-                                                    📎 Imagen
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={finishCommentEdit}
-                                                    style={{ flex: 1, padding: '5px 0', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer', border: '1px solid #2563eb', background: '#2563eb', color: '#fff' }}
-                                                >
-                                                    Guardar
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={cancelCommentEdit}
-                                                    style={{ flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: '1px solid #d6d3a8', background: '#fff' }}
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div
-                                            onClick={() => startCommentEdit(node)}
-                                            style={{ cursor: readOnly ? 'default' : 'pointer' }}
-                                        >
-                                            {node.commentImage && (
-                                                <img
-                                                    src={node.commentImage}
-                                                    alt="Comentario"
-                                                    style={{ width: '100%', borderRadius: 6, display: 'block', marginBottom: node.comment ? 6 : 0 }}
-                                                />
-                                            )}
-                                            {node.comment && (
-                                                <div style={{ whiteSpace: 'pre-wrap' }}>
-                                                    <span style={{ marginRight: 4 }}>💬</span>{node.comment}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                                    💬
+                                </button>
                             );
                         })}
 
@@ -2120,7 +2056,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             <button
                                 type="button"
                                 className="btn-ghost"
-                                onClick={() => startCommentEdit(selectedNode)}
+                                onClick={() => openCommentModal(selectedNode, true)}
                                 style={{ padding: '6px 10px', fontSize: 12 }}
                             >
                                 💬 {selectedNode.comment !== undefined || selectedNode.commentImage !== undefined ? 'Editar comentario' : 'Agregar comentario'}
@@ -2209,6 +2145,123 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     </div>
                 )}
             </aside>
+
+            {openCommentNodeId && (() => {
+                const node = nodesById.get(openCommentNodeId);
+                if (!node) return null;
+                const hasContent = node.comment !== undefined || node.commentImage !== undefined;
+                return (
+                    <div
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={() => { if (!commentModalEditing) closeCommentModal(); }}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 1000,
+                            background: 'rgba(15,23,42,0.55)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 20
+                        }}
+                    >
+                        <div
+                            onClick={(event) => event.stopPropagation()}
+                            style={{
+                                width: 'min(480px, 100%)',
+                                maxHeight: '82vh',
+                                overflowY: 'auto',
+                                background: 'var(--bg-card)',
+                                color: 'var(--text-main, #0f172a)',
+                                borderRadius: 14,
+                                border: '1px solid var(--border-dim)',
+                                boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+                                display: 'flex',
+                                flexDirection: 'column'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid var(--border-dim)' }}>
+                                <strong style={{ fontSize: 13 }}>💬 Comentario</strong>
+                                <button
+                                    type="button"
+                                    onClick={closeCommentModal}
+                                    aria-label="Cerrar"
+                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18, lineHeight: 1, color: 'var(--text-dim)' }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {commentModalEditing ? (
+                                    <>
+                                        {editingCommentImage && (
+                                            <div style={{ position: 'relative' }}>
+                                                <img src={editingCommentImage} alt="Comentario" style={{ width: '100%', borderRadius: 8, display: 'block' }} />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingCommentImage(undefined)}
+                                                    title="Quitar imagen"
+                                                    style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '9999px', border: 'none', background: 'rgba(15,23,42,0.75)', color: '#fff', cursor: 'pointer' }}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        )}
+                                        <textarea
+                                            autoFocus
+                                            value={editingCommentText}
+                                            onChange={(event) => setEditingCommentText(event.target.value)}
+                                            onPaste={onCommentPaste}
+                                            placeholder="Escribe un comentario o pega una imagen…"
+                                            style={{
+                                                width: '100%',
+                                                minHeight: 110,
+                                                resize: 'vertical',
+                                                borderRadius: 8,
+                                                border: '1px solid var(--border-dim)',
+                                                padding: 8,
+                                                fontSize: 13,
+                                                fontFamily: 'inherit',
+                                                background: 'var(--bg-card)',
+                                                color: 'var(--text-main, #0f172a)',
+                                                outline: 'none'
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => commentFileInputRef.current?.click()}
+                                            style={{ alignSelf: 'flex-start', padding: '6px 10px', fontSize: 12, borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border-dim)', background: 'var(--bg-card)', color: 'var(--text-main, #0f172a)' }}
+                                        >
+                                            📎 Adjuntar imagen
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        {node.commentImage && <img src={node.commentImage} alt="Comentario" style={{ width: '100%', borderRadius: 8, display: 'block' }} />}
+                                        {node.comment && <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.5 }}>{node.comment}</div>}
+                                        {!hasContent && <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Sin contenido.</div>}
+                                    </>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 14px', borderTop: '1px solid var(--border-dim)' }}>
+                                {commentModalEditing ? (
+                                    <>
+                                        <button type="button" className="btn-ghost" onClick={cancelCommentModal} style={{ padding: '6px 12px', fontSize: 12 }}>Cancelar</button>
+                                        <button type="button" className="btn-primary" onClick={saveCommentModal} style={{ padding: '6px 12px', fontSize: 12 }}>Guardar</button>
+                                    </>
+                                ) : (
+                                    <>
+                                        {!readOnly && <button type="button" className="btn-ghost" onClick={beginCommentEditingInModal} style={{ padding: '6px 12px', fontSize: 12 }}>Editar</button>}
+                                        <button type="button" className="btn-primary" onClick={closeCommentModal} style={{ padding: '6px 12px', fontSize: 12 }}>Cerrar</button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
