@@ -9,6 +9,7 @@ import {
     FileText as FileTextIcon,
     Frame as FrameIcon,
     Link2 as LinkIcon,
+    Pencil as PencilIcon,
     Pill as PillIcon,
     Shapes as ShapesIcon,
     Square as SquareIcon,
@@ -422,6 +423,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [newConnectionStyle, setNewConnectionStyle] = useState<CanvasLineStyle>('orthogonal');
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const [editingNodeContent, setEditingNodeContent] = useState('');
+    const [editorOpen, setEditorOpen] = useState(false);
     const [openCommentNodeId, setOpenCommentNodeId] = useState<string | null>(null);
     const [commentModalEditing, setCommentModalEditing] = useState(false);
     const [editingCommentText, setEditingCommentText] = useState('');
@@ -466,6 +468,9 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     useEffect(() => { localDocRef.current = localDoc; }, [localDoc]);
     useEffect(() => { selectedNodeIdsRef.current = selectedNodeIds; }, [selectedNodeIds]);
     useEffect(() => { selectedEdgeIdRef.current = selectedEdgeId; }, [selectedEdgeId]);
+    useEffect(() => {
+        if (selectedNodeIds.length !== 1 && !selectedEdgeId) setEditorOpen(false);
+    }, [selectedNodeIds, selectedEdgeId]);
     useEffect(() => { pastRef.current = past; }, [past]);
     useEffect(() => { futureRef.current = future; }, [future]);
     useEffect(() => { editingNodeIdRef.current = editingNodeId; }, [editingNodeId]);
@@ -1435,6 +1440,12 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         marginBottom: 6
     };
 
+    const editorLabel: React.CSSProperties = {
+        fontSize: 12,
+        fontWeight: 600,
+        color: 'var(--text-main, #0f172a)'
+    };
+
     const swatchGrid: React.CSSProperties = {
         display: 'grid',
         gridTemplateColumns: 'repeat(8, 1fr)',
@@ -1535,7 +1546,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     <path
                                         d={pathData}
                                         stroke="transparent"
-                                        strokeWidth={16 / zoom}
+                                        strokeWidth={18 / zoom}
                                         fill="none"
                                         style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                                         onMouseDown={(event) => event.stopPropagation()}
@@ -1543,6 +1554,13 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                             event.stopPropagation();
                                             setSelectedEdgeId(edge.id);
                                             setSelectedNodeIds([]);
+                                        }}
+                                        onDoubleClick={(event) => {
+                                            if (readOnly) return;
+                                            event.stopPropagation();
+                                            setSelectedEdgeId(edge.id);
+                                            setSelectedNodeIds([]);
+                                            setEditorOpen(true);
                                         }}
                                     />
                                     <path
@@ -1608,7 +1626,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         )}
                     </svg>
 
-                    <div style={{ position: 'absolute', inset: 0 }}>
+                    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
                         {visibleNodes.map((node) => {
                             const isSelected = selectedSet.has(node.id);
                             const isLinkSource = linkFrom?.nodeId === node.id;
@@ -1638,6 +1656,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     }}
                                     style={{
                                         position: 'absolute',
+                                        pointerEvents: 'auto',
                                         left: node.position.x,
                                         top: node.position.y,
                                         width: node.size.width,
@@ -1710,6 +1729,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     title={node.collapsed ? 'Expandir rama' : 'Colapsar rama'}
                                     style={{
                                         position: 'absolute',
+                                        pointerEvents: 'auto',
                                         left: cx - size / 2,
                                         top: cy - size / 2,
                                         width: size,
@@ -1752,6 +1772,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     title={node.comment || 'Ver comentario'}
                                     style={{
                                         position: 'absolute',
+                                        pointerEvents: 'auto',
                                         left,
                                         top,
                                         width: size,
@@ -1786,6 +1807,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     title="Arrastra para reconectar"
                                     style={{
                                         position: 'absolute',
+                                        pointerEvents: 'auto',
                                         left: point.x - size / 2,
                                         top: point.y - size / 2,
                                         width: size,
@@ -1814,6 +1836,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     onMouseDown={(event) => onResizeHandleMouseDown(event, resizeTarget, corner)}
                                     style={{
                                         position: 'absolute',
+                                        pointerEvents: 'auto',
                                         left: cx - handleSize / 2,
                                         top: cy - handleSize / 2,
                                         width: handleSize,
@@ -1992,228 +2015,204 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 )}
 
                 {selectedNode && (
-                    <>
-                        <PanelSection title="Contenido">
-                            <label style={{ fontSize: 12 }}>Texto</label>
-                            <textarea
-                                className="input-glass"
-                                value={selectedNode.content}
-                                onChange={(event) => updateNode(selectedNode.id, { content: event.target.value }, true)}
-                                rows={2}
-                            />
-                            <button
-                                type="button"
-                                className="btn-ghost"
-                                onClick={() => openCommentModal(selectedNode, true)}
-                                style={{ padding: '6px 10px', fontSize: 12 }}
-                            >
-                                💬 {selectedNode.comment !== undefined || selectedNode.commentImage !== undefined ? 'Editar comentario' : 'Agregar comentario'}
-                            </button>
-                        </PanelSection>
-
-                        <PanelSection title="Estilo del elemento">
-                            <div>
-                                <label style={{ fontSize: 12 }}>Tamaño de texto</label>
-                                <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-                                    {FONT_SCALE_OPTIONS.map((opt) => {
-                                        const active = (selectedNode.style.fontScale ?? 'md') === opt.value;
-                                        return (
-                                            <button
-                                                key={opt.value}
-                                                type="button"
-                                                onClick={() => updateNode(selectedNode.id, { style: { fontScale: opt.value } })}
-                                                style={{
-                                                    flex: 1,
-                                                    padding: '6px 0',
-                                                    fontSize: 12,
-                                                    fontWeight: 700,
-                                                    borderRadius: 8,
-                                                    cursor: 'pointer',
-                                                    border: active ? '1px solid #2563eb' : '1px solid var(--border-dim)',
-                                                    background: active ? 'rgba(37,99,235,0.12)' : 'var(--bg-card)',
-                                                    color: 'var(--text-main, #0f172a)'
-                                                }}
-                                            >
-                                                {opt.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label style={{ fontSize: 12 }}>Color de texto</label>
-                                <div style={swatchGrid}>
-                                    {TEXT_COLORS.map((color) => (
-                                        <button
-                                            key={color}
-                                            type="button"
-                                            onClick={() => updateNode(selectedNode.id, { style: { textColor: color } }, true)}
-                                            title={color}
-                                            style={swatchStyle(selectedNode.style.textColor?.toLowerCase() === color.toLowerCase(), color)}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-
-                            {selectedNode.type !== 'text' && (
-                                <div>
-                                    <label style={{ fontSize: 12 }}>Relleno</label>
-                                    <div style={swatchGrid}>
-                                        {CURATED_COLORS.map((color) => (
-                                            <button
-                                                key={color}
-                                                type="button"
-                                                onClick={() => updateNode(selectedNode.id, { style: { fill: color } }, true)}
-                                                title={color}
-                                                style={swatchStyle(selectedNode.style.fill?.toLowerCase() === color.toLowerCase(), color)}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {selectedNode.type !== 'text' && (
-                                <div>
-                                    <label style={{ fontSize: 12 }}>Color de borde</label>
-                                    <div style={swatchGrid}>
-                                        {CURATED_COLORS.map((color) => (
-                                            <button
-                                                key={color}
-                                                type="button"
-                                                onClick={() => updateNode(selectedNode.id, { style: { stroke: color } }, true)}
-                                                title={color}
-                                                style={swatchStyle(selectedNode.style.stroke?.toLowerCase() === color.toLowerCase(), color)}
-                                            />
-                                        ))}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateNode(selectedNode.id, { style: { stroke: undefined } })}
-                                        style={{ marginTop: 5, padding: '4px 8px', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border-dim)', background: 'var(--bg-card)', color: 'var(--text-main, #0f172a)' }}
-                                    >
-                                        Sin borde
-                                    </button>
-                                </div>
-                            )}
-
-                            <div>
-                                <label style={{ fontSize: 12 }}>Tipo de elemento</label>
-                                <select
-                                    className="input-glass"
-                                    value={selectedNode.type}
-                                    onChange={(event) => updateNode(selectedNode.id, { type: event.target.value as CanvasNode['type'] })}
-                                    style={{ marginTop: 4 }}
-                                >
-                                    {NODE_TYPE_OPTIONS.map((opt) => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </PanelSection>
-                    </>
+                    <PanelSection title="Elemento seleccionado">
+                        <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                            {NODE_TYPE_OPTIONS.find((o) => o.value === selectedNode.type)?.label || 'Elemento'}
+                        </div>
+                        <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={() => setEditorOpen(true)}
+                            style={{ padding: '9px 12px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                        >
+                            <PencilIcon size={14} /> Editar elemento
+                        </button>
+                        <button
+                            type="button"
+                            className="btn-ghost"
+                            onClick={() => openCommentModal(selectedNode, true)}
+                            style={{ padding: '6px 10px', fontSize: 12 }}
+                        >
+                            💬 {selectedNode.comment !== undefined || selectedNode.commentImage !== undefined ? 'Editar comentario' : 'Agregar comentario'}
+                        </button>
+                    </PanelSection>
                 )}
 
                 {selectedEdge && (
                     <PanelSection title="Conexión seleccionada">
                         <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                            Arrastra los puntos azules de los extremos para reconectar la flecha.
+                            Edita el tipo, color y puntos de conexión, o arrastra los puntos azules de los extremos en el lienzo.
                         </div>
-
-                        <div>
-                            <label style={{ fontSize: 12 }}>Tipo de conector</label>
-                            <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-                                {CONNECTION_STYLE_OPTIONS.map((opt) => (
-                                    <button
-                                        key={opt.value}
-                                        type="button"
-                                        onClick={() => updateEdge(selectedEdge.id, { lineStyle: opt.value })}
-                                        style={{
-                                            flex: 1,
-                                            padding: '6px 4px',
-                                            fontSize: 11,
-                                            borderRadius: 8,
-                                            cursor: 'pointer',
-                                            border: selectedEdge.lineStyle === opt.value ? '1px solid #2563eb' : '1px solid var(--border-dim)',
-                                            background: selectedEdge.lineStyle === opt.value ? 'rgba(37,99,235,0.12)' : 'var(--bg-card)',
-                                            color: 'var(--text-main, #0f172a)',
-                                            fontWeight: selectedEdge.lineStyle === opt.value ? 700 : 400
-                                        }}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label style={{ fontSize: 12 }}>Color de línea</label>
-                            <div style={swatchGrid}>
-                                {EDGE_COLORS.map((color) => {
-                                    const isDefault = color === EDGE_COLORS[0];
-                                    const active = selectedEdge.stroke
-                                        ? selectedEdge.stroke.toLowerCase() === color.toLowerCase()
-                                        : isDefault;
-                                    return (
-                                        <button
-                                            key={color}
-                                            type="button"
-                                            onClick={() => updateEdge(selectedEdge.id, { stroke: isDefault ? undefined : color })}
-                                            title={color}
-                                            style={swatchStyle(active, color)}
-                                        />
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label style={{ fontSize: 12 }}>Texto de conexión</label>
-                            <input
-                                className="input-glass"
-                                value={selectedEdge.text || ''}
-                                onChange={(event) => updateEdge(selectedEdge.id, { text: event.target.value }, true)}
-                                placeholder="Ej: Sí / No"
-                                style={{ marginTop: 4 }}
-                            />
-                        </div>
-
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                            <input
-                                type="checkbox"
-                                checked={!!selectedEdge.dashed}
-                                onChange={(event) => updateEdge(selectedEdge.id, { dashed: event.target.checked || undefined })}
-                            />
-                            Línea discontinua
-                        </label>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                                <input
-                                    type="checkbox"
-                                    checked={!!selectedEdge.startArrow}
-                                    onChange={(event) => updateEdge(selectedEdge.id, { startArrow: event.target.checked })}
-                                />
-                                Flecha inicio
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                                <input
-                                    type="checkbox"
-                                    checked={selectedEdge.endArrow !== false}
-                                    onChange={(event) => updateEdge(selectedEdge.id, { endArrow: event.target.checked })}
-                                />
-                                Flecha fin
-                            </label>
-                        </div>
+                        <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={() => setEditorOpen(true)}
+                            style={{ padding: '9px 12px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                        >
+                            <PencilIcon size={14} /> Editar conexión
+                        </button>
                     </PanelSection>
                 )}
 
                 {selectedNodeIds.length === 0 && !selectedEdge && (
                     <div style={{ color: 'var(--text-dim)', fontSize: 12, lineHeight: 1.6 }}>
-                        Haz clic en un elemento de la paleta para agregarlo. Selecciona una conexión para reconectarla arrastrando sus extremos. Cmd/Ctrl+Z deshace.
+                        Haz clic en un elemento de la paleta para agregarlo. Selecciona un elemento o una conexión y pulsa Editar (o haz doble clic en una conexión). Cmd/Ctrl+Z deshace.
                     </div>
                 )}
             </aside>
+            )}
+
+            {editorOpen && (selectedNode || selectedEdge) && (
+                <div
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={() => setEditorOpen(false)}
+                    style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+                >
+                    <div
+                        onClick={(event) => event.stopPropagation()}
+                        style={{ width: 'min(600px, 100%)', maxHeight: '88vh', overflowY: 'auto', background: 'var(--bg-card)', color: 'var(--text-main, #0f172a)', borderRadius: 14, border: '1px solid var(--border-dim)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border-dim)', position: 'sticky', top: 0, background: 'var(--bg-card)', zIndex: 1 }}>
+                            <strong style={{ fontSize: 14 }}>{selectedNode ? 'Editar elemento' : 'Editar conexión'}</strong>
+                            <button type="button" onClick={() => setEditorOpen(false)} aria-label="Cerrar" style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 20, lineHeight: 1, color: 'var(--text-dim)' }}>✕</button>
+                        </div>
+
+                        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                            {selectedNode && (
+                                <>
+                                    <div>
+                                        <label style={editorLabel}>Texto</label>
+                                        <textarea className="input-glass" value={selectedNode.content} onChange={(event) => updateNode(selectedNode.id, { content: event.target.value }, true)} rows={2} style={{ marginTop: 6 }} />
+                                    </div>
+                                    <div>
+                                        <label style={editorLabel}>Tipo de elemento</label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(82px, 1fr))', gap: 6, marginTop: 6 }}>
+                                            {NODE_TYPE_OPTIONS.map((opt) => {
+                                                const Icon = opt.icon;
+                                                const active = selectedNode.type === opt.value;
+                                                return (
+                                                    <button key={opt.value} type="button" onClick={() => updateNode(selectedNode.id, { type: opt.value })}
+                                                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px', borderRadius: 8, cursor: 'pointer', border: active ? '1px solid #2563eb' : '1px solid var(--border-dim)', background: active ? 'rgba(37,99,235,0.12)' : 'var(--bg-card)', color: 'var(--text-main, #0f172a)' }}>
+                                                        <Icon size={16} /><span style={{ fontSize: 9, textAlign: 'center' }}>{opt.label}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={editorLabel}>Tamaño de texto</label>
+                                        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                            {FONT_SCALE_OPTIONS.map((opt) => {
+                                                const active = (selectedNode.style.fontScale ?? 'md') === opt.value;
+                                                return (
+                                                    <button key={opt.value} type="button" onClick={() => updateNode(selectedNode.id, { style: { fontScale: opt.value } })}
+                                                        style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 700, borderRadius: 8, cursor: 'pointer', border: active ? '1px solid #2563eb' : '1px solid var(--border-dim)', background: active ? 'rgba(37,99,235,0.12)' : 'var(--bg-card)', color: 'var(--text-main, #0f172a)' }}>{opt.label}</button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={editorLabel}>Color de texto</label>
+                                        <div style={swatchGrid}>
+                                            {TEXT_COLORS.map((color) => (
+                                                <button key={color} type="button" onClick={() => updateNode(selectedNode.id, { style: { textColor: color } }, true)} title={color} style={swatchStyle(selectedNode.style.textColor?.toLowerCase() === color.toLowerCase(), color)} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {selectedNode.type !== 'text' && (
+                                        <div>
+                                            <label style={editorLabel}>Relleno</label>
+                                            <div style={swatchGrid}>
+                                                {CURATED_COLORS.map((color) => (
+                                                    <button key={color} type="button" onClick={() => updateNode(selectedNode.id, { style: { fill: color } }, true)} title={color} style={swatchStyle(selectedNode.style.fill?.toLowerCase() === color.toLowerCase(), color)} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {selectedNode.type !== 'text' && (
+                                        <div>
+                                            <label style={editorLabel}>Color de borde</label>
+                                            <div style={swatchGrid}>
+                                                {CURATED_COLORS.map((color) => (
+                                                    <button key={color} type="button" onClick={() => updateNode(selectedNode.id, { style: { stroke: color } }, true)} title={color} style={swatchStyle(selectedNode.style.stroke?.toLowerCase() === color.toLowerCase(), color)} />
+                                                ))}
+                                            </div>
+                                            <button type="button" onClick={() => updateNode(selectedNode.id, { style: { stroke: undefined } })} style={{ marginTop: 6, padding: '5px 10px', fontSize: 12, borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border-dim)', background: 'var(--bg-card)', color: 'var(--text-main, #0f172a)' }}>Sin borde</button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {selectedEdge && (
+                                <>
+                                    <div>
+                                        <label style={editorLabel}>Tipo de conector</label>
+                                        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                            {CONNECTION_STYLE_OPTIONS.map((opt) => {
+                                                const active = selectedEdge.lineStyle === opt.value;
+                                                return (
+                                                    <button key={opt.value} type="button" onClick={() => updateEdge(selectedEdge.id, { lineStyle: opt.value })}
+                                                        style={{ flex: 1, padding: '9px 4px', fontSize: 13, borderRadius: 8, cursor: 'pointer', border: active ? '1px solid #2563eb' : '1px solid var(--border-dim)', background: active ? 'rgba(37,99,235,0.12)' : 'var(--bg-card)', color: 'var(--text-main, #0f172a)', fontWeight: active ? 700 : 400 }}>{opt.label}</button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={editorLabel}>Color de línea</label>
+                                        <div style={swatchGrid}>
+                                            {EDGE_COLORS.map((color) => {
+                                                const isDefault = color === EDGE_COLORS[0];
+                                                const active = selectedEdge.stroke ? selectedEdge.stroke.toLowerCase() === color.toLowerCase() : isDefault;
+                                                return (
+                                                    <button key={color} type="button" onClick={() => updateEdge(selectedEdge.id, { stroke: isDefault ? undefined : color })} title={color} style={swatchStyle(active, color)} />
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={editorLabel}>Puntos de conexión</label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 6 }}>
+                                            {(['source', 'target'] as const).map((end) => (
+                                                <div key={end}>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>{end === 'source' ? 'Origen' : 'Destino'}</div>
+                                                    <div style={{ display: 'flex', gap: 4 }}>
+                                                        {([['top', '↑'], ['right', '→'], ['bottom', '↓'], ['left', '←']] as const).map(([port, arrow]) => {
+                                                            const active = selectedEdge[end].port === port;
+                                                            return (
+                                                                <button key={port} type="button" title={port}
+                                                                    onClick={() => updateEdge(selectedEdge.id, { [end]: { nodeId: selectedEdge[end].nodeId, port } } as Partial<CanvasEdge>)}
+                                                                    style={{ flex: 1, padding: '8px 0', fontSize: 15, borderRadius: 8, cursor: 'pointer', border: active ? '1px solid #2563eb' : '1px solid var(--border-dim)', background: active ? 'rgba(37,99,235,0.12)' : 'var(--bg-card)', color: 'var(--text-main, #0f172a)' }}>{arrow}</button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={editorLabel}>Texto de conexión</label>
+                                        <input className="input-glass" value={selectedEdge.text || ''} onChange={(event) => updateEdge(selectedEdge.id, { text: event.target.value }, true)} placeholder="Ej: Sí / No" style={{ marginTop: 6 }} />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                                            <input type="checkbox" checked={!!selectedEdge.dashed} onChange={(event) => updateEdge(selectedEdge.id, { dashed: event.target.checked || undefined })} /> Línea discontinua
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                                            <input type="checkbox" checked={!!selectedEdge.startArrow} onChange={(event) => updateEdge(selectedEdge.id, { startArrow: event.target.checked })} /> Flecha al inicio
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                                            <input type="checkbox" checked={selectedEdge.endArrow !== false} onChange={(event) => updateEdge(selectedEdge.id, { endArrow: event.target.checked })} /> Flecha al final
+                                        </label>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px', borderTop: '1px solid var(--border-dim)', position: 'sticky', bottom: 0, background: 'var(--bg-card)' }}>
+                            <button type="button" className="btn-primary" onClick={() => setEditorOpen(false)} style={{ padding: '8px 16px', fontSize: 13 }}>Listo</button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {openCommentNodeId && (() => {
