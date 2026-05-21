@@ -227,6 +227,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_login_at timestamp with time zone,
     avatar_url text,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    preferences jsonb NOT NULL DEFAULT '{}'::jsonb,
     CONSTRAINT users_pkey PRIMARY KEY (id),
     CONSTRAINT users_email_key UNIQUE (email)
 );
