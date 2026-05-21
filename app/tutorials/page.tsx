@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
     Folder,
     Layout,
+    Layers,
     Columns,
     CheckSquare,
     Share2,
@@ -36,16 +37,31 @@ const sections = [
     },
     {
         id: 'boards',
-        title: 'Creación de Tableros',
+        title: 'Creación de Proyectos',
         icon: <Layout className="w-6 h-6" />,
         color: '#3b82f6',
         content: `
-            Un tablero es donde ocurre la acción. Sigue el asistente de creación:
+            Un proyecto puede ser un tablero Kanban o un lienzo (Canvas colaborativo). El asistente de creación te guía paso a paso:
             1. Haz clic en "Nuevo Proyecto".
-            2. Paso 1: Nombre y descripción del proyecto.
-            3. Paso 2: Define el número de semanas y la fecha de inicio. La fecha de fin se calculará automáticamente.
-            4. Paso 3: Configura el ícono, color y los tipos de tareas predominantes.
-            5. Paso 4: Importa tareas desde un CSV o empieza desde cero.
+            2. Elige el tipo de proyecto: Kanban, para organizar tareas en columnas, o Canvas, para diagramar procesos en un lienzo.
+            3. Asigna un nombre, una descripción, un ícono y un color.
+            4. En los tableros Kanban, define el número de semanas y la fecha de inicio; la fecha de fin se calcula sola. Los lienzos no usan semanas ni fechas.
+            5. En Kanban puedes importar tareas desde un archivo CSV o empezar desde cero. Los lienzos abren con un espacio de trabajo en blanco.
+        `
+    },
+    {
+        id: 'canvas',
+        title: 'Lienzos (Canvas)',
+        icon: <Layers className="w-6 h-6" />,
+        color: '#0891b2',
+        content: `
+            Un lienzo es un tablero visual para diagramar procesos, flujos y mapas de ideas. A diferencia del Kanban, no trabaja con columnas ni tareas, sino con elementos que se conectan entre sí.
+            1. Agrega elementos desde la paleta lateral: procesos, decisiones, documentos, notas, texto y más.
+            2. Para unir dos elementos, selecciona uno y pulsa "Conectar"; luego elige el elemento de destino.
+            3. Haz doble clic en un elemento o una conexión para abrir el editor, donde puedes cambiar el texto, los colores, el tipo de conector y los puntos de conexión.
+            4. Arrastra los puntos azules de una flecha para reconectarla a otro lado.
+            5. Usa los botones - y + de un nodo para plegar o desplegar su rama, y el ícono de comentario para añadir notas.
+            6. Desplázate por el lienzo arrastrándolo con el cursor y ajusta el zoom con los controles de la esquina.
         `
     },
     {
@@ -163,7 +179,7 @@ export default function TutorialsPage() {
                 <div className="mb-16">
                     <h1 className="text-5xl font-bold mb-4 text-gradient">Centro de Aprendizaje</h1>
                     <p className="text-lg text-slate-500 max-w-2xl">
-                        Descubre cómo dominar Dash para gestionar tus proyectos con máxima eficiencia. Aprende desde los conceptos básicos hasta las funciones avanzadas.
+                        Aquí encontrarás cómo usar Dash paso a paso: desde crear tu primer proyecto hasta las funciones más avanzadas, tanto en tableros Kanban como en lienzos.
                     </p>
                 </div>
 
@@ -173,11 +189,11 @@ export default function TutorialsPage() {
                         <div className="flex-1 min-w-[300px]">
                             <div className="flex items-center gap-3 mb-3">
                                 <PlayCircle size={32} className="text-blue-600" />
-                                <h3 className="text-2xl font-bold">🎯 Explora el Demo Interactivo</h3>
+                                <h3 className="text-2xl font-bold">Explora el demo interactivo</h3>
                             </div>
                             <p className="text-slate-600 mb-4">
-                                Descubre todas las funcionalidades de Dash en acción. Tablero demo con 17 tareas reales,
-                                múltiples vistas (Kanban, Timeline, Analítica) y flujos de trabajo profesionales.
+                                Un tablero de ejemplo con tareas reales y varias vistas: Kanban, Timeline y Analítica.
+                                Recórrelo a tu ritmo, sin crear una cuenta.
                             </p>
                             <div className="flex gap-4 flex-wrap">
                                 <Link
