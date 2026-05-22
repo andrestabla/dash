@@ -488,14 +488,14 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
 
             {/* Navbar */}
             <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-                <div className="max-w-[1800px] mx-auto px-4 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link href="/" className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600">
+                <div className="max-w-[1800px] mx-auto px-4 py-2.5 sm:py-0 sm:h-16 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                        <Link href="/" className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 shrink-0">
                             <ArrowLeft size={20} />
                         </Link>
-                        <div>
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h1 className="text-base sm:text-xl font-bold text-slate-900 flex items-center gap-2 leading-tight">
                                     {settings?.icon || "📊"} {dashboardName}
                                 </h1>
                                 {dashboardType === 'canvas' ? (
@@ -514,14 +514,14 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                     <LockKeyhole size={12} /> MODO LECTURA - VISTA PÚBLICA
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-500 font-medium tracking-wide mt-0.5 uppercase">SOLO LECTURA • DASH DEMO</p>
+                            <p className="text-xs text-slate-500 font-medium tracking-wide mt-1 uppercase hidden sm:block">SOLO LECTURA • DASH DEMO</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                         <Link
                             href="/register"
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 w-full sm:w-auto"
                         >
                             <ExternalLink size={18} />
                             Crear mi cuenta gratis
@@ -531,18 +531,18 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
             </header>
 
             {/* Toolbar */}
-            <div className="bg-white border-b border-slate-200 py-4 px-4 sticky top-16 z-20">
+            <div className="bg-white border-b border-slate-200 py-4 px-4 sm:sticky sm:top-16 z-20">
                 <div className="max-w-[1800px] mx-auto flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                     <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
                         {dashboardType !== 'canvas' ? (
                             <>
                                 <button
                                     disabled
-                                    className="bg-blue-600/50 cursor-not-allowed text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2"
+                                    className="bg-blue-600/50 cursor-not-allowed text-white px-4 py-2.5 rounded-xl font-semibold hidden sm:flex items-center gap-2"
                                 >
                                     <Plus size={18} /> Nueva Tarea
                                 </button>
-                                <button disabled className="text-slate-400 px-4 py-2.5 bg-slate-100 rounded-xl font-medium border border-slate-200 flex items-center gap-2 cursor-not-allowed">
+                                <button disabled className="text-slate-400 px-4 py-2.5 bg-slate-100 rounded-xl font-medium border border-slate-200 hidden sm:flex items-center gap-2 cursor-not-allowed">
                                     <Columns size={18} /> Nueva Columna
                                 </button>
 
