@@ -33,6 +33,7 @@ interface Task {
     name: string;
     status: string;
     owner: string;
+    assignees?: { name: string }[];
     type: string;
     prio: string;
     gate: string;
@@ -65,6 +66,14 @@ const DEFAULT_STATUSES: StatusColumn[] = [
     { id: "review", name: "Revisión", color: "#f59e0b" },
     { id: "done", name: "Hecho", color: "#10b981" },
 ];
+
+/** All responsibles of a task — its assignees, or the legacy single owner. */
+function taskAssigneeNames(task: Task): string[] {
+    if (task.assignees && task.assignees.length > 0) {
+        return task.assignees.map((a) => a.name).filter(Boolean);
+    }
+    return task.owner ? [task.owner] : [];
+}
 
 export default function PublicBoardPage({ params }: { params: Promise<{ token: string }> }) {
     const { token } = use(params);
@@ -292,11 +301,21 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                                     <span className="px-2 py-0.5 bg-slate-100 rounded text-[11px] font-semibold text-slate-600 border border-slate-200">{t.week}</span>
                                                     {t.gate && <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-[11px] font-semibold border border-purple-100">⛩️ {t.gate}</span>}
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-1.5 py-0.5 rounded-full border border-slate-100">
-                                                        <User size={12} className="text-slate-400" />
-                                                        <span className="text-[11px] font-medium text-slate-600 truncate max-w-[60px]">{t.owner.split(' ')[0]}</span>
-                                                    </div>
+                                                <div className="flex items-center gap-1 flex-wrap justify-end">
+                                                    {(() => {
+                                                        const people = taskAssigneeNames(t);
+                                                        return (<>
+                                                            {people.slice(0, 3).map((name, i) => (
+                                                                <div key={i} className="flex items-center gap-1.5 bg-slate-50 px-1.5 py-0.5 rounded-full border border-slate-100">
+                                                                    <User size={12} className="text-slate-400" />
+                                                                    <span className="text-[11px] font-medium text-slate-600 truncate max-w-[72px]">{String(name).split(' ')[0]}</span>
+                                                                </div>
+                                                            ))}
+                                                            {people.length > 3 && (
+                                                                <span className="text-[11px] font-semibold text-slate-500 px-1" title={people.join(', ')}>+{people.length - 3}</span>
+                                                            )}
+                                                        </>);
+                                                    })()}
                                                 </div>
                                             </div>
                                         </div>
@@ -362,7 +381,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2 text-slate-700">
-                                        <User size={16} className="text-slate-400" /> {t.owner}
+                                        <User size={16} className="text-slate-400 shrink-0" /> {taskAssigneeNames(t).join(', ') || '—'}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
@@ -705,11 +724,15 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                                             </div>
                                             <div>
                                                 <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Responsable</p>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] text-white font-bold">
-                                                        {selectedTask.owner.charAt(0)}
-                                                    </div>
-                                                    <p className="font-semibold text-slate-900">{selectedTask.owner}</p>
+                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                                                    {taskAssigneeNames(selectedTask).map((name, i) => (
+                                                        <div key={i} className="flex items-center gap-1.5">
+                                                            <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] text-white font-bold">
+                                                                {String(name).charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <p className="font-semibold text-slate-900">{name}</p>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         </div>
