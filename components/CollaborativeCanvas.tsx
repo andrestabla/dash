@@ -914,6 +914,54 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         commitWithHistory(next, true);
     };
 
+    // Z-order: the node array order is the paint order (later = on top).
+    // Moving a node within the array brings it forward or sends it back.
+    const reorderNode = (nodeId: string, mode: 'front' | 'forward' | 'backward' | 'back') => {
+        if (readOnly) return;
+        const next = cloneDocument(localDocRef.current);
+        const idx = next.nodes.findIndex((node) => node.id === nodeId);
+        if (idx === -1) return;
+        const [node] = next.nodes.splice(idx, 1);
+        if (mode === 'front') {
+            next.nodes.push(node);
+        } else if (mode === 'back') {
+            next.nodes.unshift(node);
+        } else if (mode === 'forward') {
+            next.nodes.splice(Math.min(next.nodes.length, idx + 1), 0, node);
+        } else {
+            next.nodes.splice(Math.max(0, idx - 1), 0, node);
+        }
+        commitWithHistory(next);
+    };
+
+    // Aligns the horizontal edges/centres of every selected node to a shared
+    // reference derived from the current selection.
+    const alignSelection = (mode: 'left' | 'centerX' | 'right') => {
+        if (readOnly) return;
+        const idSet = new Set(selectedNodeIdsRef.current);
+        const selected = localDocRef.current.nodes.filter((node) => idSet.has(node.id));
+        if (selected.length < 2) return;
+
+        let targetX: (node: CanvasNode) => number;
+        if (mode === 'left') {
+            const minX = Math.min(...selected.map((node) => node.position.x));
+            targetX = () => minX;
+        } else if (mode === 'right') {
+            const maxRight = Math.max(...selected.map((node) => node.position.x + node.size.width));
+            targetX = (node) => maxRight - node.size.width;
+        } else {
+            const avgCenter = selected.reduce((sum, node) => sum + node.position.x + node.size.width / 2, 0) / selected.length;
+            targetX = (node) => avgCenter - node.size.width / 2;
+        }
+
+        const next = cloneDocument(localDocRef.current);
+        next.nodes = next.nodes.map((node) => idSet.has(node.id)
+            ? { ...node, position: { x: Math.max(0, Math.round(targetX(node))), y: node.position.y } }
+            : node
+        );
+        commitWithHistory(next);
+    };
+
     const finishInlineEdit = () => {
         if (!editingNodeId) return;
         const isFrame = nodesById.get(editingNodeId)?.type === 'frame';
@@ -1524,6 +1572,16 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         marginBottom: 6
     };
 
+    const miniBtn: React.CSSProperties = {
+        flex: 1,
+        padding: '6px 4px',
+        fontSize: 11,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        whiteSpace: 'nowrap'
+    };
+
     const editorLabel: React.CSSProperties = {
         fontSize: 12,
         fontWeight: 600,
@@ -2111,7 +2169,14 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 </PanelSection>
 
                 {selectedNodeIds.length > 1 && (
-                    <div style={sectionLabel}>{selectedNodeIds.length} nodos seleccionados</div>
+                    <PanelSection title={`${selectedNodeIds.length} nodos seleccionados`}>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Alinear los elementos seleccionados</div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <button type="button" className="btn-ghost" onClick={() => alignSelection('left')} style={miniBtn}>Izquierda</button>
+                            <button type="button" className="btn-ghost" onClick={() => alignSelection('centerX')} style={miniBtn}>Centrar</button>
+                            <button type="button" className="btn-ghost" onClick={() => alignSelection('right')} style={miniBtn}>Derecha</button>
+                        </div>
+                    </PanelSection>
                 )}
 
                 {selectedNode && (
@@ -2135,6 +2200,13 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         >
                             💬 {selectedNode.comment !== undefined || selectedNode.commentImages !== undefined ? 'Editar comentario' : 'Agregar comentario'}
                         </button>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>Orden de capa</div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <button type="button" className="btn-ghost" onClick={() => reorderNode(selectedNode.id, 'front')} style={miniBtn}>Al frente</button>
+                            <button type="button" className="btn-ghost" onClick={() => reorderNode(selectedNode.id, 'forward')} style={miniBtn}>Adelante</button>
+                            <button type="button" className="btn-ghost" onClick={() => reorderNode(selectedNode.id, 'backward')} style={miniBtn}>Atrás</button>
+                            <button type="button" className="btn-ghost" onClick={() => reorderNode(selectedNode.id, 'back')} style={miniBtn}>Al fondo</button>
+                        </div>
                     </PanelSection>
                 )}
 
