@@ -20,7 +20,7 @@ export async function GET(request: Request) {
         try {
 
         // Base Query
-        let query = 'SELECT id, week, name, status, owner, type, prio, gate, due, description as desc, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent FROM tasks';
+        let query = 'SELECT id, week, name, status, owner, type, prio, gate, due, description as desc, dashboard_id, position, notification_enabled, notification_value, notification_unit, notification_sent FROM tasks';
         const params: any[] = [];
 
         if (dashboardId) {
@@ -101,7 +101,8 @@ export async function GET(request: Request) {
             params.push(...dashIds);
         }
 
-        query += ' ORDER BY id ASC';
+        // Order by the manual per-column position, then id as a stable tiebreaker.
+        query += ' ORDER BY position ASC, id ASC';
 
         const result = await client.query(query, params);
         const tasks = result.rows.map(row => ({
@@ -215,9 +216,11 @@ export async function POST(request: Request) {
                 savedTaskId = res.rows[0].id;
             } else {
                 // CREATE: let the DB generate a proper UUID
+                // New tasks append at the bottom of their column.
                 const insertQuery = `
-                  INSERT INTO tasks (week, name, status, owner, type, prio, gate, due, description, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent)
-                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                  INSERT INTO tasks (week, name, status, owner, type, prio, gate, due, description, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent, position)
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                          (SELECT COALESCE(MAX(position), -1) + 1 FROM tasks WHERE dashboard_id = $10 AND status = $3))
                   RETURNING id
                 `;
                 const res = await client.query(insertQuery, [week, name, status, primaryOwner, type, prio, gate, due, desc, dashboard_id, notification_enabled, notification_value, notification_unit, notification_sent]);

@@ -28,6 +28,7 @@ interface Task {
     due: string;
     desc: string;
     dashboard_id: string;
+    position?: number;
     notification_enabled?: boolean;
     notification_value?: number;
     notification_unit?: 'days' | 'hours';
@@ -824,27 +825,54 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
         if (!destination) return;
         if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-        const taskId = draggableId;
-        const newStatus = destination.droppableId;
+        const srcStatus = source.droppableId;
+        const destStatus = destination.droppableId;
+        const moved = tasks.find(t => t && String(t.id) === draggableId);
+        if (!moved) return;
 
-        // Optimistic Update
-        const originalTasks = [...tasks];
-        setTasks(prev => prev.map(t => (t && String(t.id) === taskId) ? { ...t, status: newStatus } : t));
+        // Rebuild the task list with the dragged card in its new spot. This
+        // handles both reordering inside a column and moving across columns.
+        const without = tasks.filter(t => String(t.id) !== draggableId);
+        const movedUpdated: Task = { ...moved, status: destStatus };
 
-        // API Call
+        // Insert relative to the visible card now occupying the drop index, so
+        // the result is correct even when filters hide some cards.
+        const destVisible = filteredTasks.filter(t => t.status === destStatus && String(t.id) !== draggableId);
+        const anchor = destVisible[destination.index];
+
+        let next: Task[];
+        if (anchor) {
+            const at = without.findIndex(t => String(t.id) === String(anchor.id));
+            next = [...without.slice(0, at), movedUpdated, ...without.slice(at)];
+        } else {
+            let lastIdx = -1;
+            without.forEach((t, i) => { if (t.status === destStatus) lastIdx = i; });
+            next = [...without.slice(0, lastIdx + 1), movedUpdated, ...without.slice(lastIdx + 1)];
+        }
+
+        // Reassign a contiguous position per column.
+        const counters: Record<string, number> = {};
+        const repositioned = next.map(t => {
+            const p = counters[t.status] ?? 0;
+            counters[t.status] = p + 1;
+            return { ...t, position: p };
+        });
+
+        // Optimistic update, then persist the affected columns.
+        const originalTasks = tasks;
+        setTasks(repositioned);
+
+        const affected = repositioned
+            .filter(t => t.status === srcStatus || t.status === destStatus)
+            .map(t => ({ id: t.id, status: t.status, position: t.position }));
+
         try {
-            const task = tasks.find(t => t.id === taskId);
-            if (task && task.status !== newStatus) {
-                const res = await fetch('/api/tasks', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...task, status: newStatus, dashboard_id: dashboardId })
-                });
-
-                if (!res.ok) {
-                    throw new Error('Failed to persist task move');
-                }
-            }
+            const res = await fetch('/api/tasks/reorder', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dashboardId, items: affected })
+            });
+            if (!res.ok) throw new Error('Failed to persist reorder');
         } catch (err) {
             setTasks(originalTasks);
             showToast("Error al mover la tarea", "error");
