@@ -1348,7 +1348,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                                     const isBottleneck = colTasks.length > 10;
 
                                     return (
-                                        <div key={st.id} className="lane" style={{ minWidth: isMobileView ? 280 : 320, display: 'flex', flexDirection: 'column' }}>
+                                        <div key={st.id} className="lane" style={{ minWidth: isMobileView ? 'calc(100vw - 64px)' : 320, display: 'flex', flexDirection: 'column' }}>
                                             <div className="lane-head group">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: st.color, flexShrink: 0 }} />
@@ -2018,6 +2018,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         justify-content: space-between;
                         flex-wrap: wrap;
                     }
+                    /* Comfortable tap targets for the header control buttons. */
+                    .top-right-controls button,
+                    .top-right-controls a {
+                        min-width: 44px;
+                        min-height: 44px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
                     .hide-mobile { display: none !important; }
                     .show-mobile { display: inline-flex !important; }
                 }
@@ -2267,9 +2276,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                         min-height: calc(100dvh - 70px);
                         padding: 12px 8px max(20px, var(--safe-bottom)) 8px;
                     }
-                    .kanban-container { height: auto !important; padding-bottom: 40px; }
+                    /* One column fills the screen; swipe snaps to the next. */
+                    .kanban-container { height: auto !important; padding-bottom: 40px; scroll-snap-type: x mandatory; scroll-padding-left: 8px; }
                     .lanes { height: auto !important; gap: 16px; padding-right: 0; }
-                    .lane { padding: 12px; }
+                    .lane { padding: 12px; scroll-snap-align: start; }
                 }
             `}</style>
 
