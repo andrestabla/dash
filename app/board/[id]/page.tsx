@@ -1991,6 +1991,10 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     header {
                         padding: max(10px, var(--safe-top)) 12px 10px 12px;
                     }
+                    /* Reclaim screen space for board content (notably the canvas). */
+                    main {
+                        padding: 12px;
+                    }
                     .top-bar {
                         flex-direction: column !important;
                         align-items: stretch !important;

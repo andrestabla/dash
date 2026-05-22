@@ -330,14 +330,17 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
     );
 
     const renderCanvasView = () => (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4">
-            <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-slate-800 font-bold">Canvas colaborativo (solo lectura)</h3>
-                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-2 sm:p-4">
+            <div className="mb-2 sm:mb-4 flex items-center justify-between gap-2">
+                <h3 className="text-slate-800 font-bold text-sm sm:text-base">Canvas (solo lectura)</h3>
+                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full whitespace-nowrap">
                     {canvasDocument.nodes.length} nodos
                 </span>
             </div>
-            <div style={{ height: 'calc(100vh - 260px)', minHeight: 520 }}>
+            <p className="text-[11px] text-slate-400 mb-2 sm:hidden">
+                Arrastra con un dedo para moverte · pellizca para acercar
+            </p>
+            <div className="h-[calc(100dvh-210px)] min-h-[420px] sm:h-[calc(100vh-260px)] sm:min-h-[520px]">
                 <CollaborativeCanvas
                     canvasDocument={canvasDocument}
                     onChange={() => { /* read-only: viewers never persist */ }}

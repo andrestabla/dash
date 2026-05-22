@@ -486,6 +486,10 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const [isPanning, setIsPanning] = useState(false);
     const [guides, setGuides] = useState<AlignmentGuide[]>([]);
 
+    // Mobile / narrow-screen layout: the tools panel becomes a bottom sheet.
+    const [isCompact, setIsCompact] = useState(false);
+    const [panelOpen, setPanelOpen] = useState(false);
+
     // Editing state.
     const [past, setPast] = useState<CanvasDocument[]>([]);
     const [future, setFuture] = useState<CanvasDocument[]>([]);
@@ -503,6 +507,9 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const panRef = useRef<CanvasPoint>({ x: 0, y: 0 });
     const isSpaceDownRef = useRef(false);
     const suppressClickRef = useRef(false);
+    // Touch state: number of fingers down, and the active pinch-zoom gesture.
+    const activeTouchesRef = useRef(0);
+    const pinchRef = useRef<{ dist: number; cx: number; cy: number } | null>(null);
 
     const localDocRef = useRef(localDoc);
     const selectedNodeIdsRef = useRef<string[]>([]);
@@ -524,6 +531,16 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     useEffect(() => { pastRef.current = past; }, [past]);
     useEffect(() => { futureRef.current = future; }, [future]);
     useEffect(() => { editingNodeIdRef.current = editingNodeId; }, [editingNodeId]);
+
+    // Track narrow viewports so the editing tools collapse into a bottom sheet.
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const mq = window.matchMedia('(max-width: 860px)');
+        const update = () => setIsCompact(mq.matches);
+        update();
+        mq.addEventListener('change', update);
+        return () => mq.removeEventListener('change', update);
+    }, []);
 
     // Fullscreen comment-image viewer: Escape closes it, arrows navigate.
     useEffect(() => {
@@ -1060,7 +1077,9 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         setIsPanning(true);
     };
 
-    const onViewportMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    const onViewportMouseDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        // Secondary fingers are reserved for pinch-zoom, handled via touch events.
+        if (event.pointerType === 'touch' && activeTouchesRef.current >= 1) return;
         if (isSpaceDownRef.current || event.button === 1) {
             event.preventDefault();
             startPan(event.clientX, event.clientY);
@@ -1083,8 +1102,10 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         addNode(world.x - 110, world.y - 44, 'rectangle');
     };
 
-    const onNodeMouseDown = (event: React.MouseEvent<HTMLDivElement>, node: CanvasNode) => {
+    const onNodeMouseDown = (event: React.PointerEvent<HTMLDivElement>, node: CanvasNode) => {
         event.stopPropagation();
+        // Secondary fingers are reserved for pinch-zoom.
+        if (event.pointerType === 'touch' && activeTouchesRef.current >= 1) return;
 
         if (isSpaceDownRef.current || event.button === 1) {
             event.preventDefault();
@@ -1159,7 +1180,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         dragRef.current = { primaryId: node.id, startWorldX: world.x, startWorldY: world.y, origins };
     };
 
-    const onResizeHandleMouseDown = (event: React.MouseEvent<HTMLDivElement>, node: CanvasNode, corner: ResizeCorner) => {
+    const onResizeHandleMouseDown = (event: React.PointerEvent<HTMLDivElement>, node: CanvasNode, corner: ResizeCorner) => {
         if (readOnly) return;
         event.stopPropagation();
         event.preventDefault();
@@ -1177,7 +1198,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         };
     };
 
-    const onEdgeEndpointMouseDown = (event: React.MouseEvent<HTMLDivElement>, edgeId: string, end: 'source' | 'target') => {
+    const onEdgeEndpointMouseDown = (event: React.PointerEvent<HTMLDivElement>, edgeId: string, end: 'source' | 'target') => {
         if (readOnly) return;
         event.stopPropagation();
         event.preventDefault();
@@ -1186,8 +1207,57 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         setEdgeDragWorld(screenToWorld(event.clientX, event.clientY));
     };
 
+    // Touch gestures: a single finger pans/drags through the pointer-event
+    // handlers above; two fingers run a combined pinch-zoom + pan handled here.
+    const onViewportTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+        activeTouchesRef.current = event.touches.length;
+        if (event.touches.length === 2) {
+            // Drop any single-finger interaction the first touch may have begun.
+            panDragRef.current = null;
+            dragRef.current = null;
+            resizeRef.current = null;
+            edgeEndpointDragRef.current = null;
+            marqueeRef.current = null;
+            setMarquee(null);
+            setIsPanning(false);
+            setGuides([]);
+            const a = event.touches[0];
+            const b = event.touches[1];
+            pinchRef.current = {
+                dist: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY) || 1,
+                cx: (a.clientX + b.clientX) / 2,
+                cy: (a.clientY + b.clientY) / 2
+            };
+        }
+    };
+
+    const onViewportTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+        const pinch = pinchRef.current;
+        if (!pinch || event.touches.length !== 2) return;
+        const a = event.touches[0];
+        const b = event.touches[1];
+        const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY) || 1;
+        const cx = (a.clientX + b.clientX) / 2;
+        const cy = (a.clientY + b.clientY) / 2;
+        // Incremental zoom anchored on the finger midpoint.
+        zoomToward(zoomRef.current * (dist / pinch.dist), cx, cy);
+        // Incremental pan following the midpoint drift, so two fingers can also
+        // move around the canvas — the only pan gesture available to editors.
+        const nextPan = { x: panRef.current.x + (cx - pinch.cx), y: panRef.current.y + (cy - pinch.cy) };
+        panRef.current = nextPan;
+        setPan(nextPan);
+        pinch.dist = dist;
+        pinch.cx = cx;
+        pinch.cy = cy;
+    };
+
+    const onViewportTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+        activeTouchesRef.current = event.touches.length;
+        if (event.touches.length < 2) pinchRef.current = null;
+    };
+
     useEffect(() => {
-        const onMouseMove = (event: MouseEvent) => {
+        const onMouseMove = (event: PointerEvent) => {
             if (panDragRef.current) {
                 const state = panDragRef.current;
                 const dx = event.clientX - state.startX;
@@ -1296,7 +1366,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             }
         };
 
-        const onMouseUp = (event: MouseEvent) => {
+        const onMouseUp = (event: PointerEvent) => {
             if (panDragRef.current) {
                 if (panDragRef.current.moved) suppressClickRef.current = true;
                 panDragRef.current = null;
@@ -1356,12 +1426,14 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             }
         };
 
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('pointermove', onMouseMove);
+        window.addEventListener('pointerup', onMouseUp);
+        window.addEventListener('pointercancel', onMouseUp);
 
         return () => {
-            window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('pointermove', onMouseMove);
+            window.removeEventListener('pointerup', onMouseUp);
+            window.removeEventListener('pointercancel', onMouseUp);
         };
     }, [readOnly, editingNodeId, nodesById, screenToWorld, commit, hiddenNodeIds]);
 
@@ -1550,8 +1622,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     }, [edgeDragWorld, selectedEdgeEndpoints]);
 
     const zoomControlButton: React.CSSProperties = {
-        width: 30,
-        height: 30,
+        width: isCompact ? 38 : 30,
+        height: isCompact ? 38 : 30,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -1561,15 +1633,6 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         cursor: 'pointer',
         fontSize: 16,
         borderRadius: 8
-    };
-
-    const sectionLabel: React.CSSProperties = {
-        fontSize: 11,
-        fontWeight: 700,
-        color: 'var(--text-dim)',
-        textTransform: 'uppercase',
-        letterSpacing: 0.4,
-        marginBottom: 6
     };
 
     const miniBtn: React.CSSProperties = {
@@ -1609,7 +1672,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     }
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: readOnly ? '1fr' : '1fr 320px', gap: 12, height: '100%', minHeight: 560 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: (readOnly || isCompact) ? '1fr' : '1fr 320px', gap: 12, height: '100%', minHeight: isCompact ? 420 : 560, position: 'relative' }}>
             <input
                 ref={commentFileInputRef}
                 type="file"
@@ -1623,20 +1686,27 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             />
             <div
                 ref={viewportRef}
-                onMouseDown={onViewportMouseDown}
+                onPointerDown={onViewportMouseDown}
                 onDoubleClick={onViewportDoubleClick}
+                onTouchStart={onViewportTouchStart}
+                onTouchMove={onViewportTouchMove}
+                onTouchEnd={onViewportTouchEnd}
+                onTouchCancel={onViewportTouchEnd}
                 style={{
                     position: 'relative',
                     overflow: 'hidden',
                     borderRadius: 16,
                     border: '1px solid var(--border-dim)',
-                    minHeight: 520,
+                    minHeight: isCompact ? 360 : 520,
                     height: '100%',
                     backgroundColor: 'var(--bg-card)',
                     backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.35) 1px, transparent 0)',
                     backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
                     backgroundPosition: `${pan.x}px ${pan.y}px`,
-                    cursor: viewportCursor
+                    cursor: viewportCursor,
+                    // Stop the browser from scrolling/zooming the page so the
+                    // canvas owns every touch gesture.
+                    touchAction: 'none'
                 }}
             >
                 <div
@@ -1692,7 +1762,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                         strokeWidth={18 / zoom}
                                         fill="none"
                                         style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
-                                        onMouseDown={(event) => event.stopPropagation()}
+                                        onPointerDown={(event) => event.stopPropagation()}
                                         onClick={(event) => {
                                             event.stopPropagation();
                                             setSelectedEdgeId(edge.id);
@@ -1788,7 +1858,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             return (
                                 <div
                                     key={node.id}
-                                    onMouseDown={(event) => onNodeMouseDown(event, node)}
+                                    onPointerDown={(event) => onNodeMouseDown(event, node)}
                                     onDoubleClick={(event) => {
                                         if (readOnly) return;
                                         event.stopPropagation();
@@ -1879,7 +1949,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                 <button
                                     key={`collapse-${node.id}`}
                                     type="button"
-                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         toggleCollapse(node.id);
@@ -1922,7 +1992,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                 <button
                                     key={`comment-chip-${node.id}`}
                                     type="button"
-                                    onMouseDown={(event) => event.stopPropagation()}
+                                    onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         openCommentModal(node, false);
@@ -1961,7 +2031,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             return (
                                 <div
                                     key={`endpoint-${end}`}
-                                    onMouseDown={(event) => onEdgeEndpointMouseDown(event, selectedEdge.id, end)}
+                                    onPointerDown={(event) => onEdgeEndpointMouseDown(event, selectedEdge.id, end)}
                                     title="Arrastra para reconectar"
                                     style={{
                                         position: 'absolute',
@@ -1991,7 +2061,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             return (
                                 <div
                                     key={corner}
-                                    onMouseDown={(event) => onResizeHandleMouseDown(event, resizeTarget, corner)}
+                                    onPointerDown={(event) => onResizeHandleMouseDown(event, resizeTarget, corner)}
                                     style={{
                                         position: 'absolute',
                                         pointerEvents: 'auto',
@@ -2012,7 +2082,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 </div>
 
                 <div
-                    onMouseDown={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
                     style={{
                         position: 'absolute',
                         left: 12,
@@ -2045,7 +2115,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
                 {!readOnly && (
                     <div
-                        onMouseDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
                         style={{
                             position: 'absolute',
                             right: 12,
@@ -2064,12 +2134,63 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         <button type="button" onClick={redo} disabled={future.length === 0} style={{ ...zoomControlButton, opacity: future.length === 0 ? 0.4 : 1 }} title="Rehacer (Cmd/Ctrl+Shift+Z)" aria-label="Rehacer">↷</button>
                     </div>
                 )}
+
+                {!readOnly && isCompact && !panelOpen && (
+                    <button
+                        type="button"
+                        onClick={() => setPanelOpen(true)}
+                        style={{
+                            position: 'absolute',
+                            top: 12,
+                            right: 12,
+                            zIndex: 20,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '10px 14px',
+                            borderRadius: 12,
+                            border: '1px solid var(--border-dim)',
+                            background: 'var(--bg-card)',
+                            color: 'var(--text-main, #0f172a)',
+                            boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
+                            cursor: 'pointer',
+                            fontSize: 13,
+                            fontWeight: 700
+                        }}
+                    >
+                        <ShapesIcon size={16} /> Herramientas
+                    </button>
+                )}
             </div>
 
+            {!readOnly && isCompact && panelOpen && (
+                <div
+                    onPointerDown={() => setPanelOpen(false)}
+                    style={{ position: 'fixed', inset: 0, zIndex: 940, background: 'rgba(15,23,42,0.45)' }}
+                />
+            )}
             {!readOnly && (
             <aside
                 className="glass-panel"
-                style={{
+                style={isCompact ? {
+                    padding: 10,
+                    border: '1px solid var(--border-dim)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    position: 'fixed',
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 950,
+                    maxHeight: '80vh',
+                    overflowY: 'auto',
+                    borderRadius: '18px 18px 0 0',
+                    boxShadow: '0 -12px 32px rgba(15,23,42,0.3)',
+                    transform: panelOpen ? 'translateY(0)' : 'translateY(106%)',
+                    transition: 'transform 0.26s ease',
+                    paddingBottom: 'calc(14px + env(safe-area-inset-bottom))'
+                } : {
                     padding: 10,
                     border: '1px solid var(--border-dim)',
                     display: 'flex',
@@ -2080,6 +2201,12 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     overflowY: 'auto'
                 }}
             >
+                {isCompact && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--bg-card)', padding: '2px 0 8px', borderBottom: '1px solid var(--border-dim)', zIndex: 2 }}>
+                        <strong style={{ fontSize: 14 }}>Herramientas</strong>
+                        <button type="button" onClick={() => setPanelOpen(false)} className="btn-primary" style={{ padding: '6px 16px', fontSize: 13 }}>Listo</button>
+                    </div>
+                )}
                 <PanelSection title="Elementos">
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                         {NODE_TYPE_OPTIONS.map((opt) => {
@@ -2236,7 +2363,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
             {editorOpen && (selectedNode || selectedEdge) && (
                 <div
-                    onMouseDown={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
                     onClick={() => setEditorOpen(false)}
                     style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
                 >
@@ -2393,7 +2520,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 const hasContent = node.comment !== undefined || node.commentImages !== undefined;
                 return (
                     <div
-                        onMouseDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
                         onClick={() => { if (!commentModalEditing) closeCommentModal(); }}
                         style={{
                             position: 'fixed',
@@ -2566,7 +2693,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 const i = lightbox.index;
                 return (
                     <div
-                        onMouseDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
                         onClick={() => setLightbox(null)}
                         style={{
                             position: 'fixed',
