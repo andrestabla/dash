@@ -25,13 +25,14 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
 
             const dashboard = dashRes.rows[0];
 
-            // 2. Fetch Tasks. Column list mirrors /api/tasks so the public
-            //    viewer receives `desc` (aliased from `description`) and not a
-            //    raw `description` field it would fail to render.
+            // 2. Fetch Tasks. Column list and ordering mirror /api/tasks so the
+            //    public viewer receives `desc` (aliased from `description`) and
+            //    shows tasks in the same manual per-column order (`position`)
+            //    as the real board.
             const tasksRes = await client.query(`
                 SELECT id, week, name, status, owner, type, prio, gate, due,
-                       description as desc, dashboard_id
-                FROM tasks WHERE dashboard_id = $1 ORDER BY created_at DESC
+                       description as desc, dashboard_id, position
+                FROM tasks WHERE dashboard_id = $1 ORDER BY position ASC, id ASC
             `, [dashboard.id]);
 
             // 3. Fetch Comments for these tasks
