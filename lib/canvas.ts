@@ -229,6 +229,7 @@ function normalizeCommentImages(node: Record<string, unknown>): string[] | undef
 
 function normalizeNode(inputNode: unknown): CanvasNode {
     const node = asRecord(inputNode);
+    const nodeType = asNodeType(node.type);
     const legacyX = asNumber(node.x, 120);
     const legacyY = asNumber(node.y, 120);
     const legacyW = asNumber(node.width, DEFAULT_NODE_WIDTH);
@@ -242,7 +243,7 @@ function normalizeNode(inputNode: unknown): CanvasNode {
 
     return {
         id: asString(node.id, `node_${Math.random().toString(36).slice(2, 8)}`),
-        type: asNodeType(node.type),
+        type: nodeType,
         position: {
             x: asNumber(position.x, legacyX),
             y: asNumber(position.y, legacyY)
@@ -258,7 +259,12 @@ function normalizeNode(inputNode: unknown): CanvasNode {
             fontScale: asFontScale(style.fontScale),
             textColor: typeof style.textColor === 'string' ? style.textColor : undefined
         },
-        content: asString(node.content, legacyText),
+        // Frames are containers and may legitimately carry no label, so an
+        // empty string is preserved instead of falling back to placeholder
+        // text. Every other node type keeps a non-empty fallback.
+        content: nodeType === 'frame'
+            ? (typeof node.content === 'string' ? node.content : asString(node.text, ''))
+            : asString(node.content, legacyText),
         comment: typeof node.comment === 'string' ? node.comment : undefined,
         commentImages: normalizeCommentImages(node),
         collapsed: node.collapsed === true ? true : undefined
