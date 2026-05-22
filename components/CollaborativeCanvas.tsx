@@ -223,6 +223,31 @@ function pathHasCollision(points: CanvasPoint[], obstacles: CanvasNode[], source
     return false;
 }
 
+// Outward unit normal for a port — the direction a connector must travel to
+// leave (or the reverse to enter) that side of a node squarely.
+function portNormal(port: CanvasPort): CanvasPoint {
+    if (port === 'top') return { x: 0, y: -1 };
+    if (port === 'bottom') return { x: 0, y: 1 };
+    if (port === 'left') return { x: -1, y: 0 };
+    return { x: 1, y: 0 };
+}
+
+// Drops consecutive duplicate points so the rendered path and its arrowhead
+// orientation stay well-defined when segments collapse.
+function dedupePoints(points: CanvasPoint[]): CanvasPoint[] {
+    const out: CanvasPoint[] = [];
+    for (const p of points) {
+        const last = out[out.length - 1];
+        if (last && Math.abs(last.x - p.x) < 0.01 && Math.abs(last.y - p.y) < 0.01) continue;
+        out.push(p);
+    }
+    return out;
+}
+
+// Length of the perpendicular stub every connector grows out of a port. Kept
+// longer than the arrowhead so the marker always sits on a straight segment.
+const EDGE_PORT_STUB = 26;
+
 function buildOrthogonalPoints(edge: CanvasEdge, nodesById: Map<string, CanvasNode>, obstacles: CanvasNode[]): CanvasPoint[] {
     const sourceNode = nodesById.get(edge.source.nodeId);
     const targetNode = nodesById.get(edge.target.nodeId);
@@ -230,23 +255,43 @@ function buildOrthogonalPoints(edge: CanvasEdge, nodesById: Map<string, CanvasNo
 
     const start = getPortPoint(sourceNode, edge.source.port);
     const end = getPortPoint(targetNode, edge.target.port);
+    const sn = portNormal(edge.source.port);
+    const tn = portNormal(edge.target.port);
 
-    const hv = [start, { x: end.x, y: start.y }, end];
-    if (!pathHasCollision(hv, obstacles, sourceNode.id, targetNode.id)) return hv;
+    // Step out of each port along its normal. The connector always leaves the
+    // source and meets the target perpendicular to the node edge, so the
+    // arrowhead (oriented to the final segment) points exactly at the element.
+    const s1 = { x: start.x + sn.x * EDGE_PORT_STUB, y: start.y + sn.y * EDGE_PORT_STUB };
+    const t1 = { x: end.x + tn.x * EDGE_PORT_STUB, y: end.y + tn.y * EDGE_PORT_STUB };
 
-    const vh = [start, { x: start.x, y: end.y }, end];
-    if (!pathHasCollision(vh, obstacles, sourceNode.id, targetNode.id)) return vh;
+    const sHoriz = sn.y === 0;
+    const tHoriz = tn.y === 0;
 
-    const horizontalDominant = Math.abs(end.x - start.x) >= Math.abs(end.y - start.y);
-    if (horizontalDominant) {
-        const dir = end.x >= start.x ? 1 : -1;
-        const midX = ((start.x + end.x) / 2) + (dir * 48);
-        return [start, { x: midX, y: start.y }, { x: midX, y: end.y }, end];
+    const route = (offset: number): CanvasPoint[] => {
+        if (sHoriz && tHoriz) {
+            const midX = (s1.x + t1.x) / 2 + offset;
+            return [start, s1, { x: midX, y: s1.y }, { x: midX, y: t1.y }, t1, end];
+        }
+        if (!sHoriz && !tHoriz) {
+            const midY = (s1.y + t1.y) / 2 + offset;
+            return [start, s1, { x: s1.x, y: midY }, { x: t1.x, y: midY }, t1, end];
+        }
+        if (sHoriz && !tHoriz) {
+            return [start, s1, { x: t1.x, y: s1.y }, t1, end];
+        }
+        return [start, s1, { x: s1.x, y: t1.y }, t1, end];
+    };
+
+    const base = route(0);
+    if (!pathHasCollision(base, obstacles, sourceNode.id, targetNode.id)) return dedupePoints(base);
+
+    // The straight midline crosses another element — slide it aside while
+    // keeping the perpendicular port stubs intact.
+    for (const offset of [56, -56, 112, -112]) {
+        const alt = route(offset);
+        if (!pathHasCollision(alt, obstacles, sourceNode.id, targetNode.id)) return dedupePoints(alt);
     }
-
-    const dir = end.y >= start.y ? 1 : -1;
-    const midY = ((start.y + end.y) / 2) + (dir * 48);
-    return [start, { x: start.x, y: midY }, { x: end.x, y: midY }, end];
+    return dedupePoints(base);
 }
 
 function pointsToPolylinePath(points: CanvasPoint[]): string {
@@ -255,14 +300,14 @@ function pointsToPolylinePath(points: CanvasPoint[]): string {
     return points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 }
 
-function buildBezierPath(start: CanvasPoint, end: CanvasPoint): string {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const controlX = Math.abs(dx) * 0.45;
-    const controlY = Math.abs(dy) * 0.18;
-
-    const c1 = { x: start.x + (dx >= 0 ? controlX : -controlX), y: start.y + (dy >= 0 ? controlY : -controlY) };
-    const c2 = { x: end.x - (dx >= 0 ? controlX : -controlX), y: end.y - (dy >= 0 ? controlY : -controlY) };
+function buildBezierPath(start: CanvasPoint, end: CanvasPoint, sn: CanvasPoint, tn: CanvasPoint): string {
+    const dist = Math.hypot(end.x - start.x, end.y - start.y);
+    // Pull the control points straight out along each port normal so the curve
+    // leaves the source and enters the target perpendicular to the node edge —
+    // this makes the arrowhead point precisely at the connected element.
+    const reach = Math.max(40, Math.min(160, dist * 0.5));
+    const c1 = { x: start.x + sn.x * reach, y: start.y + sn.y * reach };
+    const c2 = { x: end.x + tn.x * reach, y: end.y + tn.y * reach };
 
     return `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`;
 }
@@ -770,7 +815,8 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 height: isFrame ? 260 : (isText ? 48 : (isSticky ? 150 : 88))
             },
             style: { fill: isSticky ? '#fde68a' : accentColor, radius: 12, fontScale: 'md' },
-            content: isFrame ? 'Frame' : (isText ? 'Texto' : 'Nuevo nodo')
+            // A new frame starts with no label; it is a container, not a card.
+            content: isFrame ? '' : (isText ? 'Texto' : 'Nuevo nodo')
         });
         commitWithHistory(next);
         setSelectedNodeIds([id]);
@@ -870,7 +916,11 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
     const finishInlineEdit = () => {
         if (!editingNodeId) return;
-        const content = editingNodeContent.trim() || 'Nodo';
+        const isFrame = nodesById.get(editingNodeId)?.type === 'frame';
+        // trim() drops surrounding whitespace while keeping internal line
+        // breaks, so multi-line text survives. Frames may end up empty.
+        const trimmed = editingNodeContent.trim();
+        const content = isFrame ? trimmed : (trimmed || 'Nodo');
         updateNode(editingNodeId, { content });
         setEditingNodeId(null);
     };
@@ -1380,9 +1430,11 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             ctx.setLineDash(edge.dashed ? [9, 7] : []);
 
             if (edge.lineStyle === 'bezier') {
-                const dx = end.x - start.x;
-                const c1 = { x: start.x + dx * 0.4, y: start.y };
-                const c2 = { x: end.x - dx * 0.4, y: end.y };
+                const sn = portNormal(edge.source.port);
+                const tn = portNormal(edge.target.port);
+                const reach = Math.max(40, Math.min(160, Math.hypot(end.x - start.x, end.y - start.y) * 0.5));
+                const c1 = { x: start.x + sn.x * reach, y: start.y + sn.y * reach };
+                const c2 = { x: end.x + tn.x * reach, y: end.y + tn.y * reach };
                 ctx.beginPath();
                 ctx.moveTo(start.x, start.y);
                 ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, end.x, end.y);
@@ -1416,7 +1468,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             ctx.fillStyle = nodeTextColor(node);
             ctx.font = `bold ${fontPx(node)}px sans-serif`;
             ctx.textBaseline = 'middle';
-            ctx.fillText(node.content.slice(0, 34), node.position.x + 14, node.position.y + node.size.height / 2);
+            ctx.fillText(node.content.replace(/\s+/g, ' ').trim().slice(0, 34), node.position.x + 14, node.position.y + node.size.height / 2);
         });
 
         const link = document.createElement('a');
@@ -1563,7 +1615,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             let centerPoint: CanvasPoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
 
                             if (edge.lineStyle === 'bezier') {
-                                pathData = buildBezierPath(start, end);
+                                pathData = buildBezierPath(start, end, portNormal(edge.source.port), portNormal(edge.target.port));
                             } else if (edge.lineStyle === 'straight') {
                                 pathData = pointsToPolylinePath([start, end]);
                             } else {
@@ -1715,11 +1767,15 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                             onChange={(event) => setEditingNodeContent(event.target.value)}
                                             onBlur={finishInlineEdit}
                                             onKeyDown={(event) => {
-                                                if (event.key === 'Enter' && !event.shiftKey) {
+                                                // Enter inserts a line break (default textarea
+                                                // behaviour) so text can span several lines.
+                                                // Commit with Cmd/Ctrl+Enter or by blurring.
+                                                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
                                                     event.preventDefault();
                                                     finishInlineEdit();
                                                 }
                                                 if (event.key === 'Escape') {
+                                                    event.preventDefault();
                                                     setEditingNodeId(null);
                                                 }
                                             }}
@@ -1734,11 +1790,22 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                                 textAlign: 'center',
                                                 padding: 8,
                                                 resize: 'none',
+                                                lineHeight: 1.3,
                                                 fontSize: fontPx(node)
                                             }}
                                         />
                                     ) : (
-                                        <span style={{ transform: node.type === 'diamond' ? 'scale(0.88)' : 'none', fontSize: fontPx(node) }}>{node.content}</span>
+                                        <span style={{
+                                            transform: node.type === 'diamond' ? 'scale(0.88)' : 'none',
+                                            fontSize: fontPx(node),
+                                            // Honour explicit line breaks and wrap long text
+                                            // inside the node bounds.
+                                            whiteSpace: 'pre-wrap',
+                                            overflowWrap: 'break-word',
+                                            wordBreak: 'break-word',
+                                            lineHeight: 1.3,
+                                            maxWidth: '100%'
+                                        }}>{node.content}</span>
                                     )}
                                 </div>
                             );
