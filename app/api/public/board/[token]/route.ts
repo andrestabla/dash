@@ -25,9 +25,13 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
 
             const dashboard = dashRes.rows[0];
 
-            // 2. Fetch Tasks (Reusing logic from tasks API but simplified for read-only)
+            // 2. Fetch Tasks. Column list mirrors /api/tasks so the public
+            //    viewer receives `desc` (aliased from `description`) and not a
+            //    raw `description` field it would fail to render.
             const tasksRes = await client.query(`
-                SELECT * FROM tasks WHERE dashboard_id = $1 ORDER BY created_at DESC
+                SELECT id, week, name, status, owner, type, prio, gate, due,
+                       description as desc, dashboard_id
+                FROM tasks WHERE dashboard_id = $1 ORDER BY created_at DESC
             `, [dashboard.id]);
 
             // 3. Fetch Comments for these tasks
