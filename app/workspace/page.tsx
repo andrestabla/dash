@@ -231,7 +231,17 @@ function WorkspaceContent() {
             .catch(() => { });
     }, []);
 
-
+    // If the deep-linked folder isn't one the user can actually see — e.g. they
+    // only have access to a board inside it — fall back to the root view. This
+    // keeps the workspace from ever looking empty while the user still has
+    // accessible dashboards (which surface at root).
+    useEffect(() => {
+        if (isLoading) return;
+        if (currentFolderId && !folders.some((f) => f.id === currentFolderId)) {
+            setCurrentFolderId(null);
+            router.replace('/workspace');
+        }
+    }, [isLoading, folders, currentFolderId, router]);
 
     const [sortOption, setSortOption] = useState<SortOption>('date_new');
 
