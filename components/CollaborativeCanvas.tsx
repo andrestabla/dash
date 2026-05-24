@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Circle as CircleIcon,
     Database as DatabaseIcon,
@@ -12,11 +12,16 @@ import {
     Pencil as PencilIcon,
     Pill as PillIcon,
     Shapes as ShapesIcon,
+    Smile as SmileIcon,
     Square as SquareIcon,
     StickyNote as StickyNoteIcon,
     Trash2 as TrashIcon,
     Type as TypeIcon
 } from "lucide-react";
+
+// The icon picker pulls the whole lucide library; keep it out of the canvas's
+// initial bundle (public viewers never need it).
+const IconPicker = lazy(() => import("./IconPicker"));
 import type {
     CanvasDocument,
     CanvasEdge,
@@ -105,7 +110,8 @@ const NODE_TYPE_OPTIONS: Array<{ value: CanvasNodeType; label: string; icon: Luc
     { value: 'circle', label: 'Círculo', icon: CircleIcon },
     { value: 'sticky', label: 'Sticky', icon: StickyNoteIcon },
     { value: 'frame', label: 'Frame', icon: FrameIcon },
-    { value: 'text', label: 'Texto', icon: TypeIcon }
+    { value: 'text', label: 'Texto', icon: TypeIcon },
+    { value: 'icon', label: 'Ícono', icon: SmileIcon }
 ];
 
 const CONNECTION_STYLE_OPTIONS: Array<{ value: CanvasLineStyle; label: string }> = [
@@ -313,7 +319,7 @@ function buildBezierPath(start: CanvasPoint, end: CanvasPoint, sn: CanvasPoint, 
 }
 
 function getNodeBaseStyle(node: CanvasNode): React.CSSProperties {
-    if (node.type === 'text') {
+    if (node.type === 'text' || node.type === 'icon') {
         return { borderRadius: 0, boxShadow: 'none', background: 'transparent' };
     }
 
@@ -489,6 +495,10 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     // Mobile / narrow-screen layout: the tools panel becomes a bottom sheet.
     const [isCompact, setIsCompact] = useState(false);
     const [panelOpen, setPanelOpen] = useState(false);
+
+    // Icon picker: `'insert'` opens it to drop a new icon node at the centre;
+    // `{ replaceNodeId }` opens it to swap the icon on an existing node.
+    const [iconPickerMode, setIconPickerMode] = useState<null | 'insert' | { replaceNodeId: string }>(null);
 
     // Editing state.
     const [past, setPast] = useState<CanvasDocument[]>([]);
@@ -841,6 +851,12 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     };
 
     const addTypeCentered = (type: CanvasNodeType) => {
+        if (type === 'icon') {
+            // Icons need a specific glyph — defer to the picker instead of
+            // dropping an empty placeholder onto the canvas.
+            setIconPickerMode('insert');
+            return;
+        }
         const rect = viewportRef.current?.getBoundingClientRect();
         if (!rect) {
             addNode(240, 180, type);
@@ -848,6 +864,46 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         }
         const center = screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
         addNode(center.x - 110, center.y - 44, type);
+    };
+
+    // Drops a new icon node at the centre of the viewport, populated with the
+    // SVG string emitted by the picker.
+    const insertIconCentered = (iconSvg: string) => {
+        if (readOnly) return;
+        const rect = viewportRef.current?.getBoundingClientRect();
+        let x = 240;
+        let y = 180;
+        if (rect) {
+            const c = screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            x = c.x - 48;
+            y = c.y - 48;
+        }
+        const next = cloneDocument(localDocRef.current);
+        const id = makeNodeId();
+        next.nodes.push({
+            id,
+            type: 'icon',
+            position: { x: Math.max(0, x), y: Math.max(0, y) },
+            size: { width: 96, height: 96 },
+            style: { fill: accentColor, radius: 12, fontScale: 'md' },
+            content: '',
+            iconSvg
+        });
+        commitWithHistory(next);
+        setSelectedNodeIds([id]);
+        setSelectedEdgeId(null);
+    };
+
+    // Swaps the glyph on an existing icon node (also coerces other node types
+    // into an icon if the user re-picks one from the edit modal).
+    const replaceNodeIcon = (nodeId: string, iconSvg: string) => {
+        if (readOnly) return;
+        const next = cloneDocument(localDocRef.current);
+        next.nodes = next.nodes.map((node) => node.id === nodeId
+            ? { ...node, type: 'icon' as const, iconSvg }
+            : node
+        );
+        commitWithHistory(next);
     };
 
     const deleteSelection = () => {
@@ -1578,6 +1634,16 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
         doc.nodes.forEach((node) => {
             if (hiddenNodeIds.has(node.id)) return;
+            if (node.type === 'icon') {
+                // The 2D context can't rasterise an embedded SVG synchronously;
+                // leave a faint outline so the layout still shows the icon's spot.
+                ctx.save();
+                ctx.strokeStyle = node.style.stroke || node.style.fill || '#94a3b8';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(node.position.x, node.position.y, node.size.width, node.size.height);
+                ctx.restore();
+                return;
+            }
             if (node.type !== 'text') {
                 ctx.fillStyle = node.type === 'sticky' ? '#fde68a' : (node.style.fill || '#3b82f6');
                 ctx.fillRect(node.position.x, node.position.y, node.size.width, node.size.height);
@@ -1852,7 +1918,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     ? '2px solid rgba(37,99,235,0.9)'
                                     : node.style.stroke
                                         ? `2px solid ${node.style.stroke}`
-                                        : (node.type === 'text' ? 'none' : '1px solid rgba(255,255,255,0.4)');
+                                        : (node.type === 'text' || node.type === 'icon' ? 'none' : '1px solid rgba(255,255,255,0.4)');
                             const textColor = nodeTextColor(node);
 
                             return (
@@ -1864,8 +1930,13 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                         event.stopPropagation();
                                         setSelectedNodeIds([node.id]);
                                         setSelectedEdgeId(null);
-                                        setEditingNodeId(node.id);
-                                        setEditingNodeContent(node.content);
+                                        if (node.type === 'icon') {
+                                            // Icons have no inline text — re-pick instead.
+                                            setIconPickerMode({ replaceNodeId: node.id });
+                                        } else {
+                                            setEditingNodeId(node.id);
+                                            setEditingNodeContent(node.content);
+                                        }
                                     }}
                                     style={{
                                         position: 'absolute',
@@ -1888,7 +1959,24 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     }}
                                     title={readOnly ? 'Lectura' : 'Doble clic para editar'}
                                 >
-                                    {isInlineEditing ? (
+                                    {node.type === 'icon' ? (
+                                        node.iconSvg ? (
+                                            <div
+                                                aria-hidden
+                                                style={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    color: node.style.fill,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                                dangerouslySetInnerHTML={{ __html: node.iconSvg }}
+                                            />
+                                        ) : (
+                                            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 500 }}>Sin ícono</span>
+                                        )
+                                    ) : isInlineEditing ? (
                                         <textarea
                                             autoFocus
                                             value={editingNodeContent}
@@ -2327,6 +2415,16 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         >
                             💬 {selectedNode.comment !== undefined || selectedNode.commentImages !== undefined ? 'Editar comentario' : 'Agregar comentario'}
                         </button>
+                        {selectedNode.type === 'icon' && (
+                            <button
+                                type="button"
+                                className="btn-ghost"
+                                onClick={() => setIconPickerMode({ replaceNodeId: selectedNode.id })}
+                                style={{ padding: '6px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                            >
+                                <SmileIcon size={13} /> Cambiar ícono
+                            </button>
+                        )}
                         <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>Orden de capa</div>
                         <div style={{ display: 'flex', gap: 6 }}>
                             <button type="button" className="btn-ghost" onClick={() => reorderNode(selectedNode.id, 'front')} style={miniBtn}>Al frente</button>
@@ -2379,10 +2477,24 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 18 }}>
                             {selectedNode && (
                                 <>
-                                    <div>
-                                        <label style={editorLabel}>Texto</label>
-                                        <textarea className="input-glass" value={selectedNode.content} onChange={(event) => updateNode(selectedNode.id, { content: event.target.value }, true)} rows={2} style={{ marginTop: 6 }} />
-                                    </div>
+                                    {selectedNode.type === 'icon' ? (
+                                        <div>
+                                            <label style={editorLabel}>Ícono</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIconPickerMode({ replaceNodeId: selectedNode.id })}
+                                                className="btn-ghost"
+                                                style={{ marginTop: 6, padding: '8px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+                                            >
+                                                <SmileIcon size={14} /> Cambiar ícono
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <label style={editorLabel}>Texto</label>
+                                            <textarea className="input-glass" value={selectedNode.content} onChange={(event) => updateNode(selectedNode.id, { content: event.target.value }, true)} rows={2} style={{ marginTop: 6 }} />
+                                        </div>
+                                    )}
                                     <div>
                                         <label style={editorLabel}>Tipo de elemento</label>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(82px, 1fr))', gap: 6, marginTop: 6 }}>
@@ -2747,6 +2859,22 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     </div>
                 );
             })()}
+
+            {iconPickerMode && !readOnly && (
+                <Suspense fallback={null}>
+                    <IconPicker
+                        onClose={() => setIconPickerMode(null)}
+                        onPick={(svg) => {
+                            if (iconPickerMode === 'insert') {
+                                insertIconCentered(svg);
+                            } else if (iconPickerMode) {
+                                replaceNodeIcon(iconPickerMode.replaceNodeId, svg);
+                            }
+                            setIconPickerMode(null);
+                        }}
+                    />
+                </Suspense>
+            )}
         </div>
     );
 }
