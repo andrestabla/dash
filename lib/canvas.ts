@@ -10,7 +10,8 @@ export type CanvasNodeType =
     | 'parallelogram'
     | 'sticky'
     | 'frame'
-    | 'text';
+    | 'text'
+    | 'icon';
 export type CanvasPort = 'top' | 'right' | 'bottom' | 'left';
 export type CanvasLineStyle = 'orthogonal' | 'straight' | 'bezier';
 export type CanvasFontScale = 'sm' | 'md' | 'lg' | 'xl';
@@ -46,6 +47,10 @@ export interface CanvasNode {
     // Optional images for the comment note, stored as (downscaled) data URLs
     // (max 5). Legacy single-image comments are migrated into this array.
     commentImages?: string[];
+    // Inline SVG markup for `icon` nodes. Stored as a self-contained string
+    // (with `stroke="currentColor"` so the icon takes its container's CSS
+    // colour) so the renderer never needs to know about the icon library.
+    iconSvg?: string;
     // When true, the node's downstream branch is hidden on the canvas.
     collapsed?: boolean;
 }
@@ -122,7 +127,8 @@ function asNodeType(value: unknown): CanvasNodeType {
         value === 'parallelogram' ||
         value === 'sticky' ||
         value === 'frame' ||
-        value === 'text'
+        value === 'text' ||
+        value === 'icon'
     ) return value;
     return 'rectangle';
 }
@@ -218,6 +224,21 @@ export const MAX_COMMENT_IMAGES = 5;
  * Builds the comment image list, accepting both the current `commentImages`
  * array and the legacy single `commentImage` string, capped at MAX_COMMENT_IMAGES.
  */
+// Accepts only a well-formed `<svg>...</svg>` string and strips obvious XSS
+// vectors (script tags, inline event handlers). The picker generates SVGs
+// from the lucide-react library, but any value can reach the renderer via the
+// stored document so this guard is mandatory.
+function sanitizeIconSvg(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    if (!/^<svg[\s>]/i.test(trimmed) || !/<\/svg>\s*$/i.test(trimmed)) return undefined;
+    if (trimmed.length > 8000) return undefined;
+    return trimmed
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
+        .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '');
+}
+
 function normalizeCommentImages(node: Record<string, unknown>): string[] | undefined {
     const fromArray = Array.isArray(node.commentImages)
         ? node.commentImages.filter((value): value is string => typeof value === 'string')
@@ -267,6 +288,7 @@ function normalizeNode(inputNode: unknown): CanvasNode {
             : asString(node.content, legacyText),
         comment: typeof node.comment === 'string' ? node.comment : undefined,
         commentImages: normalizeCommentImages(node),
+        iconSvg: sanitizeIconSvg(node.iconSvg),
         collapsed: node.collapsed === true ? true : undefined
     };
 }
