@@ -40,6 +40,7 @@ export const viewport: Viewport = {
 };
 
 import SupportWidget from "@/components/SupportWidget"; // Added
+import InactivityWatcher from "@/components/InactivityWatcher";
 
 export default function RootLayout({
   children,
@@ -74,6 +75,7 @@ export default function RootLayout({
           <ToastProvider>
             {children}
             <SupportWidget />
+            <InactivityWatcher />
           </ToastProvider>
         </ThemeProvider>
       </body>
