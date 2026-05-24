@@ -733,13 +733,27 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         if (!el) return;
         const onWheel = (event: WheelEvent) => {
             event.preventDefault();
+            // Normalise delta — mice (`deltaMode = 1`, lines) and touchpads
+            // (`deltaMode = 0`, pixels) deliver very different magnitudes, so a
+            // plain `pan -= deltaY` makes the wheel feel jerky with a mouse.
+            const LINE_PX = 32;
+            const PAGE_PX = (el.clientHeight || 600) - 40;
+            const scale = event.deltaMode === 1 ? LINE_PX : event.deltaMode === 2 ? PAGE_PX : 1;
             if (event.ctrlKey || event.metaKey) {
-                zoomToward(zoomRef.current * Math.exp(-event.deltaY * 0.0015), event.clientX, event.clientY);
-            } else {
-                const next = { x: panRef.current.x - event.deltaX, y: panRef.current.y - event.deltaY };
-                panRef.current = next;
-                setPan(next);
+                zoomToward(zoomRef.current * Math.exp(-event.deltaY * scale * 0.0015), event.clientX, event.clientY);
+                return;
             }
+            let dx = event.deltaX * scale;
+            let dy = event.deltaY * scale;
+            // Shift+wheel converts the vertical wheel into a horizontal pan,
+            // matching the standard gesture for mice that lack a tilt wheel.
+            if (event.shiftKey && dx === 0) {
+                dx = dy;
+                dy = 0;
+            }
+            const next = { x: panRef.current.x - dx, y: panRef.current.y - dy };
+            panRef.current = next;
+            setPan(next);
         };
         el.addEventListener('wheel', onWheel, { passive: false });
         return () => el.removeEventListener('wheel', onWheel);
@@ -1163,7 +1177,10 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     const onViewportMouseDown = (event: React.PointerEvent<HTMLDivElement>) => {
         // Secondary fingers are reserved for pinch-zoom, handled via touch events.
         if (event.pointerType === 'touch' && activeTouchesRef.current >= 1) return;
-        if (isSpaceDownRef.current || event.button === 1) {
+        // Hold space, middle-click or right-click anywhere to pan — the
+        // right-click drag is the mouse-friendly equivalent of two-finger
+        // panning on a touchpad.
+        if (isSpaceDownRef.current || event.button === 1 || event.button === 2) {
             event.preventDefault();
             startPan(event.clientX, event.clientY);
             return;
@@ -1190,7 +1207,9 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         // Secondary fingers are reserved for pinch-zoom.
         if (event.pointerType === 'touch' && activeTouchesRef.current >= 1) return;
 
-        if (isSpaceDownRef.current || event.button === 1) {
+        if (isSpaceDownRef.current || event.button === 1 || event.button === 2) {
+            // Right-click on a node also pans, matching the empty-canvas
+            // gesture so mouse users always have a way out.
             event.preventDefault();
             startPan(event.clientX, event.clientY);
             return;
@@ -1690,7 +1709,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         link.click();
     };
 
-    const viewportCursor = isPanning ? 'grabbing' : (isSpaceDown ? 'grab' : 'default');
+    const viewportCursor = isPanning ? 'grabbing' : (isSpaceDown || readOnly ? 'grab' : 'default');
     const selectedSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
     const resizeTarget = (!readOnly && !editingNodeId && selectedNodeIds.length === 1) ? selectedNode : null;
     const visibleNodes = useMemo(() => localDoc.nodes.filter((node) => !hiddenNodeIds.has(node.id)), [localDoc.nodes, hiddenNodeIds]);
@@ -1781,6 +1800,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                 ref={viewportRef}
                 onPointerDown={onViewportMouseDown}
                 onDoubleClick={onViewportDoubleClick}
+                onContextMenu={(event) => event.preventDefault()}
                 onTouchStart={onViewportTouchStart}
                 onTouchMove={onViewportTouchMove}
                 onTouchEnd={onViewportTouchEnd}
