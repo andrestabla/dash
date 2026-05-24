@@ -472,6 +472,53 @@ function PanelSection({ title, defaultOpen = true, children }: { title: string; 
     );
 }
 
+// Local buffer for a text input that should not be wiped by every prop echo.
+// Typing into a controlled `<textarea value={node.content}>` was glitchy: each
+// keystroke walked the doc → onChange → parent save → prop echoes back, which
+// could overwrite the in-flight value and snap the caret. This hook owns the
+// draft locally, debounces the commit, and only adopts new external values
+// when the user is *not* mid-edit (`dirtyRef === false`).
+function useDraftField(value: string, onCommit: (next: string) => void, debounceMs = 300) {
+    const [draft, setDraft] = useState(value);
+    const dirtyRef = useRef(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (!dirtyRef.current) setDraft(value);
+    }, [value]);
+
+    useEffect(() => () => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+    }, []);
+
+    const onChange = useCallback((next: string) => {
+        dirtyRef.current = true;
+        setDraft(next);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+            timerRef.current = null;
+            dirtyRef.current = false;
+            onCommit(next);
+        }, debounceMs);
+    }, [onCommit, debounceMs]);
+
+    const flush = useCallback(() => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+        if (dirtyRef.current) {
+            dirtyRef.current = false;
+            onCommit(draft);
+        }
+    }, [draft, onCommit]);
+
+    return { draft, onChange, flush };
+}
+
 export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly = false, accentColor = '#3b82f6' }: Props) {
     const normalizedExternalDoc = useMemo(() => normalizeCanvasDocument(canvasDocument), [canvasDocument]);
     const [localDoc, setLocalDoc] = useState<CanvasDocument>(() => cloneDocument(normalizedExternalDoc));
@@ -833,6 +880,27 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         next.edges = next.edges.map((edge) => edge.id === edgeId ? { ...edge, ...patch } : edge);
         commitWithHistory(next, coalesce);
     };
+
+    // Draft buffers for the modal text fields. Without these, every keystroke
+    // walks the doc and parent state, which echoes back as a fresh prop and
+    // resets the controlled value mid-typing — visible as dropped letters or
+    // the caret jumping to the start.
+    const updateNodeRef = useRef(updateNode);
+    updateNodeRef.current = updateNode;
+    const updateEdgeRef = useRef(updateEdge);
+    updateEdgeRef.current = updateEdge;
+
+    const selectedNodeId = selectedNode?.id ?? '';
+    const commitNodeContent = useCallback((next: string) => {
+        if (selectedNodeId) updateNodeRef.current(selectedNodeId, { content: next }, true);
+    }, [selectedNodeId]);
+    const nodeContentDraft = useDraftField(selectedNode?.content ?? '', commitNodeContent);
+
+    const selectedEdgeIdLocal = selectedEdge?.id ?? '';
+    const commitEdgeText = useCallback((next: string) => {
+        if (selectedEdgeIdLocal) updateEdgeRef.current(selectedEdgeIdLocal, { text: next }, true);
+    }, [selectedEdgeIdLocal]);
+    const edgeTextDraft = useDraftField(selectedEdge?.text ?? '', commitEdgeText);
 
     const toggleCollapse = (nodeId: string) => {
         const next = cloneDocument(localDocRef.current);
@@ -2553,7 +2621,14 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     ) : (
                                         <div>
                                             <label style={editorLabel}>Texto</label>
-                                            <textarea className="input-glass" value={selectedNode.content} onChange={(event) => updateNode(selectedNode.id, { content: event.target.value }, true)} rows={2} style={{ marginTop: 6 }} />
+                                            <textarea
+                                                className="input-glass"
+                                                value={nodeContentDraft.draft}
+                                                onChange={(event) => nodeContentDraft.onChange(event.target.value)}
+                                                onBlur={nodeContentDraft.flush}
+                                                rows={3}
+                                                style={{ marginTop: 6 }}
+                                            />
                                         </div>
                                     )}
                                     <div>
@@ -2680,7 +2755,14 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                     </div>
                                     <div>
                                         <label style={editorLabel}>Texto de conexión</label>
-                                        <input className="input-glass" value={selectedEdge.text || ''} onChange={(event) => updateEdge(selectedEdge.id, { text: event.target.value }, true)} placeholder="Ej: Sí / No" style={{ marginTop: 6 }} />
+                                        <input
+                                            className="input-glass"
+                                            value={edgeTextDraft.draft}
+                                            onChange={(event) => edgeTextDraft.onChange(event.target.value)}
+                                            onBlur={edgeTextDraft.flush}
+                                            placeholder="Ej: Sí / No"
+                                            style={{ marginTop: 6 }}
+                                        />
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
