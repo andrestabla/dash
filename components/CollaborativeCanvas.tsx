@@ -1938,7 +1938,14 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             const isLinkSource = linkFrom?.nodeId === node.id;
                             const isInlineEditing = editingNodeId === node.id;
 
-                            const baseStyle = getNodeBaseStyle(node);
+                            // When the user picks "Sin relleno" the shape's
+                            // background goes transparent; the drop shadow looks
+                            // odd around an invisible body, so drop it too.
+                            const isTransparentFill = node.style.fill === 'transparent';
+                            const baseStyle: React.CSSProperties = {
+                                ...getNodeBaseStyle(node),
+                                ...(isTransparentFill ? { background: 'transparent', boxShadow: 'none' } : {})
+                            };
                             const border = isLinkSource
                                 ? '3px dashed #facc15'
                                 : isSelected
@@ -2572,6 +2579,23 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                                     <button key={color} type="button" onClick={() => updateNode(selectedNode.id, { style: { fill: color } }, true)} title={color} style={swatchStyle(selectedNode.style.fill?.toLowerCase() === color.toLowerCase(), color)} />
                                                 ))}
                                             </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => updateNode(selectedNode.id, { style: { fill: 'transparent' } }, true)}
+                                                style={{
+                                                    marginTop: 6,
+                                                    padding: '5px 10px',
+                                                    fontSize: 12,
+                                                    borderRadius: 6,
+                                                    cursor: 'pointer',
+                                                    border: selectedNode.style.fill === 'transparent' ? '1px solid #2563eb' : '1px solid var(--border-dim)',
+                                                    background: selectedNode.style.fill === 'transparent' ? 'rgba(37,99,235,0.12)' : 'var(--bg-card)',
+                                                    color: 'var(--text-main, #0f172a)',
+                                                    fontWeight: selectedNode.style.fill === 'transparent' ? 700 : 400
+                                                }}
+                                            >
+                                                Sin relleno
+                                            </button>
                                         </div>
                                     )}
                                     {selectedNode.type !== 'text' && (
