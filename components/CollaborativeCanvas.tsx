@@ -131,7 +131,14 @@ const CURATED_COLORS = [
 const TEXT_COLORS = ['#0f172a', '#ffffff', '#334155', '#2563eb', '#dc2626', '#15803d', '#b45309', '#7c3aed'];
 
 // First entry is the connector default; selecting it clears the custom color.
-const EDGE_COLORS = ['#64748b', '#0f172a', '#2563eb', '#dc2626', '#15803d', '#b45309', '#7c3aed', '#0891b2'];
+const EDGE_COLORS = [
+    '#64748b', '#0f172a', '#475569', '#94a3b8',
+    '#1d4ed8', '#2563eb', '#3b82f6', '#0ea5e9',
+    '#0891b2', '#14b8a6', '#10b981', '#22c55e',
+    '#15803d', '#eab308', '#b45309', '#f97316',
+    '#ea580c', '#dc2626', '#ef4444', '#db2777',
+    '#ec4899', '#a855f7', '#8b5cf6', '#7c3aed'
+];
 
 const FONT_SCALE_PX: Record<CanvasFontScale, number> = { sm: 13, md: 16, lg: 22, xl: 30 };
 const FONT_SCALE_OPTIONS: Array<{ value: CanvasFontScale; label: string }> = [
@@ -1003,6 +1010,26 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             next.nodes.splice(Math.min(next.nodes.length, idx + 1), 0, node);
         } else {
             next.nodes.splice(Math.max(0, idx - 1), 0, node);
+        }
+        commitWithHistory(next);
+    };
+
+    // Same idea for connectors. Edges always paint beneath nodes (separate SVG
+    // layer), so this only changes the order among overlapping connectors.
+    const reorderEdge = (edgeId: string, mode: 'front' | 'forward' | 'backward' | 'back') => {
+        if (readOnly) return;
+        const next = cloneDocument(localDocRef.current);
+        const idx = next.edges.findIndex((edge) => edge.id === edgeId);
+        if (idx === -1) return;
+        const [edge] = next.edges.splice(idx, 1);
+        if (mode === 'front') {
+            next.edges.push(edge);
+        } else if (mode === 'back') {
+            next.edges.unshift(edge);
+        } else if (mode === 'forward') {
+            next.edges.splice(Math.min(next.edges.length, idx + 1), 0, edge);
+        } else {
+            next.edges.splice(Math.max(0, idx - 1), 0, edge);
         }
         commitWithHistory(next);
     };
@@ -2448,6 +2475,13 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         >
                             <PencilIcon size={14} /> Editar conexión
                         </button>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>Orden de capa</div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <button type="button" className="btn-ghost" onClick={() => reorderEdge(selectedEdge.id, 'front')} style={miniBtn}>Al frente</button>
+                            <button type="button" className="btn-ghost" onClick={() => reorderEdge(selectedEdge.id, 'forward')} style={miniBtn}>Adelante</button>
+                            <button type="button" className="btn-ghost" onClick={() => reorderEdge(selectedEdge.id, 'backward')} style={miniBtn}>Atrás</button>
+                            <button type="button" className="btn-ghost" onClick={() => reorderEdge(selectedEdge.id, 'back')} style={miniBtn}>Al fondo</button>
+                        </div>
                     </PanelSection>
                 )}
 
