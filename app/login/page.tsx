@@ -8,6 +8,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [notice, setNotice] = useState('');
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
     const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean, platform: string | null }>({ enabled: false, platform: null });
@@ -19,6 +20,11 @@ export default function LoginPage() {
 
         const params = new URLSearchParams(window.location.search);
         const urlError = params.get('error');
+        const reason = params.get('reason');
+
+        if (reason === 'inactivity') {
+            setNotice('Tu sesión se cerró por inactividad (1 hora). Inicia sesión nuevamente para continuar.');
+        }
 
         if (urlError) {
             console.log('Error parameter detected:', urlError);
@@ -165,6 +171,21 @@ export default function LoginPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
+
+                        {notice && (
+                            <div className="animate-fade-in" style={{
+                                padding: 16,
+                                background: 'rgba(37, 99, 235, 0.05)',
+                                border: '1px solid rgba(37, 99, 235, 0.2)',
+                                borderRadius: 12,
+                                fontSize: 13
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1d4ed8', fontWeight: 700 }}>
+                                    <span style={{ fontSize: 18 }}>⏱️</span>
+                                    <span>{notice}</span>
+                                </div>
+                            </div>
+                        )}
 
                         {error && (
                             <div className="animate-fade-in" style={{
