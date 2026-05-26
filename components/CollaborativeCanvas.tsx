@@ -1676,105 +1676,97 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [undo, redo]);
 
-    const exportAsPng = () => {
-        const doc = normalizeCanvasDocument(localDoc);
-        const canvas = document.createElement('canvas');
-        const width = 1800;
-        const height = 1100;
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+    // Snapshots the visible canvas content (shapes, icons, edges, labels and
+    // every other DOM the user sees) and downloads it as PNG, JPG or PDF.
+    // Replaces the previous canvas-2D renderer which only knew how to draw
+    // rectangles and missed shapes, icons and arrow markers.
+    const [exporting, setExporting] = useState(false);
+    const exportCanvas = async (format: 'png' | 'jpg' | 'pdf') => {
+        const visible = localDocRef.current.nodes.filter((node) => !hiddenNodeIds.has(node.id));
+        if (visible.length === 0) return;
 
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
+        const worldEl = viewportRef.current?.firstElementChild as HTMLElement | null;
+        if (!worldEl) return;
 
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < width; x += 24) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, height);
-            ctx.stroke();
+        // Bounding box of the content, with a comfortable margin.
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const node of visible) {
+            minX = Math.min(minX, node.position.x);
+            minY = Math.min(minY, node.position.y);
+            maxX = Math.max(maxX, node.position.x + node.size.width);
+            maxY = Math.max(maxY, node.position.y + node.size.height);
         }
-        for (let y = 0; y < height; y += 24) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(width, y);
-            ctx.stroke();
+        const pad = 48;
+        const width = Math.max(240, Math.ceil(maxX - minX + 2 * pad));
+        const height = Math.max(240, Math.ceil(maxY - minY + 2 * pad));
+
+        setExporting(true);
+        try {
+            // Lazy-load the libraries so public viewers and the editor cold
+            // path stay light — they're only fetched the first time someone
+            // exports.
+            const htmlToImage = await import('html-to-image');
+
+            const filter = (node: Element | Node) => {
+                if (node instanceof Element && node.getAttribute && node.getAttribute('data-export-ignore') === 'true') {
+                    return false;
+                }
+                return true;
+            };
+
+            // Overriding `transform` in the clone neutralises the live
+            // pan/zoom, while the translate shifts the bounding box to
+            // (pad, pad) inside the snapshot's coordinate space.
+            // Cap the output dimensions so a huge canvas does not blow up
+            // browser memory. Final size = width * pixelRatio.
+            const MAX_OUTPUT_DIM = 6000;
+            const naturalMax = Math.max(width, height);
+            const pixelRatio = naturalMax * 2 > MAX_OUTPUT_DIM
+                ? Math.max(1, MAX_OUTPUT_DIM / naturalMax)
+                : 2;
+
+            const options = {
+                width,
+                height,
+                pixelRatio,
+                cacheBust: true,
+                backgroundColor: '#ffffff',
+                filter,
+                style: {
+                    transform: `translate(${-minX + pad}px, ${-minY + pad}px)`,
+                    transformOrigin: '0 0'
+                } as Partial<CSSStyleDeclaration>
+            };
+
+            const filename = `canvas-${Date.now()}`;
+            if (format === 'png') {
+                const dataUrl = await htmlToImage.toPng(worldEl, options);
+                triggerDownload(dataUrl, `${filename}.png`);
+            } else if (format === 'jpg') {
+                const dataUrl = await htmlToImage.toJpeg(worldEl, { ...options, quality: 0.94 });
+                triggerDownload(dataUrl, `${filename}.jpg`);
+            } else {
+                const pngUrl = await htmlToImage.toPng(worldEl, options);
+                const { jsPDF } = await import('jspdf');
+                const orientation: 'portrait' | 'landscape' = width >= height ? 'landscape' : 'portrait';
+                const pdf = new jsPDF({ orientation, unit: 'pt', format: [width, height] });
+                pdf.addImage(pngUrl, 'PNG', 0, 0, width, height);
+                pdf.save(`${filename}.pdf`);
+            }
+        } catch (err) {
+            console.error('Canvas export failed:', err);
+        } finally {
+            setExporting(false);
         }
+    };
 
-        const nodesMap = new Map(doc.nodes.map((node) => [node.id, node] as const));
-
-        doc.edges.forEach((edge) => {
-            if (hiddenNodeIds.has(edge.source.nodeId) || hiddenNodeIds.has(edge.target.nodeId)) return;
-            const source = nodesMap.get(edge.source.nodeId);
-            const target = nodesMap.get(edge.target.nodeId);
-            if (!source || !target) return;
-
-            const start = getPortPoint(source, edge.source.port);
-            const end = getPortPoint(target, edge.target.port);
-
-            ctx.strokeStyle = '#64748b';
-            ctx.lineWidth = 2;
-            ctx.setLineDash(edge.dashed ? [9, 7] : []);
-
-            if (edge.lineStyle === 'bezier') {
-                const sn = portNormal(edge.source.port);
-                const tn = portNormal(edge.target.port);
-                const reach = Math.max(40, Math.min(160, Math.hypot(end.x - start.x, end.y - start.y) * 0.5));
-                const c1 = { x: start.x + sn.x * reach, y: start.y + sn.y * reach };
-                const c2 = { x: end.x + tn.x * reach, y: end.y + tn.y * reach };
-                ctx.beginPath();
-                ctx.moveTo(start.x, start.y);
-                ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, end.x, end.y);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                return;
-            }
-
-            const points = edge.lineStyle === 'straight'
-                ? [start, end]
-                : buildOrthogonalPoints(edge, nodesMap, doc.nodes);
-
-            if (points.length >= 2) {
-                ctx.beginPath();
-                ctx.moveTo(points[0].x, points[0].y);
-                for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i].x, points[i].y);
-                ctx.stroke();
-            }
-            ctx.setLineDash([]);
-        });
-
-        doc.nodes.forEach((node) => {
-            if (hiddenNodeIds.has(node.id)) return;
-            if (node.type === 'icon') {
-                // The 2D context can't rasterise an embedded SVG synchronously;
-                // leave a faint outline so the layout still shows the icon's spot.
-                ctx.save();
-                ctx.strokeStyle = node.style.stroke || node.style.fill || '#94a3b8';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(node.position.x, node.position.y, node.size.width, node.size.height);
-                ctx.restore();
-                return;
-            }
-            if (node.type !== 'text') {
-                ctx.fillStyle = node.type === 'sticky' ? '#fde68a' : (node.style.fill || '#3b82f6');
-                ctx.fillRect(node.position.x, node.position.y, node.size.width, node.size.height);
-                ctx.strokeStyle = node.style.stroke || '#0f172a';
-                ctx.strokeRect(node.position.x, node.position.y, node.size.width, node.size.height);
-            }
-
-            ctx.fillStyle = nodeTextColor(node);
-            ctx.font = `bold ${fontPx(node)}px sans-serif`;
-            ctx.textBaseline = 'middle';
-            ctx.fillText(node.content.replace(/\s+/g, ' ').trim().slice(0, 34), node.position.x + 14, node.position.y + node.size.height / 2);
-        });
-
+    const triggerDownload = (href: string, name: string) => {
         const link = document.createElement('a');
-        link.href = canvas.toDataURL('image/png');
-        link.download = `canvas-${Date.now()}.png`;
+        link.href = href;
+        link.download = name;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
     };
 
     const viewportCursor = isPanning ? 'grabbing' : (isSpaceDown || readOnly ? 'grab' : 'default');
@@ -1979,6 +1971,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
                         {edgeDragAnchor && edgeDragWorld && (
                             <line
+                                data-export-ignore="true"
                                 x1={edgeDragAnchor.x}
                                 y1={edgeDragAnchor.y}
                                 x2={edgeDragWorld.x}
@@ -1993,12 +1986,14 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                         {guides.map((guide, index) => (
                             guide.axis === 'x' ? (
                                 <line
+                                    data-export-ignore="true"
                                     key={`guide-x-${index}`}
                                     x1={guide.pos} y1={0} x2={guide.pos} y2={WORLD_HEIGHT}
                                     stroke="#ec4899" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${4 / zoom}`} pointerEvents="none"
                                 />
                             ) : (
                                 <line
+                                    data-export-ignore="true"
                                     key={`guide-y-${index}`}
                                     x1={0} y1={guide.pos} x2={WORLD_WIDTH} y2={guide.pos}
                                     stroke="#ec4899" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${4 / zoom}`} pointerEvents="none"
@@ -2008,6 +2003,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
 
                         {marquee && (
                             <rect
+                                data-export-ignore="true"
                                 x={marquee.x}
                                 y={marquee.y}
                                 width={marquee.width}
@@ -2159,6 +2155,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                                 <button
                                     key={`collapse-${node.id}`}
                                     type="button"
+                                    data-export-ignore="true"
                                     onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                         event.stopPropagation();
@@ -2241,6 +2238,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             return (
                                 <div
                                     key={`endpoint-${end}`}
+                                    data-export-ignore="true"
                                     onPointerDown={(event) => onEdgeEndpointMouseDown(event, selectedEdge.id, end)}
                                     title="Arrastra para reconectar"
                                     style={{
@@ -2271,6 +2269,7 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             return (
                                 <div
                                     key={corner}
+                                    data-export-ignore="true"
                                     onPointerDown={(event) => onResizeHandleMouseDown(event, resizeTarget, corner)}
                                     style={{
                                         position: 'absolute',
@@ -2469,9 +2468,14 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     >
                         <TrashIcon size={13} /> Eliminar
                     </button>
-                    <button className="btn-ghost" onClick={exportAsPng} style={{ padding: '6px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <DownloadIcon size={13} /> PNG
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 0, border: '1px solid var(--border-dim)', borderRadius: 8, overflow: 'hidden' }}>
+                        <span style={{ padding: '6px 8px', fontSize: 11, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg-panel)' }} title="Descargar lienzo">
+                            <DownloadIcon size={13} />
+                        </span>
+                        <button type="button" onClick={() => exportCanvas('png')} disabled={exporting} title="Descargar PNG" style={{ padding: '6px 10px', fontSize: 12, background: 'transparent', border: 'none', borderLeft: '1px solid var(--border-dim)', cursor: 'pointer', color: 'var(--text-main, #0f172a)', opacity: exporting ? 0.5 : 1 }}>PNG</button>
+                        <button type="button" onClick={() => exportCanvas('jpg')} disabled={exporting} title="Descargar JPG" style={{ padding: '6px 10px', fontSize: 12, background: 'transparent', border: 'none', borderLeft: '1px solid var(--border-dim)', cursor: 'pointer', color: 'var(--text-main, #0f172a)', opacity: exporting ? 0.5 : 1 }}>JPG</button>
+                        <button type="button" onClick={() => exportCanvas('pdf')} disabled={exporting} title="Descargar PDF" style={{ padding: '6px 10px', fontSize: 12, background: 'transparent', border: 'none', borderLeft: '1px solid var(--border-dim)', cursor: 'pointer', color: 'var(--text-main, #0f172a)', opacity: exporting ? 0.5 : 1 }}>PDF</button>
+                    </div>
                 </div>
 
                 {linkFrom && (
