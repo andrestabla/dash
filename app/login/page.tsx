@@ -44,18 +44,49 @@ export default function LoginPage() {
     }, []);
 
     useEffect(() => {
-        const checkSso = async () => {
-            try {
-                const res = await fetch('/api/auth/sso-status');
-                if (res.ok) {
-                    const data = await res.json();
-                    setSsoConfig(data);
+        // Show the SSO button immediately from the last known value cached in
+        // this browser, so a transient API failure (Neon cold start, network
+        // blip) does not make the button disappear.
+        try {
+            const raw = window.localStorage.getItem('sso:last-known');
+            if (raw) {
+                const cached = JSON.parse(raw);
+                if (cached && typeof cached.enabled === 'boolean') {
+                    setSsoConfig({ enabled: cached.enabled, platform: cached.platform ?? null });
                 }
-            } catch (err) {
-                console.error('Error checking SSO status:', err);
+            }
+        } catch {
+            // ignore
+        }
+
+        let cancelled = false;
+        const checkSso = async () => {
+            // Retry a few times with backoff — the first request after the DB
+            // wakes up sometimes errors out, and we never want SSO to silently
+            // disappear from the login page.
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+                try {
+                    const res = await fetch('/api/auth/sso-status', { cache: 'no-store' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (cancelled) return;
+                        setSsoConfig(data);
+                        try {
+                            window.localStorage.setItem('sso:last-known', JSON.stringify(data));
+                        } catch {
+                            // ignore
+                        }
+                        return;
+                    }
+                } catch (err) {
+                    console.error(`Error checking SSO status (attempt ${attempt + 1}):`, err);
+                }
+                if (cancelled) return;
+                await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
             }
         };
         checkSso();
+        return () => { cancelled = true; };
     }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
