@@ -12,6 +12,7 @@ import {
     Pencil as PencilIcon,
     Pill as PillIcon,
     Shapes as ShapesIcon,
+    Code as CodeIcon,
     Smile as SmileIcon,
     Square as SquareIcon,
     StickyNote as StickyNoteIcon,
@@ -22,6 +23,7 @@ import {
 // The icon picker pulls the whole lucide library; keep it out of the canvas's
 // initial bundle (public viewers never need it).
 const IconPicker = lazy(() => import("./IconPicker"));
+const SchemaCodeModal = lazy(() => import("./SchemaCodeModal"));
 import type {
     CanvasDocument,
     CanvasEdge,
@@ -554,6 +556,9 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
     // `{ replaceNodeId }` opens it to swap the icon on an existing node.
     const [iconPickerMode, setIconPickerMode] = useState<null | 'insert' | { replaceNodeId: string }>(null);
 
+    // Mermaid-style schema-from-code modal.
+    const [schemaCodeOpen, setSchemaCodeOpen] = useState(false);
+
     // Editing state.
     const [past, setPast] = useState<CanvasDocument[]>([]);
     const [future, setFuture] = useState<CanvasDocument[]>([]);
@@ -993,6 +998,47 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
             : node
         );
         commitWithHistory(next);
+    };
+
+    // Inserts a schema produced by the Mermaid-style code modal. Dagre lays it
+    // out around (0, 0); we translate the result so it sits to the right of
+    // any existing content with a comfortable gap.
+    const insertSchemaFromCode = (incomingNodes: CanvasNode[], incomingEdges: CanvasEdge[]) => {
+        if (readOnly || incomingNodes.length === 0) return;
+
+        let lMinX = Infinity, lMinY = Infinity;
+        for (const node of incomingNodes) {
+            lMinX = Math.min(lMinX, node.position.x);
+            lMinY = Math.min(lMinY, node.position.y);
+        }
+
+        const visibleExisting = localDocRef.current.nodes.filter((node) => !hiddenNodeIds.has(node.id));
+        let anchorX = 60;
+        let anchorY = 60;
+        if (visibleExisting.length > 0) {
+            let xMax = -Infinity;
+            let yMin = Infinity;
+            for (const node of visibleExisting) {
+                xMax = Math.max(xMax, node.position.x + node.size.width);
+                yMin = Math.min(yMin, node.position.y);
+            }
+            anchorX = xMax + 160;
+            anchorY = yMin;
+        }
+        const dx = anchorX - lMinX;
+        const dy = anchorY - lMinY;
+
+        const next = cloneDocument(localDocRef.current);
+        const positioned = incomingNodes.map((node) => ({
+            ...node,
+            position: { x: Math.max(0, Math.round(node.position.x + dx)), y: Math.max(0, Math.round(node.position.y + dy)) }
+        }));
+        next.nodes.push(...positioned);
+        next.edges.push(...incomingEdges);
+        commitWithHistory(next);
+        setSelectedNodeIds(positioned.map((node) => node.id));
+        setSelectedEdgeId(null);
+        setSchemaCodeOpen(false);
     };
 
     const deleteSelection = () => {
@@ -2448,6 +2494,16 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                     </div>
                 </PanelSection>
 
+                <button
+                    type="button"
+                    onClick={() => setSchemaCodeOpen(true)}
+                    className="btn-ghost"
+                    style={{ padding: '8px 12px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                    title="Generar un esquema completo desde una descripción tipo Mermaid"
+                >
+                    <CodeIcon size={14} /> Esquema desde código
+                </button>
+
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <button
                         className="btn-ghost"
@@ -3036,6 +3092,16 @@ export default function CollaborativeCanvas({ canvasDocument, onChange, readOnly
                             }
                             setIconPickerMode(null);
                         }}
+                    />
+                </Suspense>
+            )}
+
+            {schemaCodeOpen && !readOnly && (
+                <Suspense fallback={null}>
+                    <SchemaCodeModal
+                        accentColor={accentColor}
+                        onClose={() => setSchemaCodeOpen(false)}
+                        onApply={insertSchemaFromCode}
                     />
                 </Suspense>
             )}

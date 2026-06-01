@@ -14,8 +14,10 @@
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
+    "@types/dagre": "^0.7.54",
     "@types/pg": "^8.16.0",
     "bcryptjs": "^3.0.3",
+    "dagre": "^0.8.5",
     "dotenv": "^17.2.3",
     "html-to-image": "^1.11.13",
     "jose": "^6.1.3",
