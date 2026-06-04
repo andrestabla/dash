@@ -45,9 +45,12 @@ export async function POST(request: Request) {
             // 2. Determine new name
             const newName = name || `${original.name} (Copia)`;
 
-            // Keep the copy in the original folder only when the caller owns the
-            // source; otherwise place it at the root of the caller's workspace.
-            const copyFolderId = original.owner_id === session.id ? original.folder_id : null;
+            // The copy always lands in the same folder as the source — that's
+            // where the user expects to find it after duplicating. Access to
+            // the source already implies access to its folder (verified above),
+            // so this never sneaks a dashboard into a folder the caller cannot
+            // see.
+            const copyFolderId = original.folder_id;
 
             // Wrap everything in a transaction so a partially-cloned dashboard
             // never lingers in the DB if any insert downstream fails.
