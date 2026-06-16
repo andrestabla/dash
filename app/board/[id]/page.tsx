@@ -173,6 +173,9 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     const settingsSnapshotRef = useRef('');
     const canvasSnapshotRef = useRef('');
     const canvasSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Caches uploads of base64 data URLs → API URLs so a re-save of the same
+    // canvas does not re-upload the same screenshot dozens of times.
+    const canvasImageUrlMapRef = useRef<Map<string, string>>(new Map());
     const isRealtimeSyncingRef = useRef(false);
     const isModalOpenRef = useRef(false);
     const isSettingsOpenRef = useRef(false);
@@ -733,6 +736,42 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
 
         canvasSaveTimerRef.current = setTimeout(async () => {
             try {
+                // Pull any base64-encoded comment images out of the canvas and
+                // into the dedicated `canvas_images` table. Without this the
+                // JSONB blob grows past Vercel's 4.5 MB request-body limit
+                // after a few screenshots and *every* further save fails —
+                // including unrelated edits like duplicating a node.
+                const cache = canvasImageUrlMapRef.current;
+                const migratedNodes = await Promise.all(nextCanvas.nodes.map(async (node) => {
+                    if (!node.commentImages || node.commentImages.length === 0) return node;
+                    const mapped: string[] = [];
+                    for (const entry of node.commentImages) {
+                        if (typeof entry !== 'string' || !entry.startsWith('data:')) {
+                            mapped.push(entry);
+                            continue;
+                        }
+                        const cached = cache.get(entry);
+                        if (cached) {
+                            mapped.push(cached);
+                            continue;
+                        }
+                        const uploadRes = await fetch('/api/canvas-images', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ dashboardId, dataUrl: entry })
+                        });
+                        if (!uploadRes.ok) {
+                            throw new Error(`Upload failed (${uploadRes.status})`);
+                        }
+                        const { url } = await uploadRes.json();
+                        cache.set(entry, url);
+                        mapped.push(url);
+                    }
+                    return { ...node, commentImages: mapped };
+                }));
+                const slimCanvas = { ...nextCanvas, nodes: migratedNodes };
+                const slimSnapshot = JSON.stringify(slimCanvas);
+
                 const payload = {
                     id: dashboardId,
                     name: dashboardName,
@@ -740,7 +779,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     settings: {
                         ...settings,
                         dashboardType: 'canvas',
-                        canvas: nextCanvas
+                        canvas: slimCanvas
                     },
                     start_date: dashboardMeta.start_date ? dashboardMeta.start_date.split('T')[0] : null,
                     end_date: dashboardMeta.end_date ? dashboardMeta.end_date.split('T')[0] : null,
@@ -758,8 +797,15 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                     return;
                 }
 
-                canvasSnapshotRef.current = nextSnapshot;
-            } catch {
+                canvasSnapshotRef.current = slimSnapshot;
+                // Reflect the URL-replaced canvas back into local state so the
+                // next save doesn't re-upload and the viewer renders from the
+                // canvas_images endpoint immediately.
+                if (slimSnapshot !== nextSnapshot) {
+                    setSettings((prev: any) => ({ ...(prev || {}), dashboardType: 'canvas', canvas: slimCanvas }));
+                }
+            } catch (err) {
+                console.error('Canvas save error:', err);
                 showToast("Error de red al sincronizar canvas", "error");
             }
         }, 650);
