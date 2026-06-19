@@ -11,6 +11,12 @@ const STORAGE_THROTTLE_MS = 30_000;
 // on these; the watcher is dormant.
 const SKIP_PREFIXES = ["/login", "/register", "/public/", "/onboarding"];
 
+// Cached result of the auth probe for the lifetime of this app session.
+// Re-probing on every pathname change paid a cold-start tax on every
+// internal navigation; once we know the user is authed, we trust it until
+// the next hard reload (logout / inactivity logout / user navigating away).
+let cachedAuthed: boolean | null = null;
+
 export default function InactivityWatcher() {
     const pathname = usePathname();
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -51,6 +57,7 @@ export default function InactivityWatcher() {
         const performLogout = async () => {
             if (cancelled) return;
             clearTimer();
+            cachedAuthed = null;
             try {
                 await fetch("/api/auth/logout", { method: "POST" });
             } catch {
@@ -105,14 +112,24 @@ export default function InactivityWatcher() {
 
         // Probe the session before we attach anything. If the user isn't
         // authenticated (e.g. mid-page after their cookie expired) we let the
-        // ordinary 401 redirects do their job and don't compete.
+        // ordinary 401 redirects do their job and don't compete. The probe
+        // result is cached at module scope so internal navigations don't pay
+        // a fresh /api/auth/me round trip every time.
         void (async () => {
-            let authed = false;
-            try {
-                const res = await fetch("/api/auth/me", { cache: "no-store" });
-                authed = res.ok;
-            } catch {
-                authed = false;
+            let authed = cachedAuthed;
+            if (authed === null) {
+                try {
+                    const res = await fetch("/api/auth/me", { cache: "no-store" });
+                    if (res.ok) {
+                        const body = await res.json().catch(() => null);
+                        authed = !!(body && body.user);
+                    } else {
+                        authed = false;
+                    }
+                } catch {
+                    authed = false;
+                }
+                cachedAuthed = authed;
             }
             if (cancelled || !authed) return;
 
