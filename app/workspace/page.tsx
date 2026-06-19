@@ -1325,7 +1325,7 @@ function WorkspaceContent() {
                 </div>
             )}
 
-            {dashboards.length === 0 && !isCreating && (
+            {!isLoading && dashboards.length === 0 && !isCreating && (
                 <div className="glass-panel" style={{ gridColumn: '1/-1', textAlign: 'center', padding: 80, color: 'var(--text-dim)', border: '2px dashed rgba(255,255,255,0.1)' }}>
                     <div style={{ marginBottom: 16, opacity: 0.5, display: 'inline-block' }}><FolderOpen size={48} /></div>
                     <h3 style={{ color: 'var(--text-main)' }}>No hay proyectos activos</h3>
