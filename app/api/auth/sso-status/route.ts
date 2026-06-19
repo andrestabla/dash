@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
-export const revalidate = 0; // Disable caching
-
 export async function GET() {
     try {
         const client = await pool.connect();
@@ -19,6 +17,11 @@ export async function GET() {
             return NextResponse.json({
                 enabled: settings['sso_enabled'] === 'true',
                 platform: settings['sso_platform'] || null
+            }, {
+                // SSO config rarely changes. Letting the browser hold the
+                // response for a few minutes saves a cold-start hit on every
+                // visit to /login.
+                headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' }
             });
         } finally {
             client.release();

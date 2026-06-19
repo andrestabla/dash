@@ -189,46 +189,34 @@ function WorkspaceContent() {
 
 
     // --- DATA LOADING ---
+    // One call to the bootstrap endpoint replaces five separate requests
+    // (dashboards / folders / users / workspaces / auth-me). Under cold
+    // starts that's the difference between paying one multi-second penalty
+    // vs. five — by far the biggest win for perceived load time.
     const loadData = () => {
         setIsLoading(true);
-        Promise.allSettled([
-            fetch('/api/dashboards').then(res => res.json()),
-            fetch('/api/folders').then(res => res.json()),
-            fetch('/api/users/list').then(res => res.json())
-        ]).then((results) => {
-            const [dashboardsResult, foldersResult, usersResult] = results;
-
-            if (dashboardsResult.status === 'fulfilled' && Array.isArray(dashboardsResult.value)) {
-                setDashboards(dashboardsResult.value);
-            }
-            if (foldersResult.status === 'fulfilled' && Array.isArray(foldersResult.value)) {
-                setFolders(foldersResult.value);
-            }
-            if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
-                setAvailableUsers(usersResult.value);
-            }
-
-            if (dashboardsResult.status === 'rejected' || foldersResult.status === 'rejected') {
-                showToast("Algunas secciones no cargaron completamente. Reintentando...", "info");
-            }
-        }).finally(() => {
-            setIsLoading(false);
-        });
+        fetch('/api/workspace/bootstrap')
+            .then((res) => res.ok ? res.json() : Promise.reject(res))
+            .then((data) => {
+                setDashboards(Array.isArray(data.dashboards) ? data.dashboards : []);
+                setFolders(Array.isArray(data.folders) ? data.folders : []);
+                setAvailableUsers(Array.isArray(data.users) ? data.users : []);
+                const wsArr = Array.isArray(data.workspaces) ? data.workspaces : [];
+                setWorkspaces(wsArr);
+                setCanGovern(wsArr.some((w: any) => w.my_role === 'gestor'));
+                setUser(data.user || null);
+            })
+            .catch((err) => {
+                console.error('Workspace bootstrap failed:', err);
+                showToast('No se pudo cargar el espacio de trabajo. Reintenta.', 'error');
+            })
+            .finally(() => setIsLoading(false));
     };
 
 
 
     useEffect(() => {
         loadData();
-        fetch('/api/auth/me').then(res => res.json()).then(data => setUser(data.user));
-        fetch('/api/workspaces')
-            .then(res => res.ok ? res.json() : [])
-            .then(list => {
-                const arr = Array.isArray(list) ? list : [];
-                setWorkspaces(arr);
-                setCanGovern(arr.some((w: any) => w.my_role === 'gestor'));
-            })
-            .catch(() => { });
     }, []);
 
     // If the deep-linked folder isn't one the user can actually see — e.g. they
