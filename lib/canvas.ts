@@ -331,15 +331,21 @@ function normalizeEdge(inputEdge: unknown, nodesById: Map<string, CanvasNode>): 
     };
 }
 
-export function normalizeCanvasDocument(input: unknown, fallbackTitle = 'Idea Principal'): CanvasDocument {
-    const fallback = createDefaultCanvasDocument(fallbackTitle);
-    if (!input || typeof input !== 'object') return fallback;
+// Normalises any value into a canvas document shape. The function never
+// invents content from the dashboard's name — an empty or malformed input
+// produces an empty canvas, not a synthetic "starter" canvas. Seeding the
+// starter happens once, explicitly, at dashboard creation time; rendering and
+// save paths should treat the row's UUID as the source of truth and leave its
+// content alone.
+export function normalizeCanvasDocument(input: unknown): CanvasDocument {
+    const empty: CanvasDocument = { nodes: [], edges: [], updatedAt: new Date().toISOString() };
+    if (!input || typeof input !== 'object') return empty;
 
     const record = asRecord(input);
     const rawNodes = Array.isArray(record.nodes) ? record.nodes : [];
     const nodes = rawNodes.map(normalizeNode).filter((node) => Boolean(node.id));
 
-    if (nodes.length === 0) return fallback;
+    if (nodes.length === 0) return empty;
 
     const nodesById = new Map(nodes.map((node) => [node.id, node] as const));
     const rawEdges = Array.isArray(record.edges) ? record.edges : [];
@@ -354,20 +360,17 @@ export function normalizeCanvasDocument(input: unknown, fallbackTitle = 'Idea Pr
     };
 }
 
-export function buildCanvasSettings(baseSettings: Record<string, unknown>, nameHint: string): Record<string, unknown> {
+export function buildCanvasSettings(baseSettings: Record<string, unknown>): Record<string, unknown> {
     const kind = getDashboardKind(baseSettings);
-    const canvas = normalizeCanvasDocument(baseSettings?.canvas, nameHint);
-
     if (kind === 'canvas') {
         return {
             ...baseSettings,
             dashboardType: 'canvas',
-            canvas
+            canvas: normalizeCanvasDocument(baseSettings?.canvas)
         };
     }
-
-    return {
-        ...baseSettings,
-        dashboardType: 'kanban'
-    };
+    // Kanban dashboards have no business carrying a canvas blob.
+    const { canvas: _omit, ...rest } = baseSettings as { canvas?: unknown };
+    void _omit;
+    return { ...rest, dashboardType: 'kanban' };
 }

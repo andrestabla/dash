@@ -73,9 +73,14 @@ export async function POST(request: Request) {
                     ? original.settings as Record<string, unknown>
                     : {};
                 const isCanvas = getDashboardKind(sourceSettings) === 'canvas';
-                const safeSettings = isCanvas
-                    ? buildCanvasSettings({ ...sourceSettings, dashboardType: 'canvas' }, newName)
-                    : { ...sourceSettings, dashboardType: 'kanban' };
+                // `buildCanvasSettings` no longer synthesises a default canvas
+                // from the dashboard name — content travels with the source's
+                // own nodes/edges or, if the source had none, the copy lands
+                // empty (which is the truthful representation).
+                const safeSettings = buildCanvasSettings({
+                    ...sourceSettings,
+                    dashboardType: isCanvas ? 'canvas' : 'kanban'
+                });
                 const dashRes = await client.query(
                     `INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo, workspace_id)
                      VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9)

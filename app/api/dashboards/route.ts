@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { publishDashboardRealtime } from '@/lib/realtime';
-import { buildCanvasSettings, getDashboardKind } from '@/lib/canvas';
+import { buildCanvasSettings, createDefaultCanvasDocument, getDashboardKind } from '@/lib/canvas';
 import { unauthorized, badRequest, notFound, forbidden, serverError } from '@/lib/api-error';
 import { DEFAULT_WORKSPACE_ID } from '@/lib/workspace';
 import { gestorClause, isGestorOf } from '@/lib/workspace-access';
@@ -60,10 +60,20 @@ export async function POST(request: Request) {
         try {
             await client.query('BEGIN');
 
-            const normalizedSettings = buildCanvasSettings(
-                { ...(settings || {}), dashboardType: getDashboardKind(settings) },
-                String(name || 'Idea Principal')
-            );
+            // Build the persisted settings purely from what the client sent.
+            // For a brand-new canvas dashboard that arrives without an explicit
+            // canvas blob, drop in a starter scaffold once — this is the *one*
+            // legitimate place where the dashboard's name shapes content,
+            // because it's seeding rather than transforming.
+            const incomingSettings: Record<string, unknown> = { ...(settings || {}) };
+            const isCanvas = getDashboardKind(incomingSettings) === 'canvas';
+            if (isCanvas && !incomingSettings.canvas) {
+                incomingSettings.canvas = createDefaultCanvasDocument(String(name || 'Idea Principal'));
+            }
+            const normalizedSettings = buildCanvasSettings({
+                ...incomingSettings,
+                dashboardType: isCanvas ? 'canvas' : 'kanban'
+            });
 
             // A dashboard lives in the same workspace as its folder; a
             // folderless dashboard falls back to the default workspace.
@@ -179,10 +189,12 @@ export async function PUT(request: Request) {
                 return forbidden();
             }
 
-            const normalizedSettings = buildCanvasSettings(
-                { ...(settings || {}), dashboardType: getDashboardKind(settings || dashboard.settings) },
-                String(name || dashboard.name || 'Idea Principal')
-            );
+            // PUT only transforms whatever the client sent. No name-derived
+            // synthesis — the row's identity owns its content.
+            const normalizedSettings = buildCanvasSettings({
+                ...(settings || {}),
+                dashboardType: getDashboardKind(settings || dashboard.settings)
+            });
             const nextDescription = description === undefined ? dashboard.description || '' : description || '';
             const nextStartDate = body.start_date === undefined ? dashboard.start_date : body.start_date || null;
             const nextEndDate = body.end_date === undefined ? dashboard.end_date : body.end_date || null;
