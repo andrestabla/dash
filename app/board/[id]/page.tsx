@@ -13,7 +13,7 @@ import UserTour from "@/components/UserTour";
 import DashboardChat from "@/components/DashboardChat";
 import MentionInput from "@/components/MentionInput";
 import CollaborativeCanvas from "@/components/CollaborativeCanvas";
-import { createDefaultCanvasDocument, getDashboardKind, normalizeCanvasDocument, type CanvasDocument, type DashboardKind } from "@/lib/canvas";
+import { getDashboardKind, normalizeCanvasDocument, type CanvasDocument, type DashboardKind } from "@/lib/canvas";
 
 interface Task {
     id: string | number;
@@ -524,13 +524,13 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 ...data.settings,
                 dashboardType: dashboardKind,
                 canvas: dashboardKind === 'canvas'
-                    ? normalizeCanvasDocument(data.settings?.canvas, data.name || 'Idea Principal')
+                    ? normalizeCanvasDocument(data.settings?.canvas)
                     : undefined
             };
 
             setSettings(normalizedSettings);
             if (dashboardKind === 'canvas') {
-                const canvasSnapshot = JSON.stringify(normalizedSettings.canvas || createDefaultCanvasDocument(data.name || 'Idea Principal'));
+                const canvasSnapshot = JSON.stringify(normalizedSettings.canvas);
                 canvasSnapshotRef.current = canvasSnapshot;
                 if (activeTab !== 'chat') {
                     setActiveTab('canvas');
@@ -718,7 +718,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
             return {
                 ...prev,
                 dashboardType: 'canvas',
-                canvas: normalizeCanvasDocument(nextCanvas, dashboardName || 'Idea Principal')
+                canvas: normalizeCanvasDocument(nextCanvas)
             };
         });
     };
@@ -726,7 +726,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
     useEffect(() => {
         if (!settings || !isCanvasBoard) return;
 
-        const nextCanvas = normalizeCanvasDocument(settings.canvas, dashboardName || 'Idea Principal');
+        const nextCanvas = normalizeCanvasDocument(settings.canvas);
         const nextSnapshot = JSON.stringify(nextCanvas);
         if (nextSnapshot === canvasSnapshotRef.current) return;
 
@@ -1376,7 +1376,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
                 {isCanvasBoard && activeTab === "canvas" && settings && (
                     <div className="view-section active animate-fade-in" style={{ overflow: 'visible' }}>
                         <CollaborativeCanvas
-                            canvasDocument={settings.canvas || createDefaultCanvasDocument(dashboardName || 'Idea Principal')}
+                            canvasDocument={settings.canvas || { nodes: [], edges: [], updatedAt: new Date().toISOString() }}
                             onChange={handleCanvasDocumentChange}
                             readOnly={isDemoMode && currentUser?.role !== 'admin'}
                             accentColor={settings.color || '#3b82f6'}

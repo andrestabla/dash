@@ -94,8 +94,8 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
 
     // Stable canvas document so the read-only viewer keeps its local fold state.
     const canvasDocument = useMemo(
-        () => normalizeCanvasDocument(settings?.canvas ?? null, dashboardName || 'Idea Principal'),
-        [settings?.canvas, dashboardName]
+        () => normalizeCanvasDocument(settings?.canvas ?? null),
+        [settings?.canvas]
     );
 
     useEffect(() => {
@@ -118,7 +118,7 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
                         ...data.dashboard.settings,
                         dashboardType: kind,
                         canvas: kind === 'canvas'
-                            ? normalizeCanvasDocument(data.dashboard.settings?.canvas, data.dashboard.name || 'Idea Principal')
+                            ? normalizeCanvasDocument(data.dashboard.settings?.canvas)
                             : undefined
                     });
                     setDashboardName(data.dashboard.name);
