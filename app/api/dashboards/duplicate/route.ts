@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { unauthorized, badRequest, notFound, forbidden, serverError } from '@/lib/api-error';
 import { gestorClause } from '@/lib/workspace-access';
+import { buildCanvasSettings, getDashboardKind } from '@/lib/canvas';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,17 +58,49 @@ export async function POST(request: Request) {
             try {
                 await client.query('BEGIN');
 
-                // 3. Insert dashboard copy. `settings` (which holds the canvas
-                //    document, dashboardType and view config) is copied
-                //    verbatim — canvases keep all nodes, edges and inline
-                //    comments because they live inside that JSON blob.
+                // 3. Insert the dashboard copy. We hand-roll JSON for the
+                //    settings column — passing the raw JS object plus a
+                //    `$3::jsonb` cast avoids any chance of pg's parameter
+                //    inference dropping the canvas blob, which we suspect of
+                //    the "duplicate landed empty" bug users have reported.
+                //
+                //    `buildCanvasSettings` re-normalises the canvas (preserving
+                //    every node, edge and inline comment, just refreshing the
+                //    updatedAt and stripping any junk fields) for canvas
+                //    boards. For kanban boards it strips the canvas key and
+                //    keeps the rest. Either way `settings` lands well-formed.
+                const sourceSettings = (original.settings && typeof original.settings === 'object')
+                    ? original.settings as Record<string, unknown>
+                    : {};
+                const isCanvas = getDashboardKind(sourceSettings) === 'canvas';
+                const safeSettings = isCanvas
+                    ? buildCanvasSettings({ ...sourceSettings, dashboardType: 'canvas' }, newName)
+                    : { ...sourceSettings, dashboardType: 'kanban' };
                 const dashRes = await client.query(
                     `INSERT INTO dashboards (name, description, settings, folder_id, owner_id, start_date, end_date, is_demo, workspace_id)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                     VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9)
                      RETURNING *`,
-                    [newName, original.description, original.settings, copyFolderId, session.id, original.start_date, original.end_date, false, original.workspace_id]
+                    [newName, original.description, JSON.stringify(safeSettings), copyFolderId, session.id, original.start_date, original.end_date, false, original.workspace_id]
                 );
                 const newDashboard = dashRes.rows[0];
+
+                // Defensive: read the row back and confirm that for a canvas
+                // duplicate the canvas content actually landed. If it didn't,
+                // the copy is broken — roll back so the user sees a clear
+                // error instead of a silently-empty board.
+                if (isCanvas) {
+                    const sourceNodeCount = Array.isArray((sourceSettings as { canvas?: { nodes?: unknown[] } }).canvas?.nodes)
+                        ? (sourceSettings as { canvas: { nodes: unknown[] } }).canvas.nodes.length
+                        : 0;
+                    const verifyRes = await client.query(
+                        `SELECT jsonb_array_length(COALESCE(settings -> 'canvas' -> 'nodes', '[]'::jsonb)) AS n FROM dashboards WHERE id = $1`,
+                        [newDashboard.id]
+                    );
+                    const persisted = Number(verifyRes.rows[0]?.n || 0);
+                    if (sourceNodeCount > 0 && persisted === 0) {
+                        throw new Error('Canvas duplicate landed with no nodes — aborting');
+                    }
+                }
 
                 // 4. Clone tasks (Kanban data). Skip soft-deleted rows and
                 //    preserve every column that affects UX: manual order via
