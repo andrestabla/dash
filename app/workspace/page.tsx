@@ -378,9 +378,18 @@ function WorkspaceContent() {
             gates: wizGates,
             icon: wizIcon,
             color: wizColor,
-            canvas: wizDashboardType === 'canvas'
-                ? (editingDash?.settings?.canvas || createDefaultCanvasDocument(wizName))
-                : undefined
+            // Canvas content is owned by the board editor, not the wizard.
+            // - Creation: seed a starter canvas once with the new name.
+            // - Edit:     never touch `canvas` here. We omit the key so the
+            //             PUT route preserves whatever the row already holds —
+            //             critically, the workspace listing strips `canvas`
+            //             via `settings - 'canvas'` for performance, so reading
+            //             `editingDash.settings.canvas` would always be
+            //             undefined and the old `||` fallback would silently
+            //             replace the real lienzo with a 2-node default.
+            ...(wizDashboardType === 'canvas' && !isEdit
+                ? { canvas: createDefaultCanvasDocument(wizName) }
+                : {})
         };
 
         const payload = {
