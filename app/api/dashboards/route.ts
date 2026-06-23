@@ -189,11 +189,21 @@ export async function PUT(request: Request) {
                 return forbidden();
             }
 
-            // PUT only transforms whatever the client sent. No name-derived
-            // synthesis — the row's identity owns its content.
+            // PUT merges the incoming settings over what's already in the row.
+            // CRITICALLY: if the request omits `canvas`, we keep whatever the
+            // row currently holds. The workspace listing strips the canvas
+            // blob for performance, so settings panel saves and wizard edits
+            // would otherwise nuke the lienzo on every Kanban-side edit.
+            const incoming: Record<string, unknown> = settings ? { ...settings } : {};
+            const existing: Record<string, unknown> = (dashboard.settings && typeof dashboard.settings === 'object')
+                ? dashboard.settings as Record<string, unknown>
+                : {};
+            if (!Object.prototype.hasOwnProperty.call(incoming, 'canvas') && existing.canvas !== undefined) {
+                incoming.canvas = existing.canvas;
+            }
             const normalizedSettings = buildCanvasSettings({
-                ...(settings || {}),
-                dashboardType: getDashboardKind(settings || dashboard.settings)
+                ...incoming,
+                dashboardType: getDashboardKind(incoming.canvas !== undefined ? incoming : existing)
             });
             const nextDescription = description === undefined ? dashboard.description || '' : description || '';
             const nextStartDate = body.start_date === undefined ? dashboard.start_date : body.start_date || null;
