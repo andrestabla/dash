@@ -150,6 +150,11 @@ export default function FolderAnalyticsPage() {
         type: 'all'
     });
 
+    // Owner-curated list of dashboards excluded from the consolidated stats
+    // and from any public share derived from this folder.
+    const [excludedDashboardIds, setExcludedDashboardIds] = useState<string[]>([]);
+    const excludedSet = useMemo(() => new Set(excludedDashboardIds), [excludedDashboardIds]);
+
     // Public sharing state
     const [publicLinkState, setPublicLinkState] = useState<{ isPublic: boolean, token: string | null }>({ isPublic: false, token: null });
     const [sharingLoading, setSharingLoading] = useState(false);
@@ -218,6 +223,11 @@ export default function FolderAnalyticsPage() {
                         isPublic: !!folder.is_public,
                         token: folder.public_token || null
                     });
+
+                    // Load the owner's analytics-exclusion list for this folder.
+                    setExcludedDashboardIds(Array.isArray(folder.analytics_excluded_dashboard_ids)
+                        ? folder.analytics_excluded_dashboard_ids
+                        : []);
                 }
             }
 
@@ -231,6 +241,33 @@ export default function FolderAnalyticsPage() {
             console.error(error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Toggle whether a dashboard contributes to this folder's consolidated
+    // analytics (and to any public share derived from it). Optimistically
+    // updates local state; reverts on API error.
+    const toggleDashboardExclusion = async (dashboardId: string) => {
+        if (folderId === 'null') return;
+        const wasExcluded = excludedDashboardIds.includes(dashboardId);
+        const next = wasExcluded
+            ? excludedDashboardIds.filter((id) => id !== dashboardId)
+            : [...excludedDashboardIds, dashboardId];
+        const previous = excludedDashboardIds;
+        setExcludedDashboardIds(next);
+        try {
+            const res = await fetch(`/api/folders/${folderId}/analytics-config`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ excludedDashboardIds: next })
+            });
+            if (!res.ok) {
+                setExcludedDashboardIds(previous);
+                showToast('No se pudo actualizar el filtro', 'error');
+            }
+        } catch {
+            setExcludedDashboardIds(previous);
+            showToast('Error de red al actualizar filtro', 'error');
         }
     };
 
@@ -316,6 +353,11 @@ export default function FolderAnalyticsPage() {
     // Filter logic
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
+            // Owner-curated exclusion: drop tasks that belong to a dashboard
+            // unticked in this folder's analytics view. This is what powers
+            // every consolidated stat (estado, prioridad, carga).
+            if (excludedSet.has(String(t.dashboard_id))) return false;
+
             // Dashboard Filter
             if (filters.dashboardId !== 'all' && String(t.dashboard_id) !== String(filters.dashboardId)) return false;
 
@@ -339,7 +381,7 @@ export default function FolderAnalyticsPage() {
 
             return true;
         });
-    }, [tasks, filters, availableDashboards]);
+    }, [tasks, filters, availableDashboards, excludedSet]);
 
     // CASCADING FILTERS LOGIC
     // 1. Base pool of tasks specific to the selected dashboard (Project)
@@ -699,6 +741,7 @@ export default function FolderAnalyticsPage() {
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderBottom: '2px solid var(--border-dim)' }}>
+                                    <th style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13, fontWeight: 600, color: 'var(--text-dim)', width: 40 }} title="Marcar para incluir en el consolidado y en el enlace público">Incluir</th>
                                     <th style={{ textAlign: 'left', padding: '12px 8px', fontSize: 13, fontWeight: 600, color: 'var(--text-dim)' }}>Tablero</th>
                                     <th style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13, fontWeight: 600, color: 'var(--text-dim)' }}>Tareas</th>
                                     <th style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13, fontWeight: 600, color: 'var(--text-dim)' }}>Progreso</th>
@@ -715,7 +758,7 @@ export default function FolderAnalyticsPage() {
                                     if (dashboardsToShow.length === 0) {
                                         return (
                                             <tr>
-                                                <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--text-dim)', fontSize: 13 }}>
+                                                <td colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--text-dim)', fontSize: 13 }}>
                                                     No hay tableros disponibles
                                                 </td>
                                             </tr>
@@ -727,12 +770,26 @@ export default function FolderAnalyticsPage() {
                                         const avgProgress = dashboardTasks.length > 0
                                             ? Math.round(dashboardTasks.reduce((acc, t) => acc + getStatusInfo(t).progress, 0) / dashboardTasks.length)
                                             : 0;
+                                        const isExcluded = excludedSet.has(String(dashboard.id));
+                                        const canToggle = folderId !== 'null';
 
                                         return (
-                                            <tr key={dashboard.id} style={{ borderBottom: '1px solid var(--border-dim)', transition: 'background 0.2s' }}
+                                            <tr key={dashboard.id} style={{ borderBottom: '1px solid var(--border-dim)', transition: 'background 0.2s', opacity: isExcluded ? 0.55 : 1 }}
                                                 onMouseEnter={(e) => e.currentTarget.style.background = 'var(--panel-hover)'}
                                                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                             >
+                                                <td style={{ textAlign: 'center', padding: '12px 8px' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!isExcluded}
+                                                        disabled={!canToggle}
+                                                        onChange={() => toggleDashboardExclusion(String(dashboard.id))}
+                                                        title={canToggle
+                                                            ? (isExcluded ? 'Incluir en el consolidado y en el enlace público' : 'Quitar del consolidado y del enlace público')
+                                                            : 'No editable desde la raíz del workspace'}
+                                                        style={{ cursor: canToggle ? 'pointer' : 'not-allowed', width: 16, height: 16 }}
+                                                    />
+                                                </td>
                                                 <td style={{ padding: '12px 8px' }}>
                                                     <button
                                                         onClick={() => setSelectedDashboard(dashboard)}
@@ -745,12 +802,17 @@ export default function FolderAnalyticsPage() {
                                                             cursor: 'pointer',
                                                             textAlign: 'left',
                                                             padding: 0,
-                                                            textDecoration: 'underline',
-                                                            textDecorationStyle: 'dotted'
+                                                            textDecoration: isExcluded ? 'line-through' : 'underline',
+                                                            textDecorationStyle: isExcluded ? 'solid' : 'dotted'
                                                         }}
                                                     >
                                                         {dashboard.name || 'Sin nombre'}
                                                     </button>
+                                                    {isExcluded && (
+                                                        <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                                                            (no se cuenta)
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td style={{ textAlign: 'center', padding: '12px 8px', fontSize: 13 }}>
                                                     {dashboardTasks.length}
