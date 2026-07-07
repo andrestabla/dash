@@ -30,7 +30,12 @@ export async function POST(
                 const { isPublic } = body;
 
                 // Verify folder exists and user has permission
-                const folderRes = await client.query('SELECT name, owner_id, workspace_id FROM folders WHERE id = $1', [id]);
+                const folderRes = await client.query(
+                    `SELECT name, owner_id, workspace_id,
+                            COALESCE(analytics_excluded_dashboard_ids, '{}'::uuid[]) AS excluded
+                       FROM folders WHERE id = $1`,
+                    [id]
+                );
                 if (folderRes.rows.length === 0) {
                     return notFound('Folder not found');
                 }
@@ -42,6 +47,7 @@ export async function POST(
                     }
                 }
 
+                const excluded = Array.isArray(toggleFolder.excluded) ? toggleFolder.excluded : [];
                 let token = null;
 
                 if (isPublic) {
@@ -55,8 +61,43 @@ export async function POST(
                     } else {
                         await client.query('UPDATE folders SET is_public = TRUE WHERE id = $1', [id]);
                     }
+
+                    // Publish every dashboard in the folder subtree so the boards
+                    // linked from the public analytics are actually reachable.
+                    // Dashboards the owner excluded from the consolidated analytics
+                    // stay private (they aren't shown in the public view either).
+                    await client.query(
+                        `WITH RECURSIVE folder_tree AS (
+                             SELECT id FROM folders WHERE id = $1
+                             UNION ALL
+                             SELECT f.id FROM folders f
+                             INNER JOIN folder_tree ft ON f.parent_id = ft.id
+                         )
+                         UPDATE dashboards
+                            SET is_public = TRUE,
+                                public_token = COALESCE(public_token, gen_random_uuid())
+                          WHERE folder_id IN (SELECT id FROM folder_tree)
+                            AND id <> ALL($2::uuid[])`,
+                        [id, excluded]
+                    );
                 } else {
                     await client.query('UPDATE folders SET is_public = FALSE WHERE id = $1', [id]);
+
+                    // Turning off the folder's public link also revokes the boards
+                    // that were exposed through it, so nothing stays reachable by a
+                    // stale token once the consolidated share is disabled.
+                    await client.query(
+                        `WITH RECURSIVE folder_tree AS (
+                             SELECT id FROM folders WHERE id = $1
+                             UNION ALL
+                             SELECT f.id FROM folders f
+                             INNER JOIN folder_tree ft ON f.parent_id = ft.id
+                         )
+                         UPDATE dashboards
+                            SET is_public = FALSE
+                          WHERE folder_id IN (SELECT id FROM folder_tree)`,
+                        [id]
+                    );
                 }
 
                 return NextResponse.json({ success: true, isPublic, token });

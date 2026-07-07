@@ -40,7 +40,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const client = await pool.connect();
     try {
         const folderRes = await client.query(
-            'SELECT owner_id, workspace_id FROM folders WHERE id = $1',
+            'SELECT owner_id, workspace_id, is_public FROM folders WHERE id = $1',
             [id]
         );
         if (folderRes.rows.length === 0) return notFound('Folder not found');
@@ -66,6 +66,40 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             `UPDATE folders SET analytics_excluded_dashboard_ids = $1::uuid[], updated_at = NOW() WHERE id = $2`,
             [unique, id]
         );
+
+        // Keep board publication in sync with the public share: while the folder
+        // is public, every included board in its subtree stays public (and
+        // reachable from the public analytics), while excluded boards are
+        // revoked so they can't be opened through a stale token.
+        if (folder.is_public) {
+            await client.query(
+                `WITH RECURSIVE folder_tree AS (
+                     SELECT id FROM folders WHERE id = $1
+                     UNION ALL
+                     SELECT f.id FROM folders f
+                     INNER JOIN folder_tree ft ON f.parent_id = ft.id
+                 )
+                 UPDATE dashboards
+                    SET is_public = TRUE,
+                        public_token = COALESCE(public_token, gen_random_uuid())
+                  WHERE folder_id IN (SELECT id FROM folder_tree)
+                    AND id <> ALL($2::uuid[])`,
+                [id, unique]
+            );
+            await client.query(
+                `WITH RECURSIVE folder_tree AS (
+                     SELECT id FROM folders WHERE id = $1
+                     UNION ALL
+                     SELECT f.id FROM folders f
+                     INNER JOIN folder_tree ft ON f.parent_id = ft.id
+                 )
+                 UPDATE dashboards
+                    SET is_public = FALSE
+                  WHERE folder_id IN (SELECT id FROM folder_tree)
+                    AND id = ANY($2::uuid[])`,
+                [id, unique]
+            );
+        }
 
         return NextResponse.json({ excludedDashboardIds: unique });
     } catch (error) {
