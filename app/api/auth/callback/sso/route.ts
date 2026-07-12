@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { login } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
 import { sendEmail } from '@/lib/email';
+import { ecosystemAccessAllowed } from '@/lib/ecosystem-access';
 import crypto from 'crypto';
 
 export async function GET(request: Request) {
@@ -166,6 +167,12 @@ export async function GET(request: Request) {
             // 4. Check status for existing users
             if (user.status !== 'active') {
                 return NextResponse.redirect(new URL('/login?error=PENDING_APPROVAL', request.url));
+            }
+
+            // 4b. Gate del Ecosistema (acceso administrado por correo desde Algoritmo T).
+            const ssoGate = await ecosystemAccessAllowed(user.email);
+            if (ssoGate.enforced && !ssoGate.allowed) {
+                return NextResponse.redirect(new URL('/login?error=NO_ECOSYSTEM_ACCESS', request.url));
             }
 
             // 5. Update name if it changed in SSO provider

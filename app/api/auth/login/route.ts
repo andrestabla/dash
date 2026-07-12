@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { login } from '@/lib/auth';
 import { logAction } from '@/lib/audit';
 import { badRequest, unauthorized, forbidden, rateLimited, serverError } from '@/lib/api-error';
+import { ecosystemAccessAllowed } from '@/lib/ecosystem-access';
 
 export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
@@ -68,6 +69,16 @@ export async function POST(request: Request) {
             // Check Account Status
             if (user.status?.toLowerCase() !== 'active') {
                 return forbidden('Tu cuenta no está activa');
+            }
+
+            // Gate del Ecosistema (acceso administrado por correo desde Algoritmo T).
+            const gate = await ecosystemAccessAllowed(user.email);
+            if (gate.enforced && !gate.allowed) {
+                await client.query(
+                    'INSERT INTO login_attempts (ip_address, email, success) VALUES ($1, $2, FALSE)',
+                    [ip, normalizedEmail]
+                );
+                return forbidden('Tu cuenta no tiene acceso a esta plataforma. Solicítalo al administrador del Ecosistema Algoritmo T.');
             }
 
             // Record success
