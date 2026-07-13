@@ -46,6 +46,7 @@ interface StatusColumn {
     id: string;
     name: string;
     color: string;
+    percentage?: number;
 }
 
 interface BoardSettings {
@@ -413,96 +414,164 @@ export default function PublicBoardPage({ params }: { params: Promise<{ token: s
         </div>
     );
 
-    const renderDataView = () => (
-        <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Status Distribution */}
-                <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
-                    <h3 className="text-lg font-bold text-slate-900 mb-5">Distribución por Estado</h3>
-                    <div className="space-y-4">
-                        {statuses.map((st: StatusColumn) => {
-                            const count = tasks.filter((t: Task) => t.status === st.id).length;
-                            const pct = tasks.length ? (count / tasks.length) * 100 : 0;
-                            return (
-                                <div key={st.id}>
-                                    <div className="flex justify-between items-center mb-2 text-sm font-medium text-slate-700">
-                                        <span>{st.name}</span>
-                                        <span>{count} ({pct.toFixed(0)}%)</span>
+    // Mirror the private board's "Datos" (AnalyticsView) exactly so the public
+    // data view is visually identical to the private one, which is the source
+    // of truth. Same KPIs, charts, class names and styles.
+    const renderDataView = () => {
+        const totalTasks = tasks.length;
+        const endStatusId = statuses[statuses.length - 1].id;
+        const completedTasks = tasks.filter(t => t.status === endStatusId).length;
+        const progress = totalTasks === 0 ? 0 : Math.round(tasks.reduce((acc, t) => {
+            const st = statuses.find(s => s.id === t.status);
+            return acc + (st?.percentage || 0);
+        }, 0) / totalTasks);
+
+        const weeklyData = (settings?.weeks || []).map(w => {
+            const weekTasks = (tasks || []).filter(t => t?.week === w?.id);
+            const done = weekTasks.filter(t => t?.status === endStatusId).length;
+            const total = weekTasks.length;
+            const weightedSum = weekTasks.reduce((acc, t) => {
+                const st = statuses.find(s => s.id === t?.status);
+                return acc + (st?.percentage || 0);
+            }, 0);
+            const percent = total === 0 ? 0 : Math.round(weightedSum / total);
+            return { name: (w?.name || "Semana").split(' · ')[0], total, done, percent };
+        });
+
+        const assignments = new Map<string, number>();
+        (settings?.owners || []).forEach(o => assignments.set(o, 0));
+        (tasks || []).forEach(t => {
+            if (t.status === endStatusId) return; // Skip done tasks
+            if (t.assignees && t.assignees.length > 0) {
+                t.assignees.forEach((a) => {
+                    assignments.set(a.name, (assignments.get(a.name) || 0) + 1);
+                });
+            } else if (t.owner) {
+                assignments.set(t.owner, (assignments.get(t.owner) || 0) + 1);
+            }
+        });
+        const workloadData = Array.from(assignments.entries())
+            .map(([name, value]) => ({ name: name.split(' (')[0], value }))
+            .sort((a, b) => b.value - a.value);
+
+        const statusData = (statuses || []).map(s => ({ ...s, count: (tasks || []).filter(t => t?.status === s?.id).length }));
+        const gateData = (settings?.gates || []).map(g => {
+            const gateTasks = (tasks || []).filter(t => t?.gate === g);
+            const isClosed = gateTasks.length > 0 && gateTasks.every(t => t?.status === endStatusId);
+            return { name: String(g), total: gateTasks.length, closed: isClosed };
+        });
+
+        return (
+            <div className="animate-fade-in">
+                <div className="analytics-grid">
+                    <div className="kpi-card">
+                        <div className="kpi-label">Progreso Total</div>
+                        <div className="kpi-value" style={{ color: 'var(--primary)' }}>{progress}%</div>
+                        <div className="kpi-sub">{completedTasks} de {totalTasks} tareas</div>
+                    </div>
+                    <div className="kpi-card">
+                        <div className="kpi-label">Tareas Activas</div>
+                        <div className="kpi-value">{totalTasks - completedTasks}</div>
+                        <div className="kpi-sub">Pendientes / En Curso</div>
+                    </div>
+                    <div className="kpi-card">
+                        <div className="kpi-label">Próximo Hito</div>
+                        <div className="kpi-value" style={{ fontSize: 24 }}>
+                            {gateData.find(g => !g.closed)?.name ? `Gate ${gateData.find(g => !g.closed)?.name}` : "🏁 Finalizado"}
+                        </div>
+                    </div>
+
+                    <div className="chart-card" style={{ gridColumn: 'span 2' }}>
+                        <h3>Velocidad Semanal</h3>
+                        <div className="chart-container">
+                            {weeklyData.map(d => (
+                                <div key={d.name} className="bar-group">
+                                    <div className="bar-bg">
+                                        <div className="bar-fill" style={{ height: `${d.percent}%`, background: d.percent === 100 ? '#10b981' : 'var(--primary)' }}></div>
                                     </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2">
-                                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: st.color }}></div>
+                                    <div className="bar-label">{d.name}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="chart-card">
+                        <h3>Carga de Trabajo</h3>
+                        <div className="list-chart">
+                            {workloadData.map(d => (
+                                <div key={d.name} className="lc-row">
+                                    <div className="lc-label">{d.name}</div>
+                                    <div className="lc-bar-area">
+                                        <div className="lc-bar" style={{ width: `${(d.value / (Math.max(...workloadData.map(x => x.value)) || 1)) * 100}%` }}></div>
                                     </div>
+                                    <div className="lc-val">{d.value}</div>
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
                     </div>
-                </div>
 
-                {/* Priorities */}
-                <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
-                    <h3 className="text-lg font-bold text-slate-900 mb-5">Prioridades</h3>
-                    <div className="flex justify-around items-center h-full">
-                        {[
-                            { label: 'Alta', key: 'high', color: '#ef4444', emoji: '🔴' },
-                            { label: 'Media', key: 'med', color: '#f59e0b', emoji: '🟡' },
-                            { label: 'Baja', key: 'low', color: '#10b981', emoji: '🟢' }
-                        ].map(p => {
-                            const count = tasks.filter((t: Task) => t.prio === p.key).length;
-                            return (
-                                <div key={p.key} className="text-center">
-                                    <div className="text-4xl mb-2">{p.emoji}</div>
-                                    <div className="text-3xl font-bold text-slate-900">{count}</div>
-                                    <div className="text-sm text-slate-500 font-medium">{p.label}</div>
+                    <div className="chart-card" style={{ gridColumn: 'span 2' }}>
+                        <h3>Estado del Proyecto</h3>
+                        <div className="status-pill-bar">
+                            {statusData.map(s => s.count > 0 && (
+                                <div key={s.id} style={{ flex: s.count, background: s.color, height: 24 }} title={`${s.name}: ${s.count}`}></div>
+                            ))}
+                        </div>
+                        <div className="legend">
+                            {statusData.map(s => (
+                                <div key={s.id} className="l-item">
+                                    <span className="dot" style={{ background: s.color }}></span> {s.name} ({s.count})
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
                     </div>
-                </div>
 
-                {/* Task Types */}
-                <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
-                    <h3 className="text-lg font-bold text-slate-900 mb-5">Tipos de Tarea</h3>
-                    <div className="space-y-3">
-                        {settings?.types.map(type => {
-                            const count = tasks.filter(t => t.type === type).length;
-                            const pct = tasks.length ? (count / tasks.length) * 100 : 0;
-                            return (
-                                <div key={type} className="flex justify-between items-center text-sm text-slate-700">
-                                    <span>{type}</span>
-                                    <span className="font-semibold">{count} ({pct.toFixed(0)}%)</span>
+                    <div className="chart-card">
+                        <h3>Control de Gates</h3>
+                        <div className="gate-list">
+                            {gateData.map(g => (
+                                <div key={g.name} className={`gate-item ${g.closed ? 'closed' : 'open'}`}>
+                                    <div className="g-icon">{g.closed ? '🔒' : '🔓'}</div>
+                                    <div className="g-name">Gate {g.name}</div>
+                                    <div className="g-status">{g.closed ? 'Completado' : 'Abierto'}</div>
                                 </div>
-                            );
-                        })}
+                            ))}
+                        </div>
                     </div>
                 </div>
+                <style jsx>{`
+                    .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px 0; }
+                    .kpi-card { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
+                    .kpi-value { font-size: 36px; font-weight: 800; margin: 10px 0; }
+                    .kpi-label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+                    .chart-card { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
+                    .chart-card h3 { margin: 0 0 15px 0; font-size: 16px; opacity: 0.9; }
+                    .chart-container { display: flex; align-items: flex-end; justify-content: space-between; height: 150px; padding-top: 10px; }
+                    .bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; }
+                    .bar-bg { width: 12px; height: 100px; background: var(--panel-hover); border-radius: 6px; display: flex; align-items: flex-end; overflow: hidden; }
+                    .bar-label { font-size: 10px; margin-top: 8px; color: var(--text-dim); }
+                    .bar-fill { width: 100%; transition: height 0.5s ease; border-radius: 6px; }
+                    .list-chart { display: flex; flex-direction: column; gap: 8px; }
+                    .lc-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+                    .lc-label { width: 80px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                    .lc-bar-area { flex: 1; height: 8px; background: var(--panel-hover); border-radius: 4px; overflow: hidden; }
+                    .lc-bar { height: 100%; background: #f59e0b; border-radius: 4px; }
+                    .lc-val { width: 20px; text-align: right; font-weight: bold; }
+                    .status-pill-bar { display: flex; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
+                    .legend { display: flex; flex-wrap: wrap; gap: 15px; font-size: 12px; }
+                    .l-item { display: flex; align-items: center; gap: 6px; }
+                    .dot { width: 8px; height: 8px; borderRadius: 50%; }
+                    .gate-list { display: flex; flex-direction: column; gap: 10px; }
+                    .gate-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: var(--panel-hover); border: 1px solid transparent; }
+                    .gate-item.closed { background: #ecfdf5; border-color: #10b981; color: #064e3b; }
+                    .gate-item.open { opacity: 0.7; }
+                    .g-name { flex: 1; font-weight: 600; }
+                    .g-status { font-size: 11px; text-transform: uppercase; }
+                    @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } .chart-card { grid-column: span 1 !important; } }
+                `}</style>
             </div>
-
-            {/* Owner Summary */}
-            <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
-                <h3 className="text-lg font-bold text-slate-900 mb-5">Resumen por Responsable</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {settings?.owners.map((owner: string) => {
-                        const count = tasks.filter((t: Task) => t.owner === owner).length;
-                        const done = tasks.filter((t: Task) => t.owner === owner && t.status === 'done').length;
-                        const pct = count ? Math.round((done / count) * 100) : 0;
-                        return (
-                            <div key={owner} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                <div className="font-bold text-slate-900 mb-1">{owner}</div>
-                                <div className="text-xs text-slate-500 mb-3">{count} tareas asignadas</div>
-                                <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1">
-                                    <span>Progreso</span>
-                                    <span>{pct}%</span>
-                                </div>
-                                <div className="w-full bg-slate-200 rounded-full h-1.5">
-                                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }}></div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
