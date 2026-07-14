@@ -1602,26 +1602,31 @@ function WorkspaceContent() {
                 }
                 @media (max-width: 768px) {
                     .workspace-header {
-                        gap: 16px;
+                        gap: 14px;
                         margin-bottom: 20px;
                         padding-bottom: 16px;
                     }
-                    /* Title and utility bar stack; utilities span the row evenly */
-                    .ws-topbar { flex-direction: column; align-items: stretch; gap: 16px; }
-                    .ws-utility { justify-content: space-between; }
+                    /* Title and utility bar stack; utilities span the row evenly.
+                       Reset the left column's flex — in a column flex-parent the
+                       240px flex-basis would otherwise apply to HEIGHT and open
+                       a large empty gap under the title. */
+                    .ws-topbar { flex-direction: column; align-items: stretch; gap: 14px; }
+                    .workspace-header-left { flex: 0 0 auto; }
+                    .ws-utility { justify-content: space-around; }
                     /* View controls and actions each take a full row */
-                    .ws-toolbar { flex-direction: column; align-items: stretch; gap: 12px; }
+                    .ws-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
                     .ws-toolbar-left,
                     .ws-toolbar-right { margin-left: 0; }
+                    .ws-toolbar-left:empty { display: none; }
                     .ws-toolbar-left > :global(*) { flex: 1; }
-                    .ws-toolbar-right :global(.ws-action) { flex: 1 1 140px; }
+                    .ws-toolbar-right :global(.ws-action) { flex: 1 1 140px; justify-content: center; }
                     .dashboard-grid {
                         grid-template-columns: 1fr;
                     }
                 }
                 @media (max-width: 560px) {
                     .workspace-header-left h1 {
-                        font-size: 20px !important;
+                        font-size: 22px !important;
                     }
                     /* Primary action gets its own full-width row for reachability */
                     .ws-toolbar-right :global(.btn-primary.ws-action) { flex: 1 1 100%; }
