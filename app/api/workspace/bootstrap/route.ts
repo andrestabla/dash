@@ -27,14 +27,17 @@ export async function GET() {
             ? `SELECT id, name, description, settings - 'canvas' AS settings, folder_id,
                        start_date, end_date, is_demo, owner_id, workspace_id, created_at
                  FROM dashboards
+                WHERE deleted_at IS NULL
                 ORDER BY created_at DESC`
             : `SELECT d.id, d.name, d.description, d.settings - 'canvas' AS settings, d.folder_id,
                        d.start_date, d.end_date, d.is_demo, d.owner_id, d.workspace_id, d.created_at
                  FROM dashboards d
-                WHERE d.owner_id = $1
+                WHERE d.deleted_at IS NULL AND (
+                       d.owner_id = $1
                    OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $1)
                    OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
                    OR ${gestorClause('d', '$1')}
+                )
                 ORDER BY d.created_at DESC`;
 
         const foldersSql = isAdmin

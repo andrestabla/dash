@@ -79,12 +79,12 @@ export async function canGovernWorkspace(client: PoolClient, session: AccessSess
  */
 export async function canAccessDashboard(client: PoolClient, session: AccessSession, dashboardId: string): Promise<boolean> {
     if (session?.role === 'admin') {
-        const r = await client.query('SELECT 1 FROM dashboards WHERE id = $1', [dashboardId]);
+        const r = await client.query('SELECT 1 FROM dashboards WHERE id = $1 AND deleted_at IS NULL', [dashboardId]);
         return r.rows.length > 0;
     }
     const r = await client.query(
         `SELECT 1 FROM dashboards d
-         WHERE d.id = $1 AND (
+         WHERE d.id = $1 AND d.deleted_at IS NULL AND (
              d.owner_id = $2
              OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2)
              OR EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2)

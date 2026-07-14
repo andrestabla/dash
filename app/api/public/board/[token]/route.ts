@@ -16,7 +16,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
             const dashRes = await client.query(`
                 SELECT id, name, settings, folder_id
                 FROM dashboards
-                WHERE public_token = $1 AND is_public = TRUE
+                WHERE public_token = $1 AND is_public = TRUE AND deleted_at IS NULL
             `, [token]);
 
             if (dashRes.rows.length === 0) {

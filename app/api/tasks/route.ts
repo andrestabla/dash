@@ -26,9 +26,9 @@ export async function GET(request: Request) {
         if (dashboardId) {
             // Check Access to specific dashboard
             const accessQuery = session.role === 'admin'
-                ? 'SELECT id FROM dashboards WHERE id = $1'
+                ? 'SELECT id FROM dashboards WHERE id = $1 AND deleted_at IS NULL'
                 : `SELECT id FROM dashboards d
-                   WHERE id = $1 AND (
+                   WHERE id = $1 AND d.deleted_at IS NULL AND (
                        owner_id = $2 OR
                        EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
                        EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $2) OR
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
                         UNION ALL
                         SELECT f.id FROM folders f JOIN subfolders sf ON f.parent_id = sf.id
                     )
-                    SELECT id FROM dashboards WHERE folder_id IN (SELECT id FROM subfolders)`
+                    SELECT id FROM dashboards WHERE folder_id IN (SELECT id FROM subfolders) AND deleted_at IS NULL`
                 : `WITH RECURSIVE subfolders AS (
                         SELECT id FROM folders WHERE id = $1
                         UNION ALL
@@ -60,6 +60,7 @@ export async function GET(request: Request) {
                     )
                     SELECT d.id FROM dashboards d
                     WHERE d.folder_id IN (SELECT id FROM subfolders)
+                    AND d.deleted_at IS NULL
                     AND (
                         d.owner_id = $2 OR
                         EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $2) OR
@@ -81,12 +82,14 @@ export async function GET(request: Request) {
         } else {
             // GLOBAL Consolidated (Everything accessible to the user across ALL folders)
             const dashQuery = session.role === 'admin'
-                ? 'SELECT id FROM dashboards'
+                ? 'SELECT id FROM dashboards WHERE deleted_at IS NULL'
                 : `SELECT d.id FROM dashboards d
-                   WHERE d.owner_id = $1 OR
+                   WHERE d.deleted_at IS NULL AND (
+                   d.owner_id = $1 OR
                    EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $1) OR
                    EXISTS (SELECT 1 FROM folder_collaborators fc WHERE fc.folder_id = d.folder_id AND fc.user_id = $1) OR
-                   ${gestorClause('d', '$1')}`;
+                   ${gestorClause('d', '$1')}
+                   )`;
 
             const dashParams = session.role === 'admin' ? [] : [session.id];
             const dashResult = await client.query(dashQuery, dashParams);

@@ -102,6 +102,11 @@ function WorkspaceContent() {
         }
     }, [searchParams]);
 
+    // Trash (Papelera)
+    const [showTrash, setShowTrash] = useState(false);
+    const [trashItems, setTrashItems] = useState<any[]>([]);
+    const [trashLoading, setTrashLoading] = useState(false);
+
     // Confirm Modal
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
@@ -429,14 +434,68 @@ function WorkspaceContent() {
 
     const deleteDash = (e: React.MouseEvent, id: string) => {
         e.preventDefault(); e.stopPropagation();
-        setConfirmTitle("Eliminar Proyecto");
-        setConfirmMsg("¿Estás seguro de que quieres eliminar este tablero y todas sus tareas? Esta acción es irreversible.");
-        setConfirmActionText("Eliminar Definitivamente");
+        setConfirmTitle("Enviar a la papelera");
+        setConfirmMsg("El tablero y sus tareas se moverán a la papelera. Podrás restaurarlo o eliminarlo definitivamente más tarde.");
+        setConfirmActionText("Enviar a la papelera");
         setIsDestructive(true);
         setConfirmCallback(() => async () => {
             await fetch(`/api/dashboards?id=${id}`, { method: 'DELETE' });
             setDashboards(dashboards.filter(d => d.id !== id));
-            showToast("Tablero eliminado", "success");
+            showToast("Tablero enviado a la papelera", "success");
+            setConfirmOpen(false);
+        });
+        setConfirmOpen(true);
+    };
+
+    // --- TRASH (Papelera) ---
+    const openTrash = async () => {
+        setShowTrash(true);
+        setTrashLoading(true);
+        try {
+            const res = await fetch('/api/dashboards/trash');
+            const data = res.ok ? await res.json() : [];
+            setTrashItems(Array.isArray(data) ? data : []);
+        } catch {
+            showToast('No se pudo cargar la papelera', 'error');
+        } finally {
+            setTrashLoading(false);
+        }
+    };
+
+    const restoreDash = async (id: string) => {
+        try {
+            const res = await fetch('/api/dashboards/trash', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, action: 'restore' })
+            });
+            if (!res.ok) throw new Error();
+            setTrashItems(prev => prev.filter(t => t.id !== id));
+            showToast('Tablero restaurado', 'success');
+            loadData();
+        } catch {
+            showToast('No se pudo restaurar el tablero', 'error');
+        }
+    };
+
+    const purgeDash = (id: string) => {
+        setConfirmTitle("Eliminar definitivamente");
+        setConfirmMsg("Esta acción es irreversible: el tablero y todas sus tareas se borrarán para siempre.");
+        setConfirmActionText("Eliminar definitivamente");
+        setIsDestructive(true);
+        setConfirmCallback(() => async () => {
+            try {
+                const res = await fetch('/api/dashboards/trash', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, action: 'purge' })
+                });
+                if (!res.ok) throw new Error();
+                setTrashItems(prev => prev.filter(t => t.id !== id));
+                showToast('Tablero eliminado definitivamente', 'success');
+            } catch {
+                showToast('No se pudo eliminar el tablero', 'error');
+            }
             setConfirmOpen(false);
         });
         setConfirmOpen(true);
@@ -667,6 +726,7 @@ function WorkspaceContent() {
                                 <Heart size={18} />
                             </button>
                         </Link>
+                        <button className="btn-ghost" onClick={openTrash} title="Papelera" style={{ padding: 6 }}><Trash2 size={18} /></button>
                         <button className="btn-ghost" onClick={confirmLogout} title="Cerrar Sesión" style={{ padding: 6 }}><LogOut size={18} /></button>
                     </div>
 
@@ -1330,6 +1390,64 @@ function WorkspaceContent() {
                     <button className="btn-primary" onClick={startCreate} style={{ marginTop: 20 }}>+ Crear Proyecto</button>
                 </div>
             )}
+            {/* TRASH MODAL (Papelera) */}
+            {showTrash && (
+                <div className="backdrop fade-in" onClick={() => setShowTrash(false)}>
+                    <div className="modal-container animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(640px, calc(100vw - 24px))' }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Trash2 size={18} /> Papelera
+                            </h3>
+                            <button className="btn-ghost" onClick={() => setShowTrash(false)} style={{ padding: 4 }}><X size={20} /></button>
+                        </div>
+                        <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                            <p style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 16 }}>
+                                Tableros eliminados. Puedes restaurarlos o eliminarlos definitivamente.
+                            </p>
+                            {trashLoading ? (
+                                <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-dim)' }}>Cargando…</div>
+                            ) : trashItems.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-dim)' }}>
+                                    La papelera está vacía.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {trashItems.map((t) => (
+                                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--bg-panel)', border: '1px solid var(--border-dim)', borderRadius: 10 }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {t.name || 'Sin nombre'}
+                                                </div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                                                    {t.folder_name ? `${t.folder_name} · ` : ''}{t.task_count} tarea{t.task_count === 1 ? '' : 's'}
+                                                    {t.deleted_at ? ` · eliminado ${new Date(t.deleted_at).toLocaleDateString()}` : ''}
+                                                </div>
+                                            </div>
+                                            <button
+                                                className="btn-ghost"
+                                                onClick={() => restoreDash(t.id)}
+                                                title="Restaurar"
+                                                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--primary)' }}
+                                            >
+                                                <CornerUpLeft size={14} /> Restaurar
+                                            </button>
+                                            <button
+                                                className="btn-ghost"
+                                                onClick={() => purgeDash(t.id)}
+                                                title="Eliminar definitivamente"
+                                                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#f87171' }}
+                                            >
+                                                <Trash2 size={14} /> Eliminar
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* CONFIRM MODAL */}
 
             <ConfirmModal

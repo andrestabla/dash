@@ -20,14 +20,16 @@ export async function GET() {
 
 
             if (session.role === 'admin') {
-                query = 'SELECT * FROM dashboards ORDER BY created_at DESC';
+                query = 'SELECT * FROM dashboards WHERE deleted_at IS NULL ORDER BY created_at DESC';
             } else {
                 query = `
                     SELECT d.* FROM dashboards d
-                    WHERE d.owner_id = $1
-                    OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $1)
-                    OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
-                    OR ${gestorClause('d', '$1')}
+                    WHERE d.deleted_at IS NULL AND (
+                        d.owner_id = $1
+                        OR EXISTS (SELECT 1 FROM dashboard_user_permissions dc WHERE dc.dashboard_id = d.id AND dc.user_id = $1)
+                        OR d.folder_id IN (SELECT folder_id FROM folder_collaborators WHERE user_id = $1)
+                        OR ${gestorClause('d', '$1')}
+                    )
                     ORDER BY d.created_at DESC
                 `;
                 params = [session.id];
@@ -255,7 +257,17 @@ export async function DELETE(request: Request) {
                 if (!gestor) return forbidden();
             }
 
-            const result = await client.query('DELETE FROM dashboards WHERE id = $1 RETURNING id', [id]);
+            // Soft delete: move the board to the trash instead of destroying it.
+            // Its tasks/comments stay intact so it can be fully restored later.
+            // Every list/read path filters `deleted_at IS NULL`, so a trashed
+            // board disappears from the workspace, analytics and public links.
+            const result = await client.query(
+                'UPDATE dashboards SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
+                [id]
+            );
+            if (result.rows.length === 0) {
+                return notFound('Dashboard not found');
+            }
             await publishDashboardRealtime(String(id), 'dashboard_deleted');
 
             return NextResponse.json({ success: true, id });

@@ -17,6 +17,7 @@ export async function GET() {
                        u.name as owner_name, u.email as owner_email
                 FROM dashboards d
                 LEFT JOIN users u ON d.owner_id = u.id
+                WHERE d.deleted_at IS NULL
                 ORDER BY d.created_at DESC
             `);
             return NextResponse.json(res.rows);

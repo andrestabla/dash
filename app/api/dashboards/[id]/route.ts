@@ -15,7 +15,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
         const { id } = params;
         const client = await pool.connect();
         try {
-            const result = await client.query('SELECT * FROM dashboards WHERE id = $1', [id]);
+            const result = await client.query('SELECT * FROM dashboards WHERE id = $1 AND deleted_at IS NULL', [id]);
 
             if (result.rows.length === 0) {
                 return notFound('Dashboard not found');

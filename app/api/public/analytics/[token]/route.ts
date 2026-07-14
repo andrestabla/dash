@@ -45,6 +45,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
                 FROM dashboards d
                 LEFT JOIN users u ON d.owner_id = u.id
                 WHERE d.folder_id IN (SELECT id FROM folder_tree)
+                  AND d.deleted_at IS NULL
                   AND d.id <> ALL($2::uuid[]);
             `;
 
@@ -63,6 +64,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
                 FROM tasks t
                 JOIN dashboards d ON t.dashboard_id = d.id
                 WHERE d.folder_id IN (SELECT id FROM folder_tree)
+                  AND d.deleted_at IS NULL
                   AND d.id <> ALL($2::uuid[]);
             `;
 

@@ -82,6 +82,7 @@ async function getAuthorizedDashboard(client: any, dashboardId: string, session:
             SELECT d.*
             FROM dashboards d
             WHERE d.id = $1
+              AND d.deleted_at IS NULL
               AND (
                 $3 = 'admin'
                 OR d.owner_id = $2
@@ -207,6 +208,7 @@ export async function GET(request: Request) {
                     SELECT d.id, d.name, d.settings, d.folder_id
                     FROM dashboards d
                     WHERE d.folder_id = $1
+                      AND d.deleted_at IS NULL
                       AND (
                         $3 = 'admin'
                         OR d.owner_id = $2

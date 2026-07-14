@@ -77,6 +77,7 @@ export async function POST(
                             SET is_public = TRUE,
                                 public_token = COALESCE(public_token, gen_random_uuid())
                           WHERE folder_id IN (SELECT id FROM folder_tree)
+                            AND deleted_at IS NULL
                             AND id <> ALL($2::uuid[])`,
                         [id, excluded]
                     );
