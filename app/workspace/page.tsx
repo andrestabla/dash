@@ -676,83 +676,82 @@ function WorkspaceContent() {
         <div className="workspace-shell" style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
             {/* HEADER & NAV */}
             <header className="workspace-header">
-                <div className="workspace-header-left">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
-                        {breadcrumbs.map((crumb, i) => (
-                            <div key={crumb.id || 'root'} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span
-                                    onClick={() => setCurrentFolderId(crumb.id as string)}
-                                    style={{
-                                        cursor: 'pointer',
-                                        fontWeight: i === breadcrumbs.length - 1 ? 700 : 400,
-                                        color: i === breadcrumbs.length - 1 ? 'var(--text-main)' : 'var(--text-dim)',
-                                        textDecoration: i !== breadcrumbs.length - 1 ? 'underline' : 'none'
-                                    }}
-                                >
-                                    {crumb.name}
-                                </span>
-                                {i < breadcrumbs.length - 1 && <ChevronRight size={14} />}
-                            </div>
-                        ))}
+                {/* Top bar: title + account/utility actions */}
+                <div className="ws-topbar">
+                    <div className="workspace-header-left">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)', marginBottom: 8, flexWrap: 'wrap' }}>
+                            {breadcrumbs.map((crumb, i) => (
+                                <div key={crumb.id || 'root'} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span
+                                        onClick={() => setCurrentFolderId(crumb.id as string)}
+                                        style={{
+                                            cursor: 'pointer',
+                                            fontWeight: i === breadcrumbs.length - 1 ? 700 : 400,
+                                            color: i === breadcrumbs.length - 1 ? 'var(--text-main)' : 'var(--text-dim)',
+                                            textDecoration: i !== breadcrumbs.length - 1 ? 'underline' : 'none'
+                                        }}
+                                    >
+                                        {crumb.name}
+                                    </span>
+                                    {i < breadcrumbs.length - 1 && <ChevronRight size={14} />}
+                                </div>
+                            ))}
+                        </div>
+                        <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0 }} className="text-gradient">
+                            {breadcrumbs[breadcrumbs.length - 1].name}
+                        </h1>
                     </div>
-                    <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }} className="text-gradient">
-                        {breadcrumbs[breadcrumbs.length - 1].name}
-                    </h1>
-                </div>
 
-                <div className="workspace-header-right">
-                    {/* Top utility row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* Utility cluster — grouped as a single segmented bar */}
+                    <div className="ws-utility">
                         {user?.role === 'admin' && (
-                            <Link href="/admin/users" style={{ textDecoration: 'none' }}>
-                                <button className="btn-ghost" title="Panel de Admin" style={{ padding: 6 }}><Shield size={18} /></button>
+                            <Link href="/admin/users" title="Panel de Admin">
+                                <button className="ws-icon-btn"><Shield size={18} /></button>
                             </Link>
                         )}
                         {canGovern && (
-                            <Link href="/governance" style={{ textDecoration: 'none' }}>
-                                <button className="btn-ghost" title="Gobernanza" style={{ padding: 6 }}><Building2 size={18} /></button>
+                            <Link href="/governance" title="Gobernanza">
+                                <button className="ws-icon-btn"><Building2 size={18} /></button>
                             </Link>
                         )}
-                        <Link href="/profile">
-                            <button className="btn-ghost" title="Mi Perfil" style={{ padding: 6 }}><User size={18} /></button>
+                        <Link href="/profile" title="Mi Perfil">
+                            <button className="ws-icon-btn"><User size={18} /></button>
                         </Link>
-                        <Link href="/tutorials">
-                            <button className="btn-ghost" title="Tutoriales" style={{ padding: 6, color: 'var(--primary)' }}>
-                                <BookOpen size={18} />
-                            </button>
+                        <Link href="/tutorials" title="Tutoriales">
+                            <button className="ws-icon-btn" style={{ color: 'var(--primary)' }}><BookOpen size={18} /></button>
                         </Link>
-                        <Link href="/donations">
-                            <button className="btn-ghost" title="Apóyanos" style={{ padding: 6, color: '#ec4899' }}>
-                                <Heart size={18} />
-                            </button>
+                        <Link href="/donations" title="Apóyanos">
+                            <button className="ws-icon-btn" style={{ color: '#ec4899' }}><Heart size={18} /></button>
                         </Link>
-                        <button className="btn-ghost" onClick={openTrash} title="Papelera" style={{ padding: 6 }}><Trash2 size={18} /></button>
-                        <button className="btn-ghost" onClick={confirmLogout} title="Cerrar Sesión" style={{ padding: 6 }}><LogOut size={18} /></button>
+                        <button className="ws-icon-btn" onClick={openTrash} title="Papelera"><Trash2 size={18} /></button>
+                        <span className="ws-utility-sep" />
+                        <button className="ws-icon-btn" onClick={confirmLogout} title="Cerrar Sesión"><LogOut size={18} /></button>
                     </div>
+                </div>
 
-                    {/* Main action row */}
-                    <div className="workspace-actions">
+                {/* Toolbar: view controls (left) + content actions (right) */}
+                <div className="ws-toolbar">
+                    <div className="ws-toolbar-left">
                         {(currentItems.dashboards.length > 0 || currentItems.folders.length > 0) && (
-                            <>
-                                <SortControl value={sortOption} onChange={setSortOption} />
-                                <div style={{ width: 1, height: 24, background: 'var(--border-dim)', margin: '0 8px' }} />
-                                <button
-                                    className="btn-ghost"
-                                    onClick={() => router.push(`/folder/${currentFolderId}/analytics`)}
-                                    title="Analítica Consolidada"
-                                    style={{ display: 'flex', alignItems: 'center', gap: 8, borderColor: 'var(--primary)', color: 'var(--text-main)' }}
-                                >
-                                    <Shield size={18} /> <span style={{ fontSize: 13 }}>Analítica</span>
-                                </button>
-                            </>
+                            <SortControl value={sortOption} onChange={setSortOption} />
                         )}
-
-                        <button className="btn-ghost" onClick={() => setIsCreatingFolder(true)} title="Nueva Carpeta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <FolderOpen size={18} /> <span style={{ fontSize: 13 }}>Nueva Carpeta</span>
+                    </div>
+                    <div className="ws-toolbar-right">
+                        {(currentItems.dashboards.length > 0 || currentItems.folders.length > 0) && (
+                            <button
+                                className="btn-ghost ws-action"
+                                onClick={() => router.push(`/folder/${currentFolderId}/analytics`)}
+                                title="Analítica Consolidada"
+                                style={{ borderColor: 'var(--primary)', color: 'var(--text-main)' }}
+                            >
+                                <Shield size={18} /> <span>Analítica</span>
+                            </button>
+                        )}
+                        <button className="btn-ghost ws-action" onClick={() => setIsCreatingFolder(true)} title="Nueva Carpeta">
+                            <FolderOpen size={18} /> <span>Nueva Carpeta</span>
                         </button>
-
-                        <button className="btn-primary" onClick={startCreate} style={{ padding: '8px 16px' }}>
-                            <Plus size={18} /> Nuevo Proyecto
+                        <button className="btn-primary ws-action" onClick={startCreate} title="Nuevo Proyecto">
+                            <Plus size={18} /> <span>Nuevo Proyecto</span>
                         </button>
                     </div>
                 </div>
@@ -1488,30 +1487,82 @@ function WorkspaceContent() {
 
                 /* Workspace Header Fix */
                 .workspace-header {
-                    margin-bottom: 40px;
+                    margin-bottom: 32px;
                     border-bottom: 1px solid var(--border-dim);
-                    padding-bottom: 24px;
-                    display: flex; 
-                    justify-content: space-between; 
-                    align-items: center; 
-                    position: relative; 
-                    gap: 24px;
+                    padding-bottom: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                    position: relative;
+                }
+                /* Top bar: title (left) + utility cluster (right) */
+                .ws-topbar {
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: space-between;
+                    gap: 16px;
+                    flex-wrap: wrap;
                 }
                 .workspace-header-left {
-                    flex: 1;
-                    min-width: 200px;
+                    flex: 1 1 240px;
+                    min-width: 0;
                 }
-                .workspace-header-right { 
-                    display: flex; 
-                    flex-direction: row; 
-                    align-items: center; 
-                    gap: 16px; 
-                }
-                .workspace-actions {
+                /* Utility icons grouped as a single segmented pill */
+                .ws-utility {
                     display: flex;
                     align-items: center;
+                    gap: 2px;
+                    padding: 4px;
+                    background: var(--bg-panel);
+                    border: 1px solid var(--border-dim);
+                    border-radius: 12px;
+                    flex-shrink: 0;
+                }
+                .ws-utility :global(.ws-icon-btn) {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 8px;
+                    border: none;
+                    background: transparent;
+                    border-radius: 8px;
+                    color: var(--text-dim);
+                    cursor: pointer;
+                    transition: background 0.15s ease, color 0.15s ease;
+                }
+                .ws-utility :global(.ws-icon-btn):hover {
+                    background: var(--panel-hover);
+                    color: var(--text-main);
+                }
+                .ws-utility-sep {
+                    width: 1px;
+                    align-self: stretch;
+                    margin: 4px 4px;
+                    background: var(--border-dim);
+                }
+                /* Toolbar: view controls (left) + content actions (right) */
+                .ws-toolbar {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
                     gap: 12px;
                     flex-wrap: wrap;
+                }
+                .ws-toolbar-left,
+                .ws-toolbar-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    flex-wrap: wrap;
+                }
+                .ws-toolbar-right { margin-left: auto; }
+                .ws-toolbar :global(.ws-action) {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 13px;
+                    white-space: nowrap;
+                    padding: 8px 16px;
                 }
 
                 .folder-actions {
@@ -1547,10 +1598,7 @@ function WorkspaceContent() {
                     .workspace-shell {
                         padding: max(24px, var(--safe-top)) 10px max(24px, var(--safe-bottom)) 10px !important;
                     }
-                    .workspace-header { flex-direction: column; align-items: stretch; gap: 24px; }
-                    .workspace-header-right { flex-direction: column; align-items: stretch; }
-                    .workspace-actions { justify-content: stretch; flex-wrap: wrap; }
-                    .workspace-actions button { flex: 1 1 180px; min-width: 140px; }
+                    .ws-toolbar-right :global(.ws-action) { flex: 1 1 auto; justify-content: center; }
                 }
                 @media (max-width: 768px) {
                     .workspace-header {
@@ -1558,15 +1606,15 @@ function WorkspaceContent() {
                         margin-bottom: 20px;
                         padding-bottom: 16px;
                     }
-                    .workspace-header-right {
-                        gap: 10px;
-                    }
-                    .workspace-actions {
-                        gap: 8px;
-                    }
-                    .workspace-actions button {
-                        flex: 1 1 100%;
-                    }
+                    /* Title and utility bar stack; utilities span the row evenly */
+                    .ws-topbar { flex-direction: column; align-items: stretch; gap: 16px; }
+                    .ws-utility { justify-content: space-between; }
+                    /* View controls and actions each take a full row */
+                    .ws-toolbar { flex-direction: column; align-items: stretch; gap: 12px; }
+                    .ws-toolbar-left,
+                    .ws-toolbar-right { margin-left: 0; }
+                    .ws-toolbar-left > :global(*) { flex: 1; }
+                    .ws-toolbar-right :global(.ws-action) { flex: 1 1 140px; }
                     .dashboard-grid {
                         grid-template-columns: 1fr;
                     }
@@ -1575,10 +1623,8 @@ function WorkspaceContent() {
                     .workspace-header-left h1 {
                         font-size: 20px !important;
                     }
-                    .workspace-header-right > div:first-child {
-                        justify-content: space-between;
-                        width: 100%;
-                    }
+                    /* Primary action gets its own full-width row for reachability */
+                    .ws-toolbar-right :global(.btn-primary.ws-action) { flex: 1 1 100%; }
                 }
                 .analytics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px; }
                 .kpi-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim); text-align: center; }
