@@ -275,7 +275,7 @@ export default function PublicAnalyticsPage() {
     return (
         <div style={{ minHeight: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)' }}>
             {/* Header */}
-            <div style={{ padding: '24px 40px', borderBottom: '1px solid var(--border-dim)', background: 'var(--bg-panel)', position: 'sticky', top: 0, zIndex: 10 }}>
+            <div className="pa-header" style={{ padding: '24px 40px', borderBottom: '1px solid var(--border-dim)', background: 'var(--bg-panel)', position: 'sticky', top: 0, zIndex: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 1200, margin: '0 auto' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ background: 'var(--primary-gradient)', padding: 8, borderRadius: 8, display: 'flex' }}>
@@ -291,7 +291,7 @@ export default function PublicAnalyticsPage() {
 
             {/* Filter Toolbar */}
             <div style={{ background: 'var(--bg-panel)', borderBottom: '1px solid var(--border-dim)', padding: '16px 0' }}>
-                <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="pa-toolbar" style={{ maxWidth: 1200, margin: '0 auto', padding: '0 40px', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                     {/* 1. Proyecto */}
                     <CustomSelect
                         value={filters.dashboardId}
@@ -358,7 +358,7 @@ export default function PublicAnalyticsPage() {
             </div>
 
             {/* Content */}
-            <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px' }}>
+            <div className="pa-content" style={{ maxWidth: 1200, margin: '0 auto', padding: '40px' }}>
                 {/* KPIs */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 32 }}>
                     <div className="glass-panel" style={{ padding: 24 }}>
@@ -563,6 +563,11 @@ export default function PublicAnalyticsPage() {
                     .glass-panel { padding: 16px !important; }
                     .kpi-value { font-size: 24px !important; }
                     h1 { font-size: 20px !important; }
+                    /* Trim the generous desktop padding so content isn't cramped */
+                    .pa-header { padding: 16px !important; }
+                    .pa-toolbar { padding: 0 16px !important; }
+                    .pa-content { padding: 20px 16px !important; }
+                    .pa-toolbar > :global(*) { flex: 1 1 100%; min-width: 0 !important; }
                 }
             `}</style>
         </div>

@@ -449,7 +449,7 @@ export default function FolderAnalyticsPage() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-main)', padding: '24px 40px' }}>
+        <div className="an-page" style={{ minHeight: '100vh', background: 'var(--bg-main)', padding: '24px 40px' }}>
             {/* Header */}
             <div style={{ maxWidth: 1200, margin: '0 auto', marginBottom: 32 }}>
                 {/* Breadcrumbs */}
@@ -472,14 +472,14 @@ export default function FolderAnalyticsPage() {
                 </div>
 
                 {/* Title & Actions */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
+                <div className="an-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 0 }}>
                         <h1 style={{ fontSize: 32, fontWeight: 700, margin: 0 }}>Analítica Consolidada</h1>
                         <p style={{ fontSize: 14, color: 'var(--text-dim)', margin: '4px 0 0 0' }}>
                             Vista agregada de tableros en {folderName} (Incluyendo subcarpetas)
                         </p>
                     </div>
-                    <div style={{ display: 'flex', gap: 12 }}>
+                    <div className="an-actions" style={{ display: 'flex', gap: 12 }}>
                         <button className="btn-ghost" onClick={loadData} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {loading ? "Cargando..." : "Refrescar"}
                         </button>
@@ -532,8 +532,8 @@ export default function FolderAnalyticsPage() {
             </div>
 
             {/* Filter Toolbar - REORDERED */}
-            <div style={{ maxWidth: 1200, margin: '0 auto', marginBottom: 32, padding: '16px 20px', background: 'var(--bg-panel)', borderRadius: 12, border: '1px solid var(--border-dim)' }}>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="an-filterbar" style={{ maxWidth: 1200, margin: '0 auto', marginBottom: 32, padding: '16px 20px', background: 'var(--bg-panel)', borderRadius: 12, border: '1px solid var(--border-dim)' }}>
+                <div className="an-filters" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                     {/* 1. Proyecto (Custom Select) */}
                     <CustomSelect
                         value={filters.dashboardId}
@@ -946,9 +946,18 @@ export default function FolderAnalyticsPage() {
 
             <style jsx>{`
                 @media (max-width: 768px) {
+                    .an-page { padding: 16px !important; }
+                    .an-filterbar { padding: 12px 14px !important; }
                     .glass-panel { padding: 16px !important; }
                     .kpi-value { font-size: 24px !important; }
                     h1 { font-size: 24px !important; }
+                    /* Title and actions stack; each action button spans evenly */
+                    .an-header-row { flex-direction: column; align-items: stretch; }
+                    .an-actions { width: 100%; flex-wrap: wrap; }
+                    .an-actions > :global(*) { flex: 1 1 auto; }
+                    .an-actions :global(button) { justify-content: center; width: 100%; }
+                    /* Filters stack full-width on mobile */
+                    .an-filters > :global(*) { flex: 1 1 100%; min-width: 0 !important; }
                 }
             `}</style>
         </div>
